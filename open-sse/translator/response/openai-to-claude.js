@@ -4,6 +4,8 @@ import { ROLE, CLAUDE_BLOCK, MODEL_FALLBACK } from "../schema/index.js";
 import { fromOpenAIFinish } from "../concerns/finishReason.js";
 import { extractReasoningText } from "../concerns/reasoning.js";
 
+const convertFinishReason = (reason) => fromOpenAIFinish(reason, "claude");
+
 // Legacy "proxy_" prefix used by older request translators. Response strips it
 // defensively so tool names from such turns resolve back (e.g. proxy_Read → Read
 // for arg sanitization). Current request translator emits no prefix ("") — strip
@@ -258,8 +260,6 @@ export function openaiToClaudeResponse(chunk, state) {
 
   return results.length > 0 ? results : null;
 }
-
-const convertFinishReason = (reason) => fromOpenAIFinish(reason, "claude");
 
 // Register
 register(FORMATS.OPENAI, FORMATS.CLAUDE, null, openaiToClaudeResponse);

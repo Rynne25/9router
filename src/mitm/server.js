@@ -74,17 +74,103 @@ try {
 // ── Helpers ───────────────────────────────────────────────────
 
 const cachedTargetIPs = {};
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const STALE_REVALIDATE_MS = 20 * 60 * 1000; // Background refresh after 20 minutes
+const GOOGLE_ANYCAST_IPS = [
+  "172.217.114.4",
+  "142.250.190.10",
+  "142.251.46.234",
+  "142.250.72.106",
+  "172.217.168.202"
+];
+
+let cachedSystemDnsServers = ["1.1.1.1", "8.8.8.8", "8.8.4.4", "1.0.0.1"];
+const activeResolutions = new Map();
+
+function refreshSystemDnsServersAsync() {
+  try {
+    const defaultServers = dns.getServers?.() || [];
+    const servers = [];
+    for (const s of defaultServers) {
+      if (s && !s.startsWith("127.") && s !== "::1") servers.push(s);
+    }
+    for (const fallback of ["1.1.1.1", "8.8.8.8", "8.8.4.4", "1.0.0.1"]) {
+      if (!servers.includes(fallback)) servers.push(fallback);
+    }
+    cachedSystemDnsServers = servers;
+  } catch {}
+
+  if (process.platform === "win32") {
+    const { exec } = require("child_process");
+    exec('powershell -NoProfile -Command "(Get-DnsClientServerAddress -AddressFamily IPv4).ServerAddresses"', { timeout: 3000, windowsHide: true }, (error, stdout) => {
+      if (!error && stdout) {
+        const found = stdout.split(/\r?\n/).map(s => s.trim()).filter(ip => ip && !ip.startsWith("127.") && !cachedSystemDnsServers.includes(ip));
+        if (found.length > 0) {
+          cachedSystemDnsServers = [...found, ...cachedSystemDnsServers];
+        }
+      }
+    });
+  }
+}
+refreshSystemDnsServersAsync();
+const dnsRefreshTimer = setInterval(refreshSystemDnsServersAsync, 30 * 60 * 1000);
+if (dnsRefreshTimer.unref) dnsRefreshTimer.unref();
+
+async function _performResolve(hostname) {
+  for (const srv of cachedSystemDnsServers) {
+    try {
+      const resolver = new dns.Resolver();
+      resolver.setServers([srv]);
+      const resolve4 = promisify(resolver.resolve4.bind(resolver));
+      const addresses = await Promise.race([
+        resolve4(hostname),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("DNS timeout")), 1500)),
+      ]);
+      if (addresses && addresses.length > 0) {
+        cachedTargetIPs[hostname] = { ip: addresses[0], ts: Date.now() };
+        return addresses[0];
+      }
+    } catch {}
+  }
+
+  if (hostname.includes("googleapis.com")) {
+    const googleFallbackIP = GOOGLE_ANYCAST_IPS[0];
+    cachedTargetIPs[hostname] = { ip: googleFallbackIP, ts: Date.now() };
+    return googleFallbackIP;
+  }
+
+  throw new Error(`Failed to resolve IP for ${hostname} across all DNS servers`);
+}
 
 async function resolveTargetIP(hostname) {
   const cached = cachedTargetIPs[hostname];
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.ip;
-  const resolver = new dns.Resolver();
-  resolver.setServers(["8.8.8.8"]);
-  const resolve4 = promisify(resolver.resolve4.bind(resolver));
-  const addresses = await resolve4(hostname);
-  cachedTargetIPs[hostname] = { ip: addresses[0], ts: Date.now() };
-  return cachedTargetIPs[hostname].ip;
+  const now = Date.now();
+
+  if (cached) {
+    // Stale-while-revalidate: if older than 20 mins, refresh in background
+    if (now - cached.ts > STALE_REVALIDATE_MS && !activeResolutions.has(hostname)) {
+      const p = _performResolve(hostname).catch(() => {}).finally(() => activeResolutions.delete(hostname));
+      activeResolutions.set(hostname, p);
+    }
+    return cached.ip;
+  }
+
+  if (hostname.includes("googleapis.com")) {
+    cachedTargetIPs[hostname] = { ip: GOOGLE_ANYCAST_IPS[0], ts: now };
+    if (!activeResolutions.has(hostname)) {
+      const p = _performResolve(hostname).catch(() => {}).finally(() => activeResolutions.delete(hostname));
+      activeResolutions.set(hostname, p);
+    }
+    return GOOGLE_ANYCAST_IPS[0];
+  }
+
+  if (activeResolutions.has(hostname)) {
+    return activeResolutions.get(hostname);
+  }
+
+  const resolvePromise = _performResolve(hostname).finally(() => activeResolutions.delete(hostname));
+  activeResolutions.set(hostname, resolvePromise);
+  return resolvePromise;
 }
 
 function collectBodyRaw(req) {
@@ -134,7 +220,15 @@ async function passthrough(req, res, bodyBuffer, onResponse) {
   const versionOverride = tool === "antigravity"
     ? applyAntigravityIdeVersionOverride(bodyBuffer, req.headers, req.url)
     : { bodyBuffer, headers: req.headers };
-  const bodyForForwarding = versionOverride.bodyBuffer;
+  let bodyForForwarding = versionOverride.bodyBuffer;
+  if (tool === "antigravity" && bodyForForwarding && bodyForForwarding.length > 0) {
+    try {
+      const s = bodyForForwarding.toString();
+      if (s.includes('"MINIMAL"')) {
+        bodyForForwarding = Buffer.from(s.replace(/"MINIMAL"/g, '"LOW"'));
+      }
+    } catch {}
+  }
   const headersForForwarding = { ...versionOverride.headers, host: targetHost };
   if (bodyForForwarding !== bodyBuffer) {
     headersForForwarding["content-length"] = String(bodyForForwarding.length);
@@ -154,14 +248,25 @@ async function passthrough(req, res, bodyBuffer, onResponse) {
 }
 
 // ── ALPN negotiation cache ────────────────────────────────────
-const alpnCache = new Map(); // host → "h2" | "http/1.1"
+const alpnCache = new Map([
+  ["daily-cloudcode-pa.googleapis.com", "h2"],
+  ["cloudcode-pa.googleapis.com", "h2"],
+  ["api.individual.githubcopilot.com", "h2"],
+  ["runtime.us-east-1.kiro.dev", "http/1.1"],
+  ["q.us-east-1.amazonaws.com", "http/1.1"],
+  ["codewhisperer.us-east-1.amazonaws.com", "http/1.1"],
+  ["api2.cursor.sh", "http/1.1"],
+]);
+
+const REJECT_UNAUTHORIZED = process.env.STRICT_SSL !== "false" && process.env.MITM_INSECURE_UPSTREAM !== "true";
+
 async function negotiateAlpn(host) {
   if (alpnCache.has(host)) return alpnCache.get(host);
   const ip = await resolveTargetIP(host);
   return new Promise((resolve, reject) => {
     const socket = tls.connect({
       host: ip, port: 443, servername: host,
-      ALPNProtocols: ["h2", "http/1.1"], rejectUnauthorized: false,
+      ALPNProtocols: ["h2", "http/1.1"], rejectUnauthorized: REJECT_UNAUTHORIZED,
     }, () => {
       const proto = socket.alpnProtocol || "http/1.1";
       alpnCache.set(host, proto);
@@ -174,10 +279,133 @@ async function negotiateAlpn(host) {
   });
 }
 
-// HTTP/2 passthrough using node:http2 native
-async function passthroughHttp2(req, res, bodyBuffer, headers, targetHost, onResponse, dumper) {
+// ── HTTP/2 Session Pool with 30s Keep-Alive Ping & Auto-Reconnect ──
+class Http2SessionPool {
+  constructor() {
+    this.sessions = new Map(); // host -> entry
+    this.pingIntervalMs = 30000;
+  }
+
+  async getSession(targetHost, targetIP) {
+    const existing = this.sessions.get(targetHost);
+    if (existing && existing.client && !existing.client.destroyed && !existing.client.closed) {
+      existing.lastUsed = Date.now();
+      return existing.client;
+    }
+    if (existing && existing.connectingPromise) {
+      return existing.connectingPromise;
+    }
+    return this._createNewSession(targetHost, targetIP);
+  }
+
+  _createNewSession(targetHost, targetIP) {
+    let resolveSession, rejectSession;
+    const connectingPromise = new Promise((res, rej) => {
+      resolveSession = res;
+      rejectSession = rej;
+    });
+
+    const entry = {
+      client: null,
+      targetIP,
+      connectingPromise,
+      lastUsed: Date.now(),
+      pingTimer: null,
+    };
+    this.sessions.set(targetHost, entry);
+
+    try {
+      const client = http2.connect(`https://${targetHost}`, {
+        createConnection: () => tls.connect({
+          host: targetIP,
+          port: 443,
+          servername: targetHost,
+          ALPNProtocols: ["h2"],
+          rejectUnauthorized: REJECT_UNAUTHORIZED,
+        }),
+      });
+
+      const cleanup = () => {
+        if (entry.pingTimer) {
+          clearInterval(entry.pingTimer);
+          entry.pingTimer = null;
+        }
+        if (this.sessions.get(targetHost) === entry) {
+          this.sessions.delete(targetHost);
+        }
+        try { if (!client.destroyed) client.destroy(); } catch {}
+      };
+
+      client.once("connect", () => {
+        entry.client = client;
+        entry.connectingPromise = null;
+        log(`🔗 [mitm] HTTP/2 session pooled for ${targetHost}`);
+
+        entry.pingTimer = setInterval(() => {
+          if (client.destroyed || client.closed) {
+            cleanup();
+            return;
+          }
+          try {
+            client.ping((err) => {
+              if (err) {
+                log(`[mitm] HTTP/2 ping failed (${targetHost}): ${err.message}, evicting`);
+                cleanup();
+              }
+            });
+          } catch {
+            cleanup();
+          }
+        }, this.pingIntervalMs);
+        if (entry.pingTimer.unref) entry.pingTimer.unref();
+
+        resolveSession(client);
+      });
+
+      client.once("error", (e) => {
+        err(`[mitm] HTTP/2 session error (${targetHost}): ${e.message}`);
+        cleanup();
+        if (entry.connectingPromise) rejectSession(e);
+      });
+
+      client.once("goaway", () => {
+        log(`[mitm] HTTP/2 session received GOAWAY (${targetHost})`);
+        cleanup();
+      });
+
+      client.once("close", () => {
+        cleanup();
+      });
+    } catch (e) {
+      this.sessions.delete(targetHost);
+      rejectSession(e);
+    }
+
+    return connectingPromise;
+  }
+
+  evict(targetHost) {
+    const entry = this.sessions.get(targetHost);
+    if (entry) {
+      if (entry.pingTimer) clearInterval(entry.pingTimer);
+      try { if (entry.client && !entry.client.destroyed) entry.client.destroy(); } catch {}
+      this.sessions.delete(targetHost);
+    }
+  }
+
+  closeAll() {
+    for (const [host] of this.sessions) {
+      this.evict(host);
+    }
+  }
+}
+
+const h2Pool = new Http2SessionPool();
+
+// HTTP/2 passthrough with Session Reuse & Auto-Retry
+async function passthroughHttp2(req, res, bodyBuffer, headers, targetHost, onResponse, dumper, isRetry = false) {
+  const startTime = Date.now();
   const targetIP = await resolveTargetIP(targetHost);
-  // HTTP/2 pseudo-headers required; strip HTTP/1.1-only headers
   const h2Headers = {};
   for (const [k, v] of Object.entries(headers)) {
     const lk = k.toLowerCase();
@@ -190,28 +418,36 @@ async function passthroughHttp2(req, res, bodyBuffer, headers, targetHost, onRes
   h2Headers[":scheme"] = "https";
   h2Headers[":authority"] = targetHost;
 
-  return new Promise((resolve) => {
-    const client = http2.connect(`https://${targetHost}`, {
-      createConnection: () => tls.connect({
-        host: targetIP, port: 443, servername: targetHost,
-        ALPNProtocols: ["h2"], rejectUnauthorized: false,
-      }),
-    });
-    client.once("error", (e) => {
-      err(`[mitm] http2 client error: ${e.message}`);
-      if (dumper) { dumper.writeChunk(`\n[ERROR h2] ${e.message}\n`); dumper.end(); }
-      if (!res.headersSent) res.writeHead(502);
-      if (!res.writableEnded) res.end("Bad Gateway");
-      try { client.close(); } catch {}
-      resolve();
-    });
+  if (res.socket && typeof res.socket.setNoDelay === "function") {
+    res.socket.setNoDelay(true);
+  }
 
-    const stream = client.request(h2Headers, { endStream: bodyBuffer.length === 0 });
+  let client;
+  try {
+    client = await h2Pool.getSession(targetHost, targetIP);
+  } catch (e) {
+    err(`[mitm] HTTP/2 connect failed (${e.message}), fallback to HTTPS 1.1`);
+    return passthroughHttps(req, res, bodyBuffer, headers, targetHost, onResponse, dumper);
+  }
+
+  return new Promise((resolve) => {
+    let stream;
+    try {
+      stream = client.request(h2Headers, { endStream: bodyBuffer.length === 0 });
+    } catch (reqErr) {
+      h2Pool.evict(targetHost);
+      if (!isRetry) {
+        log(`[mitm] HTTP/2 request failed (${reqErr.message}), retrying on fresh session...`);
+        return resolve(passthroughHttp2(req, res, bodyBuffer, headers, targetHost, onResponse, dumper, true));
+      }
+      return resolve(passthroughHttps(req, res, bodyBuffer, headers, targetHost, onResponse, dumper));
+    }
+
     if (bodyBuffer.length > 0) stream.end(bodyBuffer);
 
     stream.once("response", (responseHeaders) => {
       const status = responseHeaders[":status"];
-      // Filter pseudo-headers + connection-specific
+      log(`${req.method} ${req.url} ${status} in ${Date.now() - startTime}ms proto=h2 host=${targetHost}`);
       const outHeaders = {};
       for (const [k, v] of Object.entries(responseHeaders)) {
         if (k.startsWith(":")) continue;
@@ -225,39 +461,62 @@ async function passthroughHttp2(req, res, bodyBuffer, headers, targetHost, onRes
       stream.on("data", chunk => {
         if (dumper) dumper.writeChunk(chunk);
         if (onResponse) chunks.push(chunk);
-        res.write(chunk);
+        res.write(chunk); // Zero-copy raw chunk forward
       });
       stream.on("end", () => {
         if (dumper) dumper.end();
         if (!res.writableEnded) res.end();
         if (onResponse) try { onResponse(Buffer.concat(chunks), outHeaders); } catch {}
-        try { client.close(); } catch {}
+        // Keep client connection open in h2Pool for next request
         resolve();
       });
     });
+
     stream.once("error", (e) => {
       err(`[mitm] http2 stream error: ${e.message}`);
       if (dumper) { dumper.writeChunk(`\n[ERROR h2-stream] ${e.message}\n`); dumper.end(); }
+      if (!res.headersSent && !isRetry) {
+        h2Pool.evict(targetHost);
+        return resolve(passthroughHttp2(req, res, bodyBuffer, headers, targetHost, onResponse, dumper, true));
+      }
       if (!res.headersSent) res.writeHead(502);
       if (!res.writableEnded) res.end();
-      try { client.close(); } catch {}
       resolve();
     });
   });
 }
 
-// Fallback: raw https.request HTTP/1.1 with custom DNS (bypasses /etc/hosts MITM loop)
+// ── Persistent HTTPS Keep-Alive Agent for HTTP/1.1 ──
+const httpsKeepAliveAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 60000,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+  timeout: 30000,
+});
+
+// Fallback: raw https.request HTTP/1.1 with custom DNS & Keep-Alive socket pooling
 async function passthroughHttps(req, res, bodyBuffer, headers, targetHost, onResponse, dumper) {
+  const startTime = Date.now();
   const targetIP = await resolveTargetIP(targetHost);
+  if (res.socket && typeof res.socket.setNoDelay === "function") {
+    res.socket.setNoDelay(true);
+  }
+
   const forwardReq = https.request({
     hostname: targetIP,
     port: 443,
     path: req.url,
     method: req.method,
-    headers,
+    headers: {
+      ...headers,
+      connection: "keep-alive",
+    },
     servername: targetHost,
-    rejectUnauthorized: false
+    rejectUnauthorized: REJECT_UNAUTHORIZED,
+    agent: httpsKeepAliveAgent,
   }, (forwardRes) => {
+    log(`${req.method} ${req.url} ${forwardRes.statusCode} in ${Date.now() - startTime}ms proto=http/1.1 host=${targetHost}`);
     res.writeHead(forwardRes.statusCode, forwardRes.headers);
     if (dumper) dumper.writeHeader(forwardRes.statusCode, forwardRes.headers);
 
@@ -334,6 +593,7 @@ const server = https.createServer(sslOptions, async (req, res) => {
       return passthrough(req, res, bodyBuffer);
     }
 
+    log(`intercepted tool=${tool} model=${mappedModel} originalModel=${model || "auto"} ${req.method} ${req.url}`);
     return handlers[tool].intercept(req, res, bodyBuffer, mappedModel, passthrough);
   } catch (e) {
     err(`Unhandled error: ${e.message}`);
@@ -393,6 +653,8 @@ let isShuttingDown = false;
 const shutdown = () => {
   if (isShuttingDown) return;
   isShuttingDown = true;
+  // Close pooled HTTP/2 sessions
+  try { h2Pool.closeAll(); } catch {}
   // Strip tool hosts from /etc/hosts so other apps aren't broken after exit
   removeAllDNSEntriesSync();
   const forceExit = setTimeout(() => process.exit(0), 1500);

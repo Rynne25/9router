@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getSettings, validateApiKey } from "@/lib/localDb";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
@@ -15,8 +16,13 @@ async function getCliToken() {
 
 async function hasValidCliToken(request) {
   const token = request.headers.get(CLI_TOKEN_HEADER);
-  if (!token) return false;
-  return token === await getCliToken();
+  if (!token || typeof token !== "string") return false;
+  const expected = await getCliToken();
+  if (!expected || typeof expected !== "string") return false;
+
+  const hashProvided = crypto.createHash("sha256").update(token).digest();
+  const hashExpected = crypto.createHash("sha256").update(expected).digest();
+  return crypto.timingSafeEqual(hashProvided, hashExpected);
 }
 
 // Public API paths — no auth required (LLM API has its own key auth inside handler).
@@ -31,6 +37,8 @@ const PUBLIC_API_PATHS = [
   "/api/auth/saml",
   "/api/version",
   "/api/settings/require-login",
+  "/api/sync/accounts",
+  "/api/sync/discovery",
 ];
 
 // Public top-level prefixes (LLM API endpoints with their own API key auth).
@@ -69,6 +77,7 @@ const PROTECTED_API_PATHS = [
   "/api/mcp",
   "/api/translator",
   "/api/tunnel",
+  "/api/sync",
 ];
 
 // Routes that spawn child processes or read host secrets — restrict to localhost.
@@ -197,6 +206,34 @@ function isPublicApi(pathname) {
   return PUBLIC_API_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+export function isTunnelHostRequest(request, settings) {
+  if (!settings) return false;
+  const host = (request.headers.get("host") || "").split(":")[0].toLowerCase();
+  if (!host) return false;
+
+  const parseHostname = (rawUrl) => {
+    if (!rawUrl) return "";
+    try {
+      return new URL(rawUrl).hostname.toLowerCase();
+    } catch {
+      return "";
+    }
+  };
+
+  const tunnelHost = parseHostname(settings.tunnelUrl);
+  const tailscaleHost = parseHostname(settings.tailscaleUrl);
+  if ((tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost)) {
+    return true;
+  }
+  if (settings.tunnelEnabled && (host.endsWith(".abc-tunnel.us") || host.endsWith(".trycloudflare.com"))) {
+    return true;
+  }
+  if (settings.tailscaleEnabled && host.endsWith(".ts.net")) {
+    return true;
+  }
+  return false;
+}
+
 // Shared with src/proxy.js — the mimo login branch must respect dashboard auth.
 export { isAuthenticated };
 
@@ -206,6 +243,7 @@ export const __test__ = {
   extractApiKey,
   canAccessPublicLlmApi,
   canAccessLocalOnlyRoute,
+  isTunnelHostRequest,
 };
 
 export async function proxy(request) {
@@ -233,7 +271,32 @@ export async function proxy(request) {
   // Deny-by-default for /api/* — public allow-list bypasses, everything else requires auth.
   if (pathname.startsWith("/api/")) {
     if (isPublicApi(pathname)) return NextResponse.next();
-    if (await hasValidCliToken(request) || await isAuthenticated(request))
+
+    const hasCli = await hasValidCliToken(request);
+    if (hasCli) return NextResponse.next();
+
+    const settings = await loadSettings();
+    const viaTunnel = isTunnelHostRequest(request, settings);
+    if (viaTunnel && settings?.tunnelDashboardAccess !== true) {
+      return NextResponse.json({ error: "Dashboard access via tunnel is disabled" }, { status: 403 });
+    }
+
+    // Never grant unauthenticated API access over a tunnel even when requireLogin=false locally.
+    if (viaTunnel) {
+      if (await hasValidToken(request)) return NextResponse.next();
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Sensitive sync routes: when accessed remotely, require valid JWT or CLI token even if requireLogin=false
+    if (pathname.startsWith("/api/sync/config") || pathname.startsWith("/api/sync/pull")) {
+      const isLocal = isLocalRequest(request);
+      const hasAuthToken = await hasValidToken(request);
+      if (!isLocal && !hasAuthToken) {
+        return NextResponse.json({ error: "Unauthorized: Remote access requires dashboard authentication" }, { status: 401 });
+      }
+    }
+
+    if (await isAuthenticated(request))
       return NextResponse.next();
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -242,29 +305,26 @@ export async function proxy(request) {
   if (pathname.startsWith("/dashboard")) {
     let requireLogin = true;
     let tunnelDashboardAccess = true;
+    let viaTunnel = false;
 
     try {
       const settings = await loadSettings();
       if (settings) {
         requireLogin = settings.requireLogin !== false;
         tunnelDashboardAccess = settings.tunnelDashboardAccess === true;
+        viaTunnel = isTunnelHostRequest(request, settings);
 
         // Block tunnel/tailscale access if disabled (redirect to login)
-        if (!tunnelDashboardAccess) {
-          const host = (request.headers.get("host") || "").split(":")[0].toLowerCase();
-          const tunnelHost = settings.tunnelUrl ? new URL(settings.tunnelUrl).hostname.toLowerCase() : "";
-          const tailscaleHost = settings.tailscaleUrl ? new URL(settings.tailscaleUrl).hostname.toLowerCase() : "";
-          if ((tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost)) {
-            return NextResponse.redirect(new URL("/login", request.url));
-          }
+        if (viaTunnel && !tunnelDashboardAccess) {
+          return NextResponse.redirect(new URL("/login", request.url));
         }
       }
     } catch {
       // On error, keep defaults (require login, block tunnel)
     }
 
-    // If login not required, allow through
-    if (!requireLogin) return NextResponse.next();
+    // requireLogin=false only applies locally; tunnel requests always require a valid JWT session.
+    if (!requireLogin && !viaTunnel) return NextResponse.next();
 
     // Verify JWT token
     const token = request.cookies.get("auth_token")?.value;

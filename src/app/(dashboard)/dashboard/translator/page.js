@@ -52,6 +52,20 @@ export default function TranslatorPage() {
     return next;
   });
 
+  // Step 1: detect provider/format from model field
+  const detectMeta = async (rawContent) => {
+    try {
+      const body = typeof rawContent === "string" ? JSON.parse(rawContent) : rawContent;
+      const res = await fetch("/api/translator/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: 1, body })
+      });
+      const data = await res.json();
+      if (data.success) setMeta(data.result);
+    } catch { /* ignore */ }
+  };
+
   // Load file from logs/translator/
   const handleLoad = async (stepId) => {
     const step = STEPS.find(s => s.id === stepId);
@@ -69,20 +83,6 @@ export default function TranslatorPage() {
       alert(e.message);
     }
     setLoad(`load-${stepId}`, false);
-  };
-
-  // Step 1: detect provider/format from model field
-  const detectMeta = async (rawContent) => {
-    try {
-      const body = typeof rawContent === "string" ? JSON.parse(rawContent) : rawContent;
-      const res = await fetch("/api/translator/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ step: 1, body })
-      });
-      const data = await res.json();
-      if (data.success) setMeta(data.result);
-    } catch { /* ignore */ }
   };
 
   const save = (file, content) => fetch("/api/translator/save", {

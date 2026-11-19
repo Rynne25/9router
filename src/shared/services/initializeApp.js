@@ -34,7 +34,7 @@ process.setMaxListeners(20);
 
 // Defer heavy startup work so the first HTTP request (login → dashboard) isn't
 // starved by DB cleanup, cloudflared download, lsof/DNS probes and OAuth pings.
-const STARTUP_DEFER_MS = 3000;
+const STARTUP_DEFER_MS = 200;
 
 // Survive Next.js hot reload
 const g = global.__appSingleton ??= {
@@ -47,6 +47,7 @@ const g = global.__appSingleton ??= {
   mitmStartInProgress: false,
   tunnelAutoResumed: false,
   tailscaleAutoResumed: false,
+  accountSyncInterval: null,
 };
 
 export async function initializeApp() {
@@ -118,6 +119,21 @@ async function runHeavyStartup() {
   import("@/sse/services/backgroundTokenRefresh.js")
     .then(({ startBackgroundTokenRefresh }) => startBackgroundTokenRefresh())
     .catch((e) => console.log("[BackgroundTokenRefresh] scheduler start failed:", e.message));
+
+  // Background Account Sync (Remote Peer Auto-Sync - 1-way autonomous pull)
+  import("@/lib/sync/syncService.js")
+    .then(({ startAccountSyncWorker }) => startAccountSyncWorker())
+    .catch((e) => console.log("[AutoSync] Failed to start account sync worker:", e.message));
+
+  // Autonomous LAN Peer Discovery & Auto-Sync (100% Zero-Touch)
+  import("@/lib/sync/peerDiscoveryService.js")
+    .then(({ startLanDiscoveryWorker }) => startLanDiscoveryWorker())
+    .catch((e) => console.log("[PeerDiscovery] Failed to start LAN discovery worker:", e.message));
+
+  // Universal Zero-Touch Internet & Cloud Buffer Sync (E2EE)
+  import("@/lib/sync/universalSyncEngine.js")
+    .then(({ startRealtimeCloudListener }) => startRealtimeCloudListener())
+    .catch((e) => console.log("[UniversalSync] Start failed:", e.message));
 }
 
 // Cheap local check: keeps the scheduler module (and its provider graph) unloaded

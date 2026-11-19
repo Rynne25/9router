@@ -5,7 +5,7 @@ import Card from "@/shared/components/Card";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import Badge from "@/shared/components/Badge";
 import QuotaProgressBar from "./QuotaProgressBar";
-import { calculatePercentage } from "./utils";
+import { getRemainingPercentage, pairQuotasByFamily } from "./utils";
 
 const planVariants = {
   free: "default",
@@ -146,32 +146,106 @@ export default function ProviderLimitCard({
         </div>
       )}
 
-      {/* Quota Progress Bars */}
-      {!loading && !error && !message && quotas?.length > 0 && (
-        <div className="space-y-4">
-          {quotas.map((quota, index) => {
-            // For Antigravity, use remainingPercentage if available, otherwise calculate
-            const percentage =
-              quota.remainingPercentage !== undefined
-                ? Math.round(((quota.total - quota.used) / quota.total) * 100)
-                : calculatePercentage(quota.used, quota.total);
-            const unlimited = quota.total === 0 || quota.total === null;
+      {/* Quota Progress Bars (Dual-Bar family pairing + standalone) */}
+      {!loading && !error && !message && quotas?.length > 0 && (() => {
+        const { paired: pairedRows = [], singles: singleRows = [] } = pairQuotasByFamily(quotas);
 
-            return (
-              <QuotaProgressBar
-                key={`${quota.name}-${index}`}
-                label={quota.name}
-                used={quota.used}
-                total={quota.total}
-                percentage={percentage}
-                unlimited={unlimited}
-                resetTime={quota.resetAt}
-                recurring={quota.recurring !== false}
-              />
-            );
-          })}
-        </div>
-      )}
+        return (
+          <div className="space-y-3">
+            {pairedRows.length > 0 && (
+              <div className="liquid-glass-panel rounded-xl p-2.5 space-y-2.5">
+                <div className="flex items-center justify-between border-b border-black/[0.06] pb-1.5 dark:border-white/[0.08]">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                    <span className="material-symbols-outlined text-[13px] text-primary">
+                      view_column_2
+                    </span>
+                    <span>Gộp theo dòng Model (5h / Ngày • Tuần)</span>
+                  </div>
+                  <span className="text-[10px] tabular-nums text-text-muted/70">
+                    {pairedRows.length} dòng
+                  </span>
+                </div>
+                <div className="space-y-2.5">
+                  {pairedRows.map((row) => (
+                    <div
+                      key={row.familyKey}
+                      className="rounded-xl border border-black/[0.06] bg-white/40 p-2.5 dark:border-white/[0.08] dark:bg-white/[0.02] space-y-2"
+                    >
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-text-primary">
+                        <span className="material-symbols-outlined text-[15px] text-primary">
+                          {row.icon || "layers"}
+                        </span>
+                        <span>{row.title || row.familyLabel}</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {row.daily && (
+                          <QuotaProgressBar
+                            label="5h / Ngày"
+                            used={row.daily.used}
+                            total={row.daily.total}
+                            percentage={getRemainingPercentage(row.daily)}
+                            unlimited={row.daily.unlimited === true || row.daily.total === 0 || row.daily.total === null}
+                            resetTime={row.daily.resetAt}
+                            recurring={row.daily.recurring !== false}
+                          />
+                        )}
+                        {row.weekly && (
+                          <QuotaProgressBar
+                            label="Tuần"
+                            used={row.weekly.used}
+                            total={row.weekly.total}
+                            percentage={getRemainingPercentage(row.weekly)}
+                            unlimited={row.weekly.unlimited === true || row.weekly.total === 0 || row.weekly.total === null}
+                            resetTime={row.weekly.resetAt}
+                            recurring={row.weekly.recurring !== false}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {singleRows.length > 0 && (
+              <div className="liquid-glass-panel rounded-xl p-2.5 space-y-2.5">
+                {pairedRows.length > 0 && (
+                  <div className="flex items-center justify-between border-b border-black/[0.06] pb-1.5 dark:border-white/[0.08]">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                      <span className="material-symbols-outlined text-[13px] text-sky-500">
+                        tune
+                      </span>
+                      <span>Model đơn lẻ & Chuyên biệt</span>
+                    </div>
+                    <span className="text-[10px] tabular-nums text-text-muted/70">
+                      {singleRows.length}
+                    </span>
+                  </div>
+                )}
+                <div className="space-y-2.5">
+                  {singleRows.map((quota, index) => {
+                    const percentage = getRemainingPercentage(quota);
+                    const unlimited = quota.unlimited === true || quota.total === 0 || quota.total === null;
+
+                    return (
+                      <QuotaProgressBar
+                        key={`${quota.modelKey || quota.name}-${index}`}
+                        label={quota.cleanTitle || quota.name}
+                        used={quota.used}
+                        total={quota.total}
+                        percentage={percentage}
+                        unlimited={unlimited}
+                        resetTime={quota.resetAt}
+                        recurring={quota.recurring !== false}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Empty State */}
       {!loading && !error && !message && quotas?.length === 0 && (

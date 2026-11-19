@@ -37,13 +37,6 @@ export default function AntigravityToolCard({
     if (initialStatus) setStatus(initialStatus);
   }, [initialStatus]);
 
-  useEffect(() => {
-    if (!isExpanded) return;
-    if (!status) fetchStatus();
-    loadSavedMappings();
-    fetchModelAliases();
-  }, [isExpanded]);
-
   const loadSavedMappings = async () => {
     try {
       const res = await fetch("/api/cli-tools/antigravity-mitm/alias?tool=antigravity");
@@ -83,27 +76,16 @@ export default function AntigravityToolCard({
     }
   };
 
+  useEffect(() => {
+    if (!isExpanded) return;
+    if (!status) fetchStatus();
+    loadSavedMappings();
+    fetchModelAliases();
+  }, [isExpanded]);
+
   // MITM elevation is decided by the server OS, not by this browser's OS.
   const serverIsWindows = status?.isWin === true;
   const canRunWithoutPassword = serverIsWindows || status?.hasCachedPassword || status?.needsSudoPassword === false;
-
-  const handleStart = () => {
-    if (canRunWithoutPassword) {
-      doStart("");
-    } else {
-      setShowPasswordModal(true);
-      setMessage(null);
-    }
-  };
-
-  const handleStop = () => {
-    if (canRunWithoutPassword) {
-      doStop("");
-    } else {
-      setShowPasswordModal(true);
-      setMessage(null);
-    }
-  };
 
   const doStart = async (password) => {
     setLoading(true);
@@ -163,6 +145,24 @@ export default function AntigravityToolCard({
       setMessage({ type: "error", text: error.message });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStart = () => {
+    if (canRunWithoutPassword) {
+      doStart("");
+    } else {
+      setShowPasswordModal(true);
+      setMessage(null);
+    }
+  };
+
+  const handleStop = () => {
+    if (canRunWithoutPassword) {
+      doStop("");
+    } else {
+      setShowPasswordModal(true);
+      setMessage(null);
     }
   };
 
@@ -338,37 +338,85 @@ export default function AntigravityToolCard({
                 )}
               </div>
 
-              {tool.defaultModels.map((model) => (
-                <div key={model.alias} className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
-                  <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">{model.name}</span>
-                  <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
-                  <div className="relative w-full min-w-0">
-                    <input
-                      type="text"
-                      value={modelMappings[model.alias] || ""}
-                      onChange={(e) => handleModelMappingChange(model.alias, e.target.value)}
-                      placeholder="provider/model-id"
-                      className="w-full min-w-0 pl-2 pr-7 py-2 bg-surface rounded border border-border text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 sm:py-1.5"
-                    />
-                    {modelMappings[model.alias] && (
-                      <button
-                        onClick={() => handleModelMappingChange(model.alias, "")}
-                        className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500 rounded transition-colors"
-                        title="Clear"
-                      >
-                        <span className="material-symbols-outlined text-[14px]">close</span>
-                      </button>
-                    )}
+              {(() => {
+                const groups = [
+                  {
+                    id: "gemini-4",
+                    title: "Gemini 4 Series (Argon & Hydrogen)",
+                    icon: "auto_awesome",
+                    models: tool.defaultModels.filter((m) => m.id.startsWith("gemini-4")),
+                  },
+                  {
+                    id: "gemini-3.8",
+                    title: "Gemini 3.8 Flash Series",
+                    icon: "bolt",
+                    models: tool.defaultModels.filter((m) => m.id.startsWith("gemini-3.8")),
+                  },
+                  {
+                    id: "claude",
+                    title: "Claude Series (Opus & Sonnet)",
+                    icon: "psychology",
+                    models: tool.defaultModels.filter((m) => m.id.startsWith("claude")),
+                  },
+                ];
+
+                return (
+                  <div className="flex flex-col gap-4 mt-2">
+                    {groups.map((group) => {
+                      if (group.models.length === 0) return null;
+                      const mappedCount = group.models.filter((m) => !!modelMappings[m.alias]).length;
+                      return (
+                        <div key={group.id} className="rounded-lg border border-border/70 bg-surface/30 p-3 flex flex-col gap-2.5">
+                          <div className="flex items-center justify-between pb-1.5 border-b border-border/40">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-text-main">
+                              <span className="material-symbols-outlined text-primary text-[16px]">{group.icon}</span>
+                              <span>{group.title}</span>
+                            </div>
+                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                              {mappedCount}/{group.models.length} mapped
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            {group.models.map((model) => (
+                              <div key={model.alias} className="grid grid-cols-1 gap-1.5 sm:grid-cols-[10rem_auto_1fr_auto] sm:items-center sm:gap-2">
+                                <span className="text-xs font-medium text-text-main sm:text-right sm:text-[13px] truncate" title={model.name}>
+                                  {model.name}
+                                </span>
+                                <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
+                                <div className="relative w-full min-w-0">
+                                  <input
+                                    type="text"
+                                    value={modelMappings[model.alias] || ""}
+                                    onChange={(e) => handleModelMappingChange(model.alias, e.target.value)}
+                                    placeholder="provider/model-id"
+                                    className="w-full min-w-0 pl-2 pr-7 py-1.5 bg-surface rounded border border-border text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                  />
+                                  {modelMappings[model.alias] && (
+                                    <button
+                                      onClick={() => handleModelMappingChange(model.alias, "")}
+                                      className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500 rounded transition-colors"
+                                      title="Clear"
+                                    >
+                                      <span className="material-symbols-outlined text-[14px]">close</span>
+                                    </button>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => openModelSelector(model.alias)}
+                                  disabled={!hasActiveProviders}
+                                  className={`w-full sm:w-auto rounded border px-2 py-1.5 text-xs transition-colors whitespace-nowrap sm:shrink-0 ${hasActiveProviders ? "bg-surface border-border text-text-main hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}
+                                >
+                                  Select
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <button
-                    onClick={() => openModelSelector(model.alias)}
-                    disabled={!hasActiveProviders}
-                    className={`w-full sm:w-auto rounded border px-2 py-2 text-xs transition-colors sm:py-1.5 whitespace-nowrap sm:shrink-0 ${hasActiveProviders ? "bg-surface border-border text-text-main hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}
-                  >
-                    Select
-                  </button>
-                </div>
-              ))}
+                );
+              })()}
 
               <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
                 <Button

@@ -48,6 +48,7 @@ function applyTheme(theme) {
   } else {
     root.classList.remove("dark");
   }
+  root.classList.add("fonts-loaded");
 }
 
 export default useThemeStore;

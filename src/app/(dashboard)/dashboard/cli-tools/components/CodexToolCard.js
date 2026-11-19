@@ -33,6 +33,39 @@ export default function CodexToolCard({ tool, isExpanded, onToggle, baseUrl, api
   const [deletingProfile, setDeletingProfile] = useState(null);
   const [copiedCommand, setCopiedCommand] = useState("");
 
+  const fetchModelAliases = async () => {
+    try {
+      const res = await fetch("/api/models/alias");
+      const data = await res.json();
+      if (res.ok) setModelAliases(data.aliases || {});
+    } catch (error) {
+      console.log("Error fetching model aliases:", error);
+    }
+  };
+
+  const fetchProfiles = async () => {
+    try {
+      const res = await fetch("/api/cli-tools/codex-profiles");
+      const data = await res.json();
+      if (res.ok) setProfiles(data.profiles || []);
+    } catch (error) {
+      console.log("Error fetching codex profiles:", error);
+    }
+  };
+
+  const checkCodexStatus = async () => {
+    setCheckingCodex(true);
+    try {
+      const res = await fetch("/api/cli-tools/codex-settings", { cache: "no-store" });
+      const data = await res.json();
+      setCodexStatus(data);
+    } catch (error) {
+      setCodexStatus({ installed: false, error: error.message });
+    } finally {
+      setCheckingCodex(false);
+    }
+  };
+
   useEffect(() => {
     fetchProfiles();
   }, []);
@@ -54,26 +87,6 @@ export default function CodexToolCard({ tool, isExpanded, onToggle, baseUrl, api
       fetchProfiles();
     }
   }, [isExpanded]);
-
-  const fetchModelAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.log("Error fetching model aliases:", error);
-    }
-  };
-
-  const fetchProfiles = async () => {
-    try {
-      const res = await fetch("/api/cli-tools/codex-profiles");
-      const data = await res.json();
-      if (res.ok) setProfiles(data.profiles || []);
-    } catch (error) {
-      console.log("Error fetching codex profiles:", error);
-    }
-  };
 
   const handleModelSelectForAlias = (model) => {
     setProfileModalOpen(false);
@@ -176,19 +189,6 @@ export default function CodexToolCard({ tool, isExpanded, onToggle, baseUrl, api
   };
 
   const getDisplayUrl = () => customBaseUrl || `${baseUrl}/v1`;
-
-  const checkCodexStatus = async () => {
-    setCheckingCodex(true);
-    try {
-      const res = await fetch("/api/cli-tools/codex-settings", { cache: "no-store" });
-      const data = await res.json();
-      setCodexStatus(data);
-    } catch (error) {
-      setCodexStatus({ installed: false, error: error.message });
-    } finally {
-      setCheckingCodex(false);
-    }
-  };
 
   const handleApplySettings = async () => {
     setApplying(true);

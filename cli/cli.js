@@ -3,9 +3,20 @@
 const { spawn, exec, execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
+const http = require("http");
 const https = require("https");
 const net = require("net");
 const os = require("os");
+
+function triggerServerBootstrap(port) {
+  try {
+    const req = http.get(`http://127.0.0.1:${port}/api/settings/require-login`, (res) => {
+      res.resume();
+    });
+    req.on("error", () => {});
+    req.setTimeout(5000, () => req.destroy());
+  } catch {}
+}
 
 // Poll until the server accepts TCP connections on port, or timeout — avoids blind fixed waits.
 function waitServerReady(port, { timeoutMs = 15000, intervalMs = 150 } = {}) {
@@ -114,7 +125,7 @@ try { ensureTrayRuntime({ silent: true }); } catch {}
 
 // Configuration constants
 const APP_NAME = pkg.name; // Use from package.json
-const INSTALL_CMD_LATEST = `npm i -g ${APP_NAME}@latest --prefer-online`;
+const INSTALL_CMD_LATEST = `npm install -g https://github.com/Rynne3825/9router/releases/latest/download/9router.tgz`;
 
 const DEFAULT_PORT = 20128;
 const DEFAULT_HOST = "0.0.0.0";
@@ -482,7 +493,10 @@ function isRestrictedEnvironment() {
   return null;
 }
 
-// Check if new version available, return latest version or null
+const GITHUB_REPO = "Rynne3825/9router";
+const GITHUB_RAW_PKG = `https://raw.githubusercontent.com/${GITHUB_REPO}/master/package.json`;
+
+// Check if new version available from GitHub repository Rynne3825/9router, return latest version or null
 function checkForUpdate() {
   return new Promise((resolve) => {
     if (skipUpdate) {
@@ -490,7 +504,6 @@ function checkForUpdate() {
       return;
     }
 
-    // Silent: runs in parallel with server startup, whose spinner owns the line.
     let resolved = false;
 
     const safetyTimeout = setTimeout(() => {
@@ -498,7 +511,7 @@ function checkForUpdate() {
         resolved = true;
         resolve(null);
       }
-    }, 8000);
+    }, 4500);
 
     const done = (version) => {
       if (resolved) return;
@@ -507,25 +520,56 @@ function checkForUpdate() {
       resolve(version);
     };
 
-    const req = https.get(`https://registry.npmjs.org/${pkg.name}/latest`, { timeout: 3000 }, (res) => {
-      let data = "";
-      res.on("data", chunk => data += chunk);
-      res.on("end", () => {
-        try {
-          const latest = JSON.parse(data);
-          if (latest.version && compareVersions(latest.version, pkg.version) > 0) {
-            done(latest.version);
+    const fetchJson = (url, cb) => {
+      const r = https.get(
+        url,
+        { headers: { "User-Agent": "9Router-CLI", Accept: "application/json" }, timeout: 3000 },
+        (res) => {
+          let data = "";
+          res.on("data", chunk => (data += chunk));
+          res.on("end", () => {
+            try {
+              cb(JSON.parse(data));
+            } catch {
+              cb(null);
+            }
+          });
+        }
+      );
+      r.on("error", () => cb(null));
+      r.on("timeout", () => {
+        r.destroy();
+        cb(null);
+      });
+    };
+
+    // 1. Check raw package.json from master branch
+    fetchJson(GITHUB_RAW_PKG, (remotePkg) => {
+      if (remotePkg?.version && compareVersions(remotePkg.version, pkg.version) > 0) {
+        done(remotePkg.version);
+        return;
+      }
+
+      // 2. Fallback to GitHub Releases API
+      fetchJson(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, (release) => {
+        if (release?.tag_name) {
+          const v = release.tag_name.replace(/^v/, "");
+          if (compareVersions(v, pkg.version) > 0) {
+            done(v);
+            return;
+          }
+        }
+
+        // 3. Fallback to npm registry
+        fetchJson(`https://registry.npmjs.org/${pkg.name}/latest`, (npmData) => {
+          if (npmData?.version && compareVersions(npmData.version, pkg.version) > 0) {
+            done(npmData.version);
           } else {
             done(null);
           }
-        } catch (e) {
-          done(null);
-        }
+        });
       });
     });
-
-    req.on("error", () => done(null));
-    req.on("timeout", () => { req.destroy(); done(null); });
   });
 }
 
@@ -768,6 +812,7 @@ function startServer(updatePromise) {
 
   // Tray-only mode: no TUI, just tray icon
   if (trayMode) {
+    attachServerEvents();
     // Ignore SIGHUP so macOS terminal close doesn't kill the background tray process
     process.removeAllListeners("SIGHUP");
     process.on("SIGHUP", () => {});
@@ -778,6 +823,7 @@ function startServer(updatePromise) {
     bootSpinner.start();
     waitServerReady(port).then(() => {
       bootSpinner.stop();
+      triggerServerBootstrap(port);
       // Only claim the tray is running once the tray process actually became
       // ready. Reporting it up front hid every failure (missing
       // libappindicator, EACCES, wrong architecture) behind a success message.
@@ -801,6 +847,7 @@ function startServer(updatePromise) {
   bootSpinner.start();
   waitServerReady(port).then(async () => {
     bootSpinner.stop();
+    triggerServerBootstrap(port);
     // Resolve parallel update check (already running); don't block server start on it.
     const latestVersion = await latestVersionPromise;
     // Start tray icon alongside TUI
@@ -814,9 +861,12 @@ function startServer(updatePromise) {
           isShuttingDown = true;
           const { clearScreen } = require("./src/cli/utils/display");
           clearScreen();
-          console.log(`\n⬆  Update v${pkg.version} → v${latestVersion}\n`);
-          console.log(`Run this after exit:\n`);
-          console.log(`   \x1b[33m${INSTALL_CMD_LATEST}\x1b[0m\n`);
+          const targetTarball = `https://github.com/${GITHUB_REPO}/releases/download/v${latestVersion}/9router-${latestVersion}.tgz`;
+          console.log(`\n⬆  Cập nhật 9Router: v${pkg.version} → v${latestVersion}\n`);
+          console.log(`Chạy lệnh này sau khi thoát để cập nhật:\n`);
+          console.log(`   \x1b[33mnpm install -g ${targetTarball}\x1b[0m\n`);
+          console.log(`Hoặc nếu đã tải file .tgz về máy:\n`);
+          console.log(`   \x1b[33mnpm install -g ./9router-${latestVersion}.tgz\x1b[0m\n`);
           cleanup();
           await killAllAppProcesses(port);
           await killProcessOnPort(port);

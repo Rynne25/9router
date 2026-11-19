@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import { enableTunnel } from "@/lib/tunnel";
-import { getSettings } from "@/lib/localDb";
+import { getSettings, updateSettings } from "@/lib/localDb";
 import { configureTunnelMonitoring } from "@/shared/services/initializeApp";
 
 const DNS_WARMUP_DELAY_MS = 8000;
 
 export async function POST() {
   try {
+    const currentSettings = await getSettings();
+    const isLoginUnsafe = currentSettings.requireLogin === false || !currentSettings.password;
+    if (isLoginUnsafe && currentSettings.tunnelDashboardAccess !== false) {
+      await updateSettings({ tunnelDashboardAccess: false });
+    }
+
     const result = await enableTunnel();
     getSettings()
       .then(configureTunnelMonitoring)

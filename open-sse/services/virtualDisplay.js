@@ -36,6 +36,7 @@ function startXvfb(spawn, timeoutMs) {
     );
     let settled = false;
     let out = "";
+    let timer = null;
     const fail = (err) => {
       if (settled) return;
       settled = true;
@@ -47,7 +48,7 @@ function startXvfb(spawn, timeoutMs) {
       }
       reject(err);
     };
-    const timer = setTimeout(() => fail(new MissingDisplayError("Xvfb start timeout")), timeoutMs);
+    timer = setTimeout(() => fail(new MissingDisplayError("Xvfb start timeout")), timeoutMs);
     timer.unref?.();
     child.once("error", (err) =>
       fail(new MissingDisplayError(err.code === "ENOENT" ? "Xvfb not found" : err.message))

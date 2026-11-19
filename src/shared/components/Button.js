@@ -12,10 +12,10 @@ const variants = {
 };
 
 const sizes = {
-  xs: "h-6 px-2.5 text-[11px] rounded-[6px] gap-1.5",
-  sm: "h-7 px-3 text-xs rounded-[8px]",
-  md: "h-9 px-4 text-sm rounded-[10px]",
-  lg: "h-11 px-6 text-sm rounded-[10px]",
+  xs: "h-6 px-2.5 text-[11px] rounded-md gap-1.5",
+  sm: "h-7 px-3 text-xs rounded-lg",
+  md: "h-9 px-4 text-sm rounded-lg",
+  lg: "h-10 px-5 text-sm rounded-lg",
 };
 
 export default function Button({

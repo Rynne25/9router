@@ -1,8 +1,5 @@
-"use server";
-
 import { NextResponse } from "next/server";
 import { getMitmAlias, setMitmAliasAll } from "@/models";
-import { getMitmStatus } from "@/mitm/manager";
 import { writeAliasForTool } from "@/lib/mitmAliasCache";
 
 // GET - Get MITM aliases for a tool
@@ -18,28 +15,28 @@ export async function GET(request) {
   }
 }
 
-// PUT - Save MITM aliases for a specific tool
+// PUT - Save MITM aliases for a specific tool (allowed anytime, even when DNS/Server is off)
 export async function PUT(request) {
   try {
     const { tool, mappings } = await request.json();
 
-    if (!tool || !mappings || typeof mappings !== "object") {
-      return NextResponse.json({ error: "tool and mappings required" }, { status: 400 });
-    }
-
-    // Check if DNS is enabled for this tool
-    const status = await getMitmStatus();
-    if (!status.dnsStatus || !status.dnsStatus[tool]) {
-      return NextResponse.json(
-        { error: `DNS must be enabled for ${tool} before editing model mappings` },
-        { status: 403 }
-      );
+    if (
+      !tool ||
+      typeof tool !== "string" ||
+      !tool.trim() ||
+      tool === "__proto__" ||
+      tool === "constructor" ||
+      !mappings ||
+      typeof mappings !== "object"
+    ) {
+      return NextResponse.json({ error: "valid tool and mappings required" }, { status: 400 });
     }
 
     const filtered = {};
-    for (const [alias, model] of Object.entries(mappings)) {
-      if (model && model.trim()) {
-        filtered[alias] = model.trim();
+    for (const [alias, rawModel] of Object.entries(mappings)) {
+      const model = typeof rawModel === "string" ? rawModel.trim() : String(rawModel || "").trim();
+      if (model) {
+        filtered[alias] = model;
       }
     }
 

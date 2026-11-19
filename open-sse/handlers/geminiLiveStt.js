@@ -120,10 +120,6 @@ export async function transcribeGeminiLive({ cfg, file, model, token, formData, 
     let sentBytes = 0;        // audio prefix already handed to the live socket
     let goAwayReconnects = GOAWAY_RECONNECTS;
 
-    const arm = (ms, message) => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => fail(new GeminiLiveError(message, 504)), ms);
-    };
     const shutdown = () => {
       if (timer) { clearTimeout(timer); timer = null; }
       if (goAwayTimer) { clearTimeout(goAwayTimer); goAwayTimer = null; }
@@ -145,6 +141,10 @@ export async function transcribeGeminiLive({ cfg, file, model, token, formData, 
       settled = true;
       shutdown();
       reject(err);
+    };
+    const arm = (ms, message) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => fail(new GeminiLiveError(message, 504)), ms);
     };
     const send = (frame) => {
       if (ws.readyState !== WS.OPEN) return false;
@@ -171,6 +171,8 @@ export async function transcribeGeminiLive({ cfg, file, model, token, formData, 
       send({ clientContent: { turns: [{ parts: [{ text: systemText }] }], turnComplete: true } });
     };
 
+    let open;
+
     // goAway: the server names the instant it will force-close this socket.
     // Graceful play = rotate BEFORE the deadline: retire the live socket,
     // dial a fresh one, replay setup, resume audio from sentBytes — text and
@@ -192,7 +194,7 @@ export async function transcribeGeminiLive({ cfg, file, model, token, formData, 
       }, delay);
     };
 
-    const open = () => {
+    open = () => {
       const gen = ++generation;
       try {
         ws = new WS(wsUrl);

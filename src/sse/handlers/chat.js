@@ -7,7 +7,13 @@ import {
   extractApiKey,
   isValidApiKey,
 } from "../services/auth.js";
-import { handleAntigravityQuotaError, clearAntigravityStrikes } from "../services/antigravityQuota.js";
+import {
+  handleAntigravityQuotaError,
+  clearAntigravityStrikes,
+  getAntigravityAvailableModelsCache,
+  refreshAntigravityQuota,
+} from "../services/antigravityQuota.js";
+import { isModelUnsupportedError } from "open-sse/services/accountFallback.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
 import { handleChatCore } from "open-sse/handlers/chatCore.js";
@@ -368,6 +374,19 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
         refreshedCredentials.accessToken, credentials.providerSpecificData
       );
       if (quotaResetMs) resetsAtMs = quotaResetMs;
+    } else if (
+      provider === "antigravity" &&
+      isModelUnsupportedError(result.status, result.error) &&
+      refreshedCredentials?.accessToken &&
+      !getAntigravityAvailableModelsCache().has(credentials.connectionId)
+    ) {
+      // Cold-start capability learning: populate availableModels/quotas in background
+      // without delaying fallback to the next eligible account.
+      refreshAntigravityQuota(
+        credentials.connectionId,
+        refreshedCredentials.accessToken,
+        credentials.providerSpecificData
+      ).catch(() => {});
     }
 
     // Exhausted Antigravity model is blocked only in RAM cache until upstream resetAt.

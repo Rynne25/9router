@@ -14,6 +14,7 @@ const buildDistDir = path.join(appDir, buildDistDirName);
 
 // Exclude patterns for files/folders we don't want to copy
 const EXCLUDE_PATTERNS = [
+  ".git",           // Never copy .git into standalone bundle
   "@img",           // Sharp image processing (not needed with unoptimized images)
   "sharp",          // Sharp core lib (not needed with unoptimized images)
   "detect-libc",    // Sharp dependency
@@ -23,6 +24,10 @@ const EXCLUDE_PATTERNS = [
   "*.log",          // Log files
   "tmp",            // Temp files
   ".DS_Store",      // macOS files
+  "*.tgz",          // Never bundle archive tarballs
+  "tests",          // Never bundle tests
+  "docs",           // Never bundle documentation
+  "gitbook",
 ];
 
 function shouldExclude(name) {
@@ -199,8 +204,25 @@ function buildCliPackage() {
     console.log(`✅ Version already synced: ${cliPkg.version}\n`);
   }
 
-  // Step 1: Build app with Next.js (workspace tracing root → traced node_modules in standalone).
-  console.log("1️⃣  Building Next.js app...");
+  // Step 1a: Clean old app/cli/app BEFORE Next.js build so Tailwind/Webpack never scans stale bundle files.
+  console.log("1️⃣ a Cleaning old app/cli/app before build...");
+  if (fs.existsSync(cliAppDir)) {
+    try {
+      fs.rmSync(cliAppDir, { recursive: true, force: true });
+    } catch (err) {
+      if (err.code === "EPERM" || err.code === "EBUSY") {
+        for (const entry of fs.readdirSync(cliAppDir)) {
+          fs.rmSync(path.join(cliAppDir, entry), { recursive: true, force: true });
+        }
+      } else {
+        throw err;
+      }
+    }
+  }
+  console.log("✅ Cleaned\n");
+
+  // Step 1b: Build app with Next.js (workspace tracing root → traced node_modules in standalone).
+  console.log("1️⃣ b Building Next.js app...");
   try {
     execSync("npm run build", {
       stdio: "inherit",
@@ -212,7 +234,8 @@ function buildCliPackage() {
         APPDATA: path.join(buildHomeDir, "AppData", "Roaming"),
         LOCALAPPDATA: path.join(buildHomeDir, "AppData", "Local"),
         NEXT_DIST_DIR: buildDistDirName,
-        NEXT_TRACING_ROOT_MODE: "workspace",
+        NEXT_TRACING_ROOT_MODE: "project",
+        NODE_OPTIONS: `${process.env.NODE_OPTIONS || ""} --max-old-space-size=4096`.trim(),
       }
     });
     console.log("✅ Next.js build completed\n");
@@ -220,13 +243,6 @@ function buildCliPackage() {
     console.error("❌ Next.js build failed");
     process.exit(1);
   }
-
-  // Step 2: Clean old app/cli/app if exists
-  console.log("2️⃣  Cleaning old app/cli/app...");
-  if (fs.existsSync(cliAppDir)) {
-    fs.rmSync(cliAppDir, { recursive: true, force: true });
-  }
-  console.log("✅ Cleaned\n");
 
   // Step 3: Copy Next.js standalone build to app/cli/app.
   // Newer Next.js standalone output writes server.js/package.json plus .next/, src/, and
@@ -370,6 +386,13 @@ function buildCliPackage() {
 
   console.log("✨ CLI package build completed!");
   console.log(`📁 Output: ${cliAppDir}`);
+
+  // Clean intermediate .next-cli-build so subsequent builds don't scan stale artifacts
+  try {
+    if (fs.existsSync(buildDistDir)) {
+      fs.rmSync(buildDistDir, { recursive: true, force: true });
+    }
+  } catch {}
 
   try {
     const { execSync: exec } = require("child_process");

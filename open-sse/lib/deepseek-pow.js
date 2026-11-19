@@ -94,6 +94,8 @@ function solveInWorker(validated, options = {}) {
       return;
     }
     let settled = false;
+    let timeout = null;
+    let onAbort = () => {};
 
     const cleanup = () => {
       clearTimeout(timeout);
@@ -107,10 +109,10 @@ function solveInWorker(validated, options = {}) {
       if (terminate) void worker.terminate();
       callback();
     };
-    const onAbort = () => {
+    onAbort = () => {
       finish(() => reject(createAbortError()), true);
     };
-    const timeout = setTimeout(() => {
+    timeout = setTimeout(() => {
       finish(() => reject(new Error(`DeepSeek PoW computation exceeded ${timeoutMs}ms`)), true);
     }, timeoutMs);
 

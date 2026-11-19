@@ -18,6 +18,115 @@ function sanitizeFunctionName(name) {
 }
 
 const MAX_RETRY_AFTER_MS = 10000;
+
+// AG decoy tools — same names as AG native defaults, redirect to _ide suffixed tools
+const AG_DECOY_TOOLS = [
+  {
+    name: "browser_subagent",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "command_status",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "find_by_name",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "generate_image",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "grep_search",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "list_dir",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "list_resources",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "mcp_sequential-thinking_sequentialthinking",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "multi_replace_file_content",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "notify_user",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "read_resource",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "read_terminal",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "read_url_content",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "replace_file_content",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "run_command",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "search_web",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "send_command_input",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "task_boundary",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "view_content_chunk",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "view_file",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  },
+  {
+    name: "write_to_file",
+    description: "This tool is currently unavailable.",
+    parameters: { type: "OBJECT", properties: {}, required: [] }
+  }
+];
 const ANTIGRAVITY_TRANSIENT_RETRY_MAX_MS = 15000;
 const MAX_ANTIGRAVITY_OUTPUT_TOKENS = 64000;
 const ANTIGRAVITY_IDE_REQUEST_ID_RE = /^agent\/[^/]+\/\d+\/[^/]+\/\d+$/;
@@ -585,114 +694,5 @@ export class AntigravityExecutor extends BaseExecutor {
     };
   }
 }
-
-// AG decoy tools — same names as AG native defaults, redirect to _ide suffixed tools
-const AG_DECOY_TOOLS = [
-  {
-    name: "browser_subagent",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "command_status",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "find_by_name",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "generate_image",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "grep_search",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "list_dir",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "list_resources",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "mcp_sequential-thinking_sequentialthinking",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "multi_replace_file_content",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "notify_user",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "read_resource",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "read_terminal",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "read_url_content",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "replace_file_content",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "run_command",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "search_web",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "send_command_input",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "task_boundary",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "view_content_chunk",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "view_file",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "write_to_file",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  }
-];
 
 export default AntigravityExecutor;

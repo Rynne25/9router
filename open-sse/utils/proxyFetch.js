@@ -138,6 +138,17 @@ async function tryGotScrapingFetch(url, options) {
 
 // DNS cache — use Map to avoid prototype pollution via malformed hostnames
 const DNS_CACHE = new Map();
+const GOOGLE_ANYCAST_IPS = [
+  "172.217.114.4",
+  "142.250.190.10",
+  "142.251.46.234",
+  "142.250.72.106",
+  "172.217.168.202"
+];
+
+export function resetDnsCacheForTests() {
+  DNS_CACHE.clear();
+}
 const TLS_CERT_ERRORS = new Set([
   "SELF_SIGNED_CERT_IN_CHAIN",
   "DEPTH_ZERO_SELF_SIGNED_CERT",
@@ -189,8 +200,80 @@ function safeTargetHost(url) {
   }
 }
 
+const DNS_RESOLVE_TIMEOUT_MS = 1500;
+const DOH_RESOLVE_TIMEOUT_MS = 2000;
+
+function isLoopbackIp(ip) {
+  return typeof ip === "string" && (ip.startsWith("127.") || ip === "::1" || ip === "0.0.0.0");
+}
+
 /**
- * Resolve real IP using Google DNS (bypass system DNS)
+ * Check if OS lookup resolves hostname to loopback (i.e. /etc/hosts MITM active).
+ * When OS DNS already returns a real public IP, skip DNS-bypass & 8.8.8.8 queries.
+ */
+async function isHostsSpoofed(hostname) {
+  try {
+    const dns = await import("dns");
+    const { promisify } = await import("util");
+    const lookup = promisify(dns.lookup);
+    const res = await Promise.race([
+      lookup(hostname),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("OS dns.lookup timeout")), DNS_RESOLVE_TIMEOUT_MS)
+      ),
+    ]);
+    return isLoopbackIp(res?.address);
+  } catch {
+    return true;
+  }
+}
+
+async function resolveViaDnsServer(dns, promisify, hostname, servers) {
+  const resolver = new dns.Resolver();
+  resolver.setServers(servers);
+  const resolve4 = promisify(resolver.resolve4.bind(resolver));
+  let timer;
+  try {
+    const addresses = await Promise.race([
+      resolve4(hostname),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          try {
+            resolver.cancel();
+          } catch {}
+          reject(new Error("DNS resolve timeout"));
+        }, DNS_RESOLVE_TIMEOUT_MS);
+      }),
+    ]);
+    return Array.isArray(addresses) && addresses.length > 0 ? addresses[0] : null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function resolveViaDoH(hostname) {
+  try {
+    const res = await rawFetch(
+      `https://dns.google/resolve?name=${encodeURIComponent(hostname)}&type=A`,
+      {
+        headers: { Accept: "application/dns-json" },
+        signal: AbortSignal.timeout(DOH_RESOLVE_TIMEOUT_MS),
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const record = (data?.Answer || []).find((a) => a.type === 1 && a.data && !isLoopbackIp(a.data));
+    return record?.data || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve real IP when /etc/hosts MITM is active:
+ * 1. Non-loopback system DNS servers (works on campus/corporate LANs that block 8.8.8.8)
+ * 2. Google Public DNS with strict 1500ms timeout
+ * 3. DNS-over-HTTPS fallback (port 443)
  */
 async function resolveRealIP(hostname) {
   const cached = DNS_CACHE.get(hostname);
@@ -199,13 +282,40 @@ async function resolveRealIP(hostname) {
   try {
     const dns = await import("dns");
     const { promisify } = await import("util");
-    const resolver = new dns.Resolver();
-    resolver.setServers(GOOGLE_DNS_SERVERS);
-    const resolve4 = promisify(resolver.resolve4.bind(resolver));
-    const addresses = await resolve4(hostname);
-    DNS_CACHE.set(hostname, { ip: addresses[0], expiry: Date.now() + MEMORY_CONFIG.dnsCacheTtlMs });
-    return addresses[0];
+    const sysServers = (dns.getServers?.() || []).filter((s) => s && !isLoopbackIp(s));
+    const candidateGroups = [];
+    if (sysServers.length > 0) candidateGroups.push(sysServers);
+    candidateGroups.push(GOOGLE_DNS_SERVERS);
+
+    for (const servers of candidateGroups) {
+      try {
+        const ip = await resolveViaDnsServer(dns, promisify, hostname, servers);
+        if (ip && !isLoopbackIp(ip)) {
+          DNS_CACHE.set(hostname, { ip, expiry: Date.now() + MEMORY_CONFIG.dnsCacheTtlMs });
+          return ip;
+        }
+      } catch {
+        // Try next DNS group
+      }
+    }
+
+    const dohIp = await resolveViaDoH(hostname);
+    if (dohIp) {
+      DNS_CACHE.set(hostname, { ip: dohIp, expiry: Date.now() + MEMORY_CONFIG.dnsCacheTtlMs });
+      return dohIp;
+    }
+
+    if (hostname.includes("googleapis.com")) {
+      DNS_CACHE.set(hostname, { ip: "172.217.114.4", expiry: Date.now() + MEMORY_CONFIG.dnsCacheTtlMs });
+      return "172.217.114.4";
+    }
+
+    return null;
   } catch (error) {
+    if (hostname.includes("googleapis.com")) {
+      DNS_CACHE.set(hostname, { ip: "172.217.114.4", expiry: Date.now() + MEMORY_CONFIG.dnsCacheTtlMs });
+      return "172.217.114.4";
+    }
     console.warn(`[ProxyFetch] DNS resolve failed for ${hostname}:`, error.message);
     return null;
   }
@@ -414,62 +524,97 @@ async function fetchWithTlsFallback(url, options, proxyUrl, forceFreshSocket = f
   }
 }
 
+const bypassAgents = new Map();
+
+function getBypassAgent(https, realIP, hostname) {
+  const key = `${realIP}::${hostname}`;
+  if (!bypassAgents.has(key)) {
+    const agent = new https.Agent({
+      keepAlive: true,
+      keepAliveMsecs: 60000,
+      maxSockets: 32,
+      maxFreeSockets: 10,
+      timeout: 30000,
+    });
+    bypassAgents.set(key, agent);
+  }
+  return bypassAgents.get(key);
+}
+
 /**
- * Create HTTPS request with manual socket connection (bypass DNS)
+ * Create HTTPS request with socket connection pooling (bypass DNS)
  */
 async function createBypassRequest(parsedUrl, realIP, options) {
   const httpsModule = await import("https");
-  const netModule = await import("net");
   // CJS modules expose exports via .default in ESM dynamic import context
   const https = httpsModule.default ?? httpsModule;
-  const net = netModule.default ?? netModule;
 
   return new Promise((resolve, reject) => {
-    const socket = new net.Socket();
+    if (options.signal?.aborted) {
+      reject(options.signal.reason || new DOMException("Aborted", "AbortError"));
+      return;
+    }
 
-    socket.connect(HTTPS_PORT, realIP, () => {
-      const reqOptions = {
-        socket,
-        // SNI + cert hostname are validated against the hostname the caller
-        // asked for, not the IP we connected to. This keeps the DNS-bypass
-        // (avoiding /etc/hosts MITM) while still rejecting on-path attackers
-        // that present a different cert. The MITM_BYPASS_HOSTS targets are
-        // all public-CA-issued (Google / GitHub / AWS / Cursor) so default
-        // verification works without any extra trust store.
-        servername: parsedUrl.hostname,
-        path: parsedUrl.pathname + parsedUrl.search,
-        method: options.method || "POST",
-        headers: {
-          ...options.headers,
-          Host: parsedUrl.hostname,
-        },
-      };
+    let req = null;
+    const onAbort = () => {
+      try { req?.destroy(); } catch {}
+      reject(options.signal?.reason || new DOMException("Aborted", "AbortError"));
+    };
+    options.signal?.addEventListener?.("abort", onAbort, { once: true });
 
-      const req = https.request(reqOptions, (res) => {
-        const response = {
-          ok: res.statusCode >= HTTP_SUCCESS_MIN && res.statusCode < HTTP_SUCCESS_MAX,
-          status: res.statusCode,
-          statusText: res.statusMessage,
-          headers: new Map(Object.entries(res.headers)),
-          body: Readable.toWeb(res),
-          text: async () => {
-            const chunks = [];
-            for await (const chunk of res) chunks.push(chunk);
-            return Buffer.concat(chunks).toString();
-          },
-          json: async () => JSON.parse(await response.text()),
-        };
-        resolve(response);
+    const cleanup = () => {
+      options.signal?.removeEventListener?.("abort", onAbort);
+    };
+
+    const agent = typeof https.Agent === "function" ? getBypassAgent(https, realIP, parsedUrl.hostname) : undefined;
+    const reqOptions = {
+      host: realIP,
+      port: HTTPS_PORT,
+      servername: parsedUrl.hostname,
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: options.method || "POST",
+      headers: {
+        ...options.headers,
+        Host: parsedUrl.hostname,
+        Connection: "keep-alive",
+      },
+      agent,
+      rejectUnauthorized: true,
+    };
+
+    try {
+      req = https.request(reqOptions, (res) => {
+        cleanup();
+        if (res.socket && typeof res.socket.setNoDelay === "function") {
+          res.socket.setNoDelay(true);
+        }
+        const resHeaders = new Headers();
+        for (const [k, v] of Object.entries(res.headers || {})) {
+          if (Array.isArray(v)) v.forEach((x) => resHeaders.append(k, String(x)));
+          else if (v != null) resHeaders.set(k, String(v));
+        }
+        resolve(
+          new Response(Readable.toWeb(res), {
+            status: res.statusCode,
+            statusText: res.statusMessage || "",
+            headers: resHeaders,
+          })
+        );
       });
 
-      req.on("error", reject);
+      req.on("error", (err) => {
+        cleanup();
+        reject(err);
+      });
+
       if (options.body) {
         req.write(typeof options.body === "string" ? options.body : JSON.stringify(options.body));
       }
       req.end();
-    });
-
-    socket.on("error", reject);
+    } catch (err) {
+      cleanup();
+      reject(err);
+    }
   });
 }
 
@@ -495,7 +640,19 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
       "x-relay-target": `${parsed.protocol}//${parsed.host}`,
       "x-relay-path": `${parsed.pathname}${parsed.search}`,
     };
-    return await rawFetch(vercelRelayUrl, { ...options, headers: relayHeaders });
+    try {
+      const res = await rawFetch(vercelRelayUrl, { ...options, headers: relayHeaders });
+      if (!res.ok && (res.status === 502 || res.status === 504) && proxyOptions?.strictProxy !== true) {
+        console.warn(`[ProxyFetch] Relay returned ${res.status} (gateway/timeout), falling back to direct fetch`);
+      } else {
+        return res;
+      }
+    } catch (relayErr) {
+      if (proxyOptions?.strictProxy === true) {
+        throw new Error(`[ProxyFetch] Relay required but failed (strictProxy=true): ${relayErr.message}`);
+      }
+      console.warn(`[ProxyFetch] Relay network error, falling back to direct: ${relayErr.message}`);
+    }
   }
 
   const connectionProxyUrl = resolveConnectionProxyUrl(targetUrl, proxyOptions);
@@ -536,11 +693,13 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
         console.warn(`[ProxyFetch] Proxy failed, falling back to direct bypass: ${proxyError.message}`);
       }
     }
-    // No proxy — manually resolve real IP to bypass DNS spoof
+    // No proxy — only bypass DNS when OS lookup is actually spoofed to loopback (/etc/hosts MITM)
     try {
       const parsedUrl = new URL(targetUrl);
-      const realIP = await resolveRealIP(parsedUrl.hostname);
-      if (realIP) return await createBypassRequest(parsedUrl, realIP, options);
+      if (await isHostsSpoofed(parsedUrl.hostname)) {
+        const realIP = await resolveRealIP(parsedUrl.hostname);
+        if (realIP) return await createBypassRequest(parsedUrl, realIP, options);
+      }
     } catch (error) {
       console.warn(`[ProxyFetch] MITM bypass failed: ${error.message}`);
     }

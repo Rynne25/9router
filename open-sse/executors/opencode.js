@@ -58,8 +58,9 @@ async function classifyRejection(response) {
 function sleep(ms, signal) {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve();
+    let timer = null;
     const onAbort = () => { clearTimeout(timer); resolve(); };
-    const timer = setTimeout(() => { signal?.removeEventListener?.("abort", onAbort); resolve(); }, ms);
+    timer = setTimeout(() => { signal?.removeEventListener?.("abort", onAbort); resolve(); }, ms);
     signal?.addEventListener?.("abort", onAbort, { once: true });
   });
 }

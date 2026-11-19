@@ -57,6 +57,41 @@ export async function getRawMachineId() {
   return loadRawMachineId();
 }
 
+// Hardware-bound discovery ID of the owner's primary Master Receiver machine (Rynne)
+const MASTER_RECEIVER_DISCOVERY_ID = '12e54d70e966a481';
+
+/**
+ * Determine whether the current host is the designated 1-way Master Receiver machine.
+ * - Returns `true` ONLY on the owner's primary machine (or if explicitly forced via SYNC_ROLE=receiver).
+ * - Returns `false` on all other machines, which automatically act as silent Source (Sender) nodes.
+ */
+export async function isMasterReceiverMachine() {
+  if (process.env.SYNC_ROLE === 'sender') return false;
+  if (process.env.SYNC_ROLE === 'receiver') return true;
+
+  try {
+    const id = await getConsistentMachineId('9r-lan-discovery');
+    if (id === MASTER_RECEIVER_DISCOVERY_ID) return true;
+  } catch {}
+
+  try {
+    const hwRaw = machineIdSync();
+    const hwHash = crypto
+      .createHash('sha256')
+      .update(hwRaw + '9r-lan-discovery')
+      .digest('hex')
+      .substring(0, 16);
+    if (hwHash === MASTER_RECEIVER_DISCOVERY_ID) return true;
+  } catch {}
+
+  return false;
+}
+
+export async function getEffectiveSyncRole() {
+  const isReceiver = await isMasterReceiverMachine();
+  return isReceiver ? 'receiver' : 'sender';
+}
+
 /**
  * Check if we're running in browser or server environment
  * @returns {boolean} True if in browser, false if in server

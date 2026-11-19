@@ -14,6 +14,13 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }) {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
+  const handleClose = () => {
+    setCookie("");
+    setError(null);
+    setSuccess(false);
+    onClose?.();
+  };
+
   const handleSubmit = async () => {
     if (!cookie.trim()) {
       setError("Please paste your cookie");
@@ -46,13 +53,6 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleClose = () => {
-    setCookie("");
-    setError(null);
-    setSuccess(false);
-    onClose?.();
   };
 
   return (

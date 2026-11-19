@@ -1,4 +1,61 @@
-import { ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig.js";
+import { ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS, MODEL_UNSUPPORTED_COOLDOWN_MS } from "../config/errorConfig.js";
+
+const VERIFICATION_OR_ACCOUNT_AUTH_RE = /verify\s+your\s+account|verification\s+required|account\s+suspended|validation_url|appeal_url|invalid\s+api\s*key|expired\s+token|unauthorized_client/i;
+const ROUTE_OR_PROXY_404_RE = /\b(?:proxy|tunnel|webhook|route|connection\s+not\s+found)\b/i;
+const MODEL_UNSUPPORTED_TEXT_RE = new RegExp([
+  "(?:the\\s+)?model(?:\\s+['\"`]?[a-z0-9._:/-]+['\"`]?)?\\s+(?:is\\s+)?not\\s+supported",
+  "unsupported\\s+model",
+  "model_not_supported",
+  "not\\s+a\\s+supported\\s+model",
+  "model_not_found",
+  "(?:the\\s+)?model(?:\\s+['\"`]?[a-z0-9._:/-]+['\"`]?)?\\s+(?:was\\s+|is\\s+)?not\\s+found",
+  "models\\/[^\\s]+\\s+(?:is\\s+)?not\\s+found",
+  "requested\\s+entity\\s+was\\s+not\\s+found",
+  "unknown\\s+model",
+  "invalid\\s+model(?:\\s+id|\\s+name)?",
+  "(?:the\\s+)?model(?:\\s+['\"`]?[a-z0-9._:/-]+['\"`]?)?\\s+does\\s+not\\s+exist",
+  "no\\s+such\\s+model",
+  "(?:the\\s+)?model(?:\\s+['\"`]?[a-z0-9._:/-]+['\"`]?)?\\s+(?:is\\s+)?not\\s+available",
+  "not\\s+available\\s+for\\s+(?:your|this)\\s+(?:account|plan|tier|subscription|project)",
+  "not\\s+enabled\\s+for\\s+(?:your|this)\\s+(?:account|plan|tier|subscription|project)",
+  "does\\s+not\\s+have\\s+access\\s+to\\s+(?:this\\s+|the\\s+)?model",
+  "do\\s+not\\s+have\\s+access\\s+to\\s+(?:this\\s+|the\\s+)?model",
+  "not\\s+entitled\\s+to\\s+(?:use\\s+)?(?:this\\s+|the\\s+)?model",
+  "not\\s+eligible\\s+for\\s+(?:this\\s+|the\\s+)?model",
+  "plan\\s+does\\s+not\\s+include",
+  "requires\\s+a\\s+(?:pro|paid|plus|ultra|enterprise)\\s+(?:plan|tier|subscription|account)",
+].join("|"), "i");
+
+/**
+ * Detect whether an upstream HTTP error indicates the requested model is
+ * unsupported or unavailable for this specific connection/account/tier.
+ * Excludes account verification/auth errors and request-scoped parameter/context errors.
+ */
+export function isModelUnsupportedError(status, errorText = "") {
+  const numericStatus = Number(status);
+  const text = typeof errorText === "string"
+    ? errorText
+    : (errorText ? JSON.stringify(errorText) : "");
+
+  if (text && VERIFICATION_OR_ACCOUNT_AUTH_RE.test(text)) {
+    return false;
+  }
+
+  if (numericStatus === 404) {
+    if (!text.trim()) return true;
+    return !ROUTE_OR_PROXY_404_RE.test(text);
+  }
+
+  if (numericStatus === 406 && (!text.trim() || MODEL_UNSUPPORTED_TEXT_RE.test(text))) {
+    return true;
+  }
+
+  if ([400, 403, 422].includes(numericStatus) && text) {
+    return MODEL_UNSUPPORTED_TEXT_RE.test(text);
+  }
+
+  return false;
+}
 
 /**
  * Calculate exponential backoff cooldown for rate limits (429)
@@ -31,9 +88,9 @@ export function checkFallbackError(status, errorText, backoffLevel = 0, provider
     ? (typeof errorText === "string" ? errorText : JSON.stringify(errorText)).toLowerCase()
     : "";
 
+  // 1. Text-based rules first (rate limit, quota, credit, provider-specific text)
   for (const rule of ERROR_RULES) {
     if (rule.provider && rule.provider !== provider) continue;
-    // Text-based rule: match substring in error message
     if (rule.text && lowerError && lowerError.includes(rule.text)) {
       if (rule.backoff) {
         const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
@@ -45,8 +102,29 @@ export function checkFallbackError(status, errorText, backoffLevel = 0, provider
         modelScoped: Boolean(rule.modelScoped),
       };
     }
+  }
 
-    // Status-based rule: match HTTP status code
+  // Catch rate-limit / too-fast / throttling / quota wording not covered by exact text rules above
+  // so 4xx/5xx rate-limit variants still trigger per-(account, model) cooldown and fallback.
+  if (lowerError && /too[-_\s]?fast|rate[-_\s]?limit|throttl|resource[-_\s]?exhausted/.test(lowerError)) {
+    const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
+    return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), newBackoffLevel: newLevel };
+  }
+
+  // 2. Model-unsupported / model-not-found / tier-ineligible errors:
+  // Fall back to next account and cache the model as unsupported for this connection.
+  if (isModelUnsupportedError(status, errorText)) {
+    return {
+      shouldFallback: true,
+      cooldownMs: MODEL_UNSUPPORTED_COOLDOWN_MS,
+      modelScoped: true,
+      modelUnsupported: true,
+    };
+  }
+
+  // 3. Status-based rules (401, 402, 403, 404, 429)
+  for (const rule of ERROR_RULES) {
+    if (rule.provider && rule.provider !== provider) continue;
     if (rule.status && rule.status === status) {
       if (rule.backoff) {
         const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
@@ -143,10 +221,14 @@ export function getModelLockKey(model) {
  * Reads flat field `modelLock_${model}` (or `modelLock___all` when model=null).
  */
 export function isModelLockActive(connection, model) {
+  if (!connection) return false;
+  const now = Date.now();
   const key = getModelLockKey(model);
-  const expiry = connection[key] || connection[MODEL_LOCK_ALL];
-  if (!expiry) return false;
-  return new Date(expiry).getTime() > Date.now();
+  const expiryKey = connection[key];
+  const expiryAll = connection[MODEL_LOCK_ALL];
+  const isKeyActive = Boolean(expiryKey && new Date(expiryKey).getTime() > now);
+  const isAllActive = Boolean(expiryAll && new Date(expiryAll).getTime() > now);
+  return isKeyActive || isAllActive;
 }
 
 /**

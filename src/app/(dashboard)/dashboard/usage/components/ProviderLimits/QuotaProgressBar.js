@@ -7,27 +7,27 @@ import { formatResetTime } from "./utils";
 const getColorClasses = (remainingPercentage) => {
   if (remainingPercentage > 70) {
     return {
-      text: "text-green-500",
-      bg: "bg-green-500",
-      bgLight: "bg-green-500/10",
+      text: "text-emerald-600 dark:text-emerald-400",
+      dot: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+      fill: "bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_12px_rgba(16,185,129,0.45)]",
       emoji: "🟢"
     };
   }
   
   if (remainingPercentage >= 30) {
     return {
-      text: "text-yellow-500",
-      bg: "bg-yellow-500",
-      bgLight: "bg-yellow-500/10",
+      text: "text-amber-600 dark:text-amber-400",
+      dot: "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]",
+      fill: "bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_12px_rgba(245,158,11,0.45)]",
       emoji: "🟡"
     };
   }
   
   // 0-29% including 0% (out of quota) - show red
   return {
-    text: "text-red-500",
-    bg: "bg-red-500",
-    bgLight: "bg-red-500/10",
+    text: "text-red-600 dark:text-red-400",
+    dot: "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]",
+    fill: "bg-gradient-to-r from-red-500 to-rose-400 shadow-[0_0_12px_rgba(239,68,68,0.45)]",
     emoji: "🔴"
   };
 };
@@ -76,57 +76,48 @@ export default function QuotaProgressBar({
   const countdown = formatResetTime(resetTime);
   const resetDisplay = formatResetTimeDisplay(resetTime);
 
-  // recurring defaults true. One-shot packs (e.g. CodeBuddy CN bonus packs)
-  // set recurring:false: resetTime is a hard expiry, so word it as "expires".
   const resetWord = recurring ? "Reset" : "Expires";
-
-  // percentage is already remaining percentage (from ProviderLimitCard)
   const remaining = percentage;
   
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {/* Label and percentage */}
-      <div className="flex items-center justify-between text-sm">
-        <span className="font-semibold text-text-primary">
-          {label}
-        </span>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs">{colors.emoji}</span>
-          <span className={cn("font-medium", colors.text)}>
-            {remaining}%
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className={cn("size-2 rounded-full shrink-0", colors.dot)} />
+          <span className="font-semibold text-text-primary truncate" title={label}>
+            {label}
           </span>
         </div>
+        <span className={cn("font-bold tabular-nums shrink-0", colors.text)}>
+          {unlimited ? "Unlimited" : `${remaining}%`}
+        </span>
       </div>
 
-      {/* Progress bar */}
+      {/* Liquid Glass Progress tube */}
       {!unlimited && (
-        <div className={cn("h-2 rounded-full overflow-hidden", colors.bgLight)}>
+        <div className="liquid-glass-tube h-2 rounded-full overflow-hidden">
           <div
-            className={cn("h-full transition-all duration-300", colors.bg)}
+            className={cn("liquid-glass-fill h-full transition-all duration-300", colors.fill)}
             style={{ width: `${Math.min(remaining, 100)}%` }}
           />
         </div>
       )}
 
       {/* Usage details and countdown */}
-      <div className="flex items-center justify-between text-xs text-text-muted">
-        <span>
-          {used.toLocaleString()} / {total.toLocaleString()} requests
+      <div className="flex items-center justify-between gap-2 text-[11px] text-text-muted">
+        <span className="tabular-nums truncate">
+          {used.toLocaleString()} / {total.toLocaleString()}
         </span>
         {countdown !== "-" && (
-          <div className="flex items-center gap-1">
-            <span>•</span>
-            <span className="font-medium">{resetWord} in {countdown}</span>
-          </div>
+          <span
+            className="font-medium tabular-nums shrink-0"
+            title={resetDisplay ? `${resetWord} at ${resetDisplay}` : undefined}
+          >
+            {resetWord} in {countdown}
+          </span>
         )}
       </div>
-
-      {/* Reset time display */}
-      {resetDisplay && (
-        <div className="text-xs text-text-muted/70">
-          {resetWord} at {resetDisplay}
-        </div>
-      )}
     </div>
   );
 }

@@ -30,6 +30,7 @@ import {
 } from "@/lib/oauth/constants/oauth";
 import { buildClineHeaders } from "@/shared/utils/clineAuth";
 import { hasWebIdentityProbe, fetchWebIdentity } from "open-sse/services/webIdentity.js";
+import { checkErrorAndVerification } from "@/lib/antigravity/accountService.js";
 
 // OAuth provider test endpoints
 const OAUTH_TEST_CONFIG = {
@@ -255,10 +256,22 @@ async function probeCloudCodeAssistAccess(connection, accessToken, effectiveProx
   if (res.ok) return { valid: true, error: null };
 
   const bodyText = await res.text().catch(() => "");
+  let errorData = null;
+  try {
+    errorData = JSON.parse(bodyText);
+  } catch {}
+
+  const verification = checkErrorAndVerification({
+    status: res.status,
+    message: bodyText,
+    data: errorData,
+  });
+
   return {
     valid: false,
     error: parseProviderErrorMessage(bodyText, `API returned ${res.status}`),
     status: res.status,
+    verification,
   };
 }
 
@@ -407,12 +420,12 @@ async function testOAuthConnection(connection, effectiveProxy = null) {
       if (tokens?.accessToken) {
         const retry = await probeCloudCodeAssistAccess(connection, tokens.accessToken, effectiveProxy);
         if (retry.valid) return { valid: true, error: null, refreshed: true, newTokens: tokens };
-        return { valid: false, error: retry.error, refreshed: true, newTokens: tokens };
+        return { valid: false, error: retry.error, status: retry.status, verification: retry.verification, refreshed: true, newTokens: tokens };
       }
       return { valid: false, error: "Token invalid or revoked", refreshed: false };
     }
 
-    return { valid: false, error: initial.error, refreshed };
+    return { valid: false, error: initial.error, status: initial.status, verification: initial.verification, refreshed };
   }
 
   if (connection.provider === "cline") {
@@ -904,7 +917,7 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
       case "qoder":
       case "qoder-cn": {
         // PAT (pt-...) exchange → job token. A successful exchange proves the PAT.
-        const exchangeUrl = provider === "qoder-cn"
+        const exchangeUrl = connection.provider === "qoder-cn"
           ? "https://openapi.qoder.com.cn/api/v1/jobToken/exchange"
           : "https://openapi.qoder.sh/api/v1/jobToken/exchange";
         const raw = connection.apiKey || "";
@@ -1011,6 +1024,31 @@ export async function testSingleConnection(id) {
   // out of credits. Keep testStatus active; surface the message as lastError so the
   // dashboard can show a warning without marking the connection broken.
   const softWarning = result.valid && (result.warning || result.error);
+
+  const isAntigravity = connection.provider === "antigravity";
+  const isVerif = Boolean(
+    result.verification?.isVerificationRequired ||
+    (typeof result.error === "string" && (result.error.includes("403") || /verify\s+your\s+account/i.test(result.error)))
+  );
+
+  const psdUpdates = {};
+  if (isAntigravity) {
+    if (result.valid) {
+      psdUpdates.validationBlocked = false;
+      psdUpdates.isValidationBlocked = false;
+      psdUpdates.validationReason = null;
+      psdUpdates.validationUrl = null;
+      psdUpdates.appealUrl = null;
+    } else if (isVerif) {
+      psdUpdates.validationBlocked = true;
+      psdUpdates.isValidationBlocked = true;
+      psdUpdates.validationReason = result.verification?.message || "Verify your account to continue.";
+      psdUpdates.validationUrl = result.verification?.validationUrl || null;
+      psdUpdates.appealUrl = result.verification?.appealUrl || null;
+      psdUpdates.lastVerificationDetectedAt = new Date().toISOString();
+    }
+  }
+
   const updateData = {
     testStatus: result.valid ? "active" : "error",
     lastError: result.valid ? (softWarning || null) : result.error,
@@ -1019,6 +1057,11 @@ export async function testSingleConnection(id) {
         ? new Date().toISOString()
         : null
       : new Date().toISOString(),
+    providerSpecificData: {
+      ...(connection.providerSpecificData || {}),
+      ...psdUpdates,
+      ...(result.newTokens?.providerSpecificData || {}),
+    },
   };
 
   if (result.refreshed && result.newTokens) {

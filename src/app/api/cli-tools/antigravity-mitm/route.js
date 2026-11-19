@@ -1,3 +1,4 @@
+import { execSync } from "child_process";
 import { NextResponse } from "next/server";
 import {
   getMitmStatus,
@@ -12,7 +13,8 @@ import {
   isSudoPasswordRequired,
   initDbHooks,
 } from "@/mitm/manager";
-import { getSettings, updateSettings } from "@/lib/localDb";
+import { getSettings, updateSettings, getApiKeys, createApiKey } from "@/lib/localDb";
+import { getConsistentMachineId } from "@/shared/utils/machineId";
 
 initDbHooks(getSettings, updateSettings);
 
@@ -45,16 +47,20 @@ function requiresSudoPassword(pwd) {
   return !isWin && !pwd && isSudoPasswordRequired();
 }
 
+let _cachedIsAdmin = null;
 function checkIsAdmin() {
+  if (_cachedIsAdmin !== null) return _cachedIsAdmin;
   if (isWin) {
     try {
-      require("child_process").execSync("net session >nul 2>&1", { windowsHide: true });
-      return true;
+      execSync("net session >nul 2>&1", { windowsHide: true });
+      _cachedIsAdmin = true;
     } catch {
-      return false;
+      _cachedIsAdmin = false;
     }
+    return _cachedIsAdmin;
   }
-  return typeof process.getuid === "function" && process.getuid() === 0;
+  _cachedIsAdmin = typeof process.getuid === "function" && process.getuid() === 0;
+  return _cachedIsAdmin;
 }
 
 function checkPrivilege(pwd) {
@@ -90,15 +96,47 @@ export async function GET() {
   }
 }
 
+async function resolveMitmApiKey(providedKey) {
+  const trimmed = typeof providedKey === "string" ? providedKey.trim() : "";
+  if (trimmed && trimmed !== "sk_9router") {
+    return trimmed;
+  }
+
+  try {
+    const keys = await getApiKeys();
+    const active = keys.find((k) => k.isActive !== false);
+    if (active?.key) return active.key;
+
+    const settings = await getSettings();
+    if (settings.requireApiKey !== false) {
+      const machineId = await getConsistentMachineId();
+      const created = await createApiKey("Default Key", machineId);
+      if (created?.key) return created.key;
+    }
+  } catch {
+    /* fallback below */
+  }
+
+  return trimmed || "sk_9router";
+}
+
 // POST - Start MITM server (cert + server, no DNS)
 export async function POST(request) {
   try {
     const { apiKey, sudoPassword, mitmRouterBaseUrl, forceKillPort443 } = await request.json();
     const pwd = getPassword(sudoPassword) || await loadEncryptedPassword() || "";
 
-    if (!apiKey || requiresSudoPassword(pwd)) {
+    if (requiresSudoPassword(pwd)) {
       return NextResponse.json(
-        { error: !apiKey ? "Missing apiKey" : "Missing sudoPassword" },
+        { error: "Missing sudoPassword" },
+        { status: 400 }
+      );
+    }
+
+    const resolvedApiKey = await resolveMitmApiKey(apiKey);
+    if (!resolvedApiKey) {
+      return NextResponse.json(
+        { error: "Missing apiKey" },
         { status: 400 }
       );
     }
@@ -122,7 +160,7 @@ export async function POST(request) {
       }
     }
 
-    const result = await startServer(apiKey, pwd, !!forceKillPort443);
+    const result = await startServer(resolvedApiKey, pwd, !!forceKillPort443);
     if (!isWin) setCachedPassword(pwd);
 
     return NextResponse.json({ success: true, running: result.running, pid: result.pid });

@@ -165,6 +165,7 @@ function sendRequest(endpoint, request, timeoutMs) {
     const socket = net.connect(endpoint.endpoint);
     const decoder = new FrameDecoder();
     let settled = false;
+    let timer = null;
 
     const settle = (error, value) => {
       if (settled) return;
@@ -175,7 +176,7 @@ function sendRequest(endpoint, request, timeoutMs) {
       else resolve(value);
     };
 
-    const timer = setTimeout(() => {
+    timer = setTimeout(() => {
       settle(
         new AuthLeaseError("BROKER_UNAVAILABLE", `Broker did not respond within ${timeoutMs}ms.`),
       );

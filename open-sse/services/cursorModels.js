@@ -100,6 +100,7 @@ function http2PostProto(url, headers, body, signal, timeoutMs) {
     const chunks = [];
     let responseHeaders = {};
     let settled = false;
+    let timeoutId = null;
 
     const finish = (fn) => (...args) => {
       if (settled) return;
@@ -109,7 +110,7 @@ function http2PostProto(url, headers, body, signal, timeoutMs) {
       fn(...args);
     };
 
-    const timeoutId = setTimeout(finish(() => {
+    timeoutId = setTimeout(finish(() => {
       reject(new Error("Cursor GetUsableModels timed out"));
     }), timeoutMs);
 

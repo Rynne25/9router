@@ -427,6 +427,7 @@ export class GeminiWebExecutor extends BaseExecutor {
     // rather than a doomed emulation.
     const requestedTools = requestBody.tools;
     const requestedFunctions = requestBody.functions;
+    const hasTools = Array.isArray(requestedTools) && requestedTools.length > 0;
     if (requestedTools != null && (!Array.isArray(requestedTools) || requestedTools.length > 0)) {
       return {
         response: errorResponse(400, "Gemini Web does not support OpenAI function tools"),

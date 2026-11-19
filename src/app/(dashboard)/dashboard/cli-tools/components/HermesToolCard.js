@@ -100,14 +100,6 @@ export default function HermesToolCard({
     }
   };
 
-  useEffect(() => {
-    if (isExpanded) {
-      if (!hermesStatus) checkStatus();
-      fetchModelAliases();
-      fetchProfiles();
-    }
-  }, [isExpanded]);
-
   const fetchModelAliases = async () => {
     try {
       const res = await fetch("/api/models/alias");
@@ -117,6 +109,36 @@ export default function HermesToolCard({
       console.log("Error fetching model aliases:", error);
     }
   };
+
+  const checkStatus = async (profile = activeProfile) => {
+    setChecking(true);
+    try {
+      const res = await fetch(`${ENDPOINT}?profile=${encodeURIComponent(profile)}`);
+      const data = await res.json();
+      if (res.ok) {
+        setHermesStatus(data);
+      } else {
+        setMessage({ type: "error", text: data.error || "Failed to load Hermes settings" });
+        if (res.status === 404) {
+          // Profile disappeared (e.g. deleted in another tab) — fall back to default.
+          fetchProfiles();
+          setActiveProfile("default");
+        }
+      }
+    } catch (error) {
+      setHermesStatus({ installed: false, error: error.message });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isExpanded) {
+      if (!hermesStatus) checkStatus();
+      fetchModelAliases();
+      fetchProfiles();
+    }
+  }, [isExpanded]);
 
   useEffect(() => {
     if (hermesStatus?.installed && !hasInitializedModel.current) {
@@ -153,28 +175,6 @@ export default function HermesToolCard({
       setTimeout(() => setCopiedCommand(""), 2000);
     } catch (error) {
       console.log("Copy failed", error);
-    }
-  };
-
-  const checkStatus = async (profile = activeProfile) => {
-    setChecking(true);
-    try {
-      const res = await fetch(`${ENDPOINT}?profile=${encodeURIComponent(profile)}`);
-      const data = await res.json();
-      if (res.ok) {
-        setHermesStatus(data);
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to load Hermes settings" });
-        if (res.status === 404) {
-          // Profile disappeared (e.g. deleted in another tab) — fall back to default.
-          fetchProfiles();
-          setActiveProfile("default");
-        }
-      }
-    } catch (error) {
-      setHermesStatus({ installed: false, error: error.message });
-    } finally {
-      setChecking(false);
     }
   };
 

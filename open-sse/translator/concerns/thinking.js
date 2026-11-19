@@ -12,6 +12,7 @@ export const LEVEL_TO_BUDGET = {
   low: 1024,
   medium: 8192,
   high: 24576,
+  extra: 32768,
   xhigh: 32768,
   max: 128000,
 };

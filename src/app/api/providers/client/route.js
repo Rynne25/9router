@@ -9,7 +9,8 @@ const SAFE_FIELDS = [
   "priority", "globalPriority", "isActive", "defaultModel",
   "testStatus", "lastError", "lastErrorAt", "errorCode",
   "expiresAt", "lastUsedAt", "consecutiveUseCount",
-  "createdAt", "updatedAt",
+  "createdAt", "updatedAt", "subscriptionTier",
+  "validationBlocked", "isValidationBlocked", "validationReason", "validationUrl", "appealUrl",
 ];
 
 const SAFE_PSD_FIELDS = [
@@ -18,10 +19,11 @@ const SAFE_PSD_FIELDS = [
   "connectionProxyEnabled", "connectionProxyUrl", "connectionNoProxy",
   "githubLogin", "githubName", "githubEmail", "githubUserId",
   "username", "firstName", "lastName", "authMethod", "authKind",
-  "profileArn",
+  "profileArn", "subscriptionTier", "tier", "quotas",
+  "validationBlocked", "isValidationBlocked", "validationReason", "validationUrl", "appealUrl", "lastVerificationDetectedAt",
 ];
 
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 500;
 
 function maskName(name) {

@@ -8,6 +8,7 @@ import { getExecutor } from "open-sse/executors/index.js";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { USAGE_APIKEY_PROVIDERS } from "@/shared/constants/providers";
 import { isLeaseConnection } from "open-sse/services/minimaxCodeLease.js";
+import { syncAntigravityUsageCache } from "@/sse/services/antigravityQuota.js";
 
 // Detect auth-expired messages returned by usage providers instead of throwing
 const AUTH_EXPIRED_PATTERNS = ["expired", "authentication", "unauthorized", "401", "re-authorize"];
@@ -197,10 +198,31 @@ export async function GET(request, { params }) {
       }
     }
 
+    if (connection.provider === "antigravity" && usage && !usage.message) {
+      syncAntigravityUsageCache(connection.id, usage);
+    }
+
     return Response.json(usage);
   } catch (error) {
     const provider = connection?.provider ?? "unknown";
     console.warn(`[Usage] ${provider}: ${error.message}`);
+    if (provider === "antigravity" && connection?.id) {
+      const msg = String(error.message || "");
+      if (msg.includes("403") || /verify\s+your\s+account/i.test(msg) || /validation\s+required/i.test(msg)) {
+        updateProviderConnection(connection.id, {
+          testStatus: "error",
+          lastError: msg,
+          lastErrorAt: new Date().toISOString(),
+          providerSpecificData: {
+            ...(connection.providerSpecificData || {}),
+            validationBlocked: true,
+            isValidationBlocked: true,
+            validationReason: msg,
+            lastVerificationDetectedAt: new Date().toISOString(),
+          },
+        }).catch(() => {});
+      }
+    }
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

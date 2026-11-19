@@ -169,37 +169,41 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
     if (!isFreeTier && data.models) {
       // Filter only recommended/important models (must match PROVIDER_MODELS ag ids)
       const importantModels = [
-        'gemini-4-carbon-high',
-        'gemini-4-carbon-medium',
-        'gemini-4-carbon-low',
+        'gemini-4-neon-extra',
+        'gemini-4-neon-high',
+        'gemini-4-neon-medium',
+        'gemini-4-neon-low',
+        'gemini-4-neon',
+        'gemini-pro-orchestrator-neon',
+        'gemini-pro-orchestrator-argon',
         'gemini-4-argon-high',
         'gemini-4-argon-medium',
         'gemini-4-argon-low',
+        'gemini-4-argon',
+        'gemini-4-hydrogen-high',
+        'gemini-4-hydrogen-xhigh',
+        'gemini-4-hydrogen-medium',
+        'gemini-4-hydrogen-low',
+        'gemini-4-hydrogen',
         'gemini-3.8-flash-high',
         'gemini-3.8-flash-medium',
+        'gemini-3.8-flash-tiered',
         'gemini-3.8-flash-low',
-        'gemini-3.7-flash-high',
-        'gemini-3.7-flash-medium',
-        'gemini-3.7-flash-low',
-        'gemini-3.6-flash-high',
-        'gemini-3.6-flash-medium',
-        'gemini-3.6-flash-low',
-        'gemini-3.1-pro-high',
-        'gemini-pro-agent',
-        'gemini-3.1-pro-low',
-        'claude-sonnet-5-5-high',
-        'claude-sonnet-5-5-medium',
-        'claude-sonnet-5-5-low',
-        'claude-sonnet-5-5',
+        'gemini-3.8-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-3.1-flash-image',
+        'gemini-pro-orchestrator-g1-pro',
         'claude-opus-5-5-high',
         'claude-opus-5-5-medium',
         'claude-opus-5-5-low',
         'claude-opus-5-5',
-        'claude-sonnet-4-6',
+        'claude-sonnet-5-5-high',
+        'claude-sonnet-5-5-medium',
+        'claude-sonnet-5-5-low',
+        'claude-sonnet-5-5',
         'claude-opus-4-6-thinking',
-        'gpt-oss-120b-medium',
-        // Image generation models
-        'gemini-3.1-flash-image',
+        'claude-opus-4-6',
+        'claude-sonnet-4-6',
       ];
 
       for (const [modelKey, info] of Object.entries(data.models)) {
@@ -208,8 +212,12 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
           continue;
         }
 
-        // Skip internal models and non-important models
-        if (info.isInternal || !importantModels.includes(modelKey)) {
+        // Skip internal models (except explicit orchestrators) and non-important models
+        const isOrchestrator =
+          modelKey === "gemini-pro-orchestrator-g1-pro" ||
+          modelKey === "gemini-pro-orchestrator-neon" ||
+          modelKey === "gemini-pro-orchestrator-argon";
+        if ((info.isInternal && !isOrchestrator) || !importantModels.includes(modelKey)) {
           continue;
         }
 
@@ -245,8 +253,8 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
       // If every model in a family is locked/exhausted (remainingPercentage === 0)
       // until a future reset time, update the 5h session row (not the weekly row).
       const entries = Object.entries(quotas);
-      const argonModels = entries.filter(([k]) => k.startsWith("gemini-") && k.includes("argon"));
-      const geminiModels = entries.filter(([k]) => k.startsWith("gemini-") && !k.includes("image") && !k.includes("argon"));
+      const argonModels = entries.filter(([k]) => k.startsWith("gemini-") && (k.includes("argon") || k.includes("neon")));
+      const geminiModels = entries.filter(([k]) => k.startsWith("gemini-") && !k.includes("image") && !k.includes("argon") && !k.includes("neon") && !k.includes("orchestrator"));
       const claudeModels = entries.filter(([k]) => k.startsWith("claude-"));
 
       if (weeklyQuotas.gemini_argon_session && argonModels.length > 0) {
@@ -296,10 +304,33 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
       // Silently ignore — weekly is best-effort
     }
 
+    // Synthesize gemini-pro-orchestrator-g1-pro quota bar on G1 Pro / Ultra accounts
+    // when fetchAvailableModels does not list it as a standalone key.
+    if (!quotas["gemini-pro-orchestrator-g1-pro"]) {
+      const g1ProSource =
+        quotas["gemini-4-neon-extra"] ||
+        quotas["gemini-4-neon-high"] ||
+        quotas["gemini-4-argon-high"] ||
+        quotas.gemini_argon_session ||
+        quotas.gemini_argon_weekly ||
+        quotas["gemini-4-hydrogen-high"];
+      if (g1ProSource) {
+        quotas["gemini-pro-orchestrator-g1-pro"] = {
+          used: g1ProSource.used ?? 0,
+          total: g1ProSource.total ?? 1000,
+          resetAt: g1ProSource.resetAt || null,
+          remainingPercentage: g1ProSource.remainingPercentage ?? 100,
+          unlimited: Boolean(g1ProSource.unlimited),
+          displayName: "Gemini Pro Orchestrator G1 Pro",
+        };
+      }
+    }
+
     return {
       plan: subscriptionInfo?.currentTier?.name || "Unknown",
       quotas,
       subscriptionInfo,
+      availableModels: data.models && typeof data.models === "object" ? Object.keys(data.models) : null,
     };
   } catch (error) {
     console.error("[Antigravity Usage] Error:", error.message, error.cause);

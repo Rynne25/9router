@@ -18,6 +18,7 @@
 /.next-cli-build/
 /out/
 cli/.build-home/
+cli/app/
 product
 # production
 /build
@@ -51,6 +52,7 @@ source/*
 .cursor/*
 docs/*
 !docs/ARCHITECTURE.md
+!docs/refactor-blueprint.md
 test/*
 open-sse/test/*
 RM.vn.md
@@ -102,3 +104,4 @@ graphify-out/*
 start-dev-silent.cjs
 debug.log
 .scratch/
+*.tgz

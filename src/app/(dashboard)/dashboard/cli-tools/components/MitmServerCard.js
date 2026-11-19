@@ -2,15 +2,19 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, Button, Badge, Input } from "@/shared/components";
+import { getCachedData, fetchWithCache, fetchJson, invalidateCache } from "@/shared/utils/swrCache";
 
 const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
+const MITM_STATUS_CACHE_KEY = "/api/cli-tools/antigravity-mitm";
+const MITM_STATUS_TTL_MS = 5000;
 
 /**
  * Shared MITM infrastructure card — manages SSL cert + server start/stop.
  * DNS per-tool is handled separately in MitmToolCard.
  */
 export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }) {
-  const [status, setStatus] = useState(null);
+  const cachedStatus = getCachedData(MITM_STATUS_CACHE_KEY);
+  const [status, setStatus] = useState(() => cachedStatus || null);
   const [loading, setLoading] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [sudoPassword, setSudoPassword] = useState("");
@@ -18,8 +22,11 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
   const [pendingAction, setPendingAction] = useState(null);
   const [modalError, setModalError] = useState(null);
   const [actionError, setActionError] = useState(null);
-  const [mitmRouterBaseUrl, setMitmRouterBaseUrl] = useState(DEFAULT_MITM_ROUTER_BASE);
+  const [mitmRouterBaseUrl, setMitmRouterBaseUrl] = useState(
+    () => cachedStatus?.mitmRouterBaseUrl || DEFAULT_MITM_ROUTER_BASE
+  );
   const [port443Conflict, setPort443Conflict] = useState(null);
+  const effectiveApiKey = selectedApiKey || apiKeys?.[0]?.key || "";
 
   const serverIsWindows = status?.isWin === true;
   const canRunWithoutPassword = serverIsWindows || status?.hasCachedPassword || status?.needsSudoPassword === false;
@@ -27,11 +34,14 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
   // No privilege: not admin/root AND (Win OR no cached sudo password)
   const noPrivilege = !isAdmin && (serverIsWindows || (!status?.hasCachedPassword && status?.needsSudoPassword !== false));
 
-  const fetchStatus = useCallback(async () => {
+  const fetchStatus = useCallback(async ({ force = false } = {}) => {
     try {
-      const res = await fetch("/api/cli-tools/antigravity-mitm");
-      if (res.ok) {
-        const data = await res.json();
+      const data = await fetchWithCache(
+        MITM_STATUS_CACHE_KEY,
+        () => fetchJson(MITM_STATUS_CACHE_KEY),
+        { ttlMs: MITM_STATUS_TTL_MS, force }
+      );
+      if (data) {
         setStatus(data);
         if (data.mitmRouterBaseUrl) {
           setMitmRouterBaseUrl(data.mitmRouterBaseUrl);
@@ -48,19 +58,6 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
       fetchStatus();
     });
   }, [fetchStatus]);
-
-  const handleAction = (action) => {
-    setActionError(null);
-    // Wait for status to load before deciding whether to show sudo modal
-    if (!status) return;
-    if (canRunWithoutPassword) {
-      doAction(action, "");
-    } else {
-      setPendingAction(action);
-      setShowPasswordModal(true);
-      setModalError(null);
-    }
-  };
 
   const doAction = async (action, password, forceKillPort443 = false) => {
     setLoading(true);
@@ -107,12 +104,26 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
       setShowPasswordModal(false);
       setSudoPassword("");
       setPort443Conflict(null);
-      await fetchStatus();
+      invalidateCache(MITM_STATUS_CACHE_KEY);
+      await fetchStatus({ force: true });
     } catch (e) {
       setActionError(e.message || "Network error");
     } finally {
       setLoading(false);
       setPendingAction(null);
+    }
+  };
+
+  const handleAction = (action) => {
+    setActionError(null);
+    // Wait for status to load before deciding whether to show sudo modal
+    if (!status) return;
+    if (canRunWithoutPassword) {
+      doAction(action, "");
+    } else {
+      setPendingAction(action);
+      setShowPasswordModal(true);
+      setModalError(null);
     }
   };
 
@@ -129,136 +140,171 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
     doAction(pendingAction, sudoPassword);
   };
 
-  const isRunning = status?.running;
+  const isRunning = Boolean(status?.running);
+  const certExists = Boolean(status?.certExists);
+  const certTrusted = Boolean(status?.certTrusted);
+  const activeDnsToolsCount = Object.values(status?.dnsStatus || {}).filter(Boolean).length;
 
   return (
     <>
-      <Card padding="sm" className="border-primary/20 bg-primary/5">
-        <div className="flex flex-col gap-3">
-          {/* Header */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[20px]">security</span>
-              <span className="font-semibold text-sm text-text-main">MITM Server</span>
+      <Card padding="sm" className="relative overflow-hidden">
+        <div className="flex flex-col gap-2.5">
+          {/* Top Header Row — Compact Single Line */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/[0.06] dark:border-white/[0.08] pb-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <div className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
+                isRunning
+                  ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-500"
+                  : "bg-primary/15 border-primary/30 text-primary"
+              }`}>
+                <span className="material-symbols-outlined text-[16px]">security</span>
+              </div>
+              <h2 className="text-xs sm:text-sm font-bold text-text-main tracking-tight">
+                Proxy MITM Server
+              </h2>
               {isRunning ? (
-                <Badge variant="success" size="sm">Running</Badge>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Đang chạy (:443)</span>
+                </span>
               ) : (
-                <Badge variant="default" size="sm">Stopped</Badge>
+                <Badge variant="default" size="xs">Đã dừng</Badge>
+              )}
+
+              {/* Compact inline pipeline pills */}
+              <div className="hidden xl:flex items-center gap-1.5 ml-2 text-[10.5px]" data-i18n-skip="true">
+                <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium ${
+                  certTrusted
+                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : "border-black/10 dark:border-white/10 text-text-muted"
+                }`}>
+                  <span className="material-symbols-outlined text-[12px]">
+                    {certTrusted ? "verified_user" : "workspace_premium"}
+                  </span>
+                  <span>1. Root CA {certTrusted ? "OK" : "Chưa Trust"}</span>
+                </span>
+                <span className="text-text-muted/50">➔</span>
+                <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium ${
+                  isRunning
+                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : "border-black/10 dark:border-white/10 text-text-muted"
+                }`}>
+                  <span className="material-symbols-outlined text-[12px]">dns</span>
+                  <span>2. HTTPS :443 {isRunning ? "Bật" : "Tắt"}</span>
+                </span>
+                <span className="text-text-muted/50">➔</span>
+                <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium ${
+                  activeDnsToolsCount > 0
+                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : "border-black/10 dark:border-white/10 text-text-muted"
+                }`}>
+                  <span className="material-symbols-outlined text-[12px]">alt_route</span>
+                  <span>3. DNS ({activeDnsToolsCount} công cụ)</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Primary Server Actions */}
+            <div className="flex items-center gap-1.5 shrink-0" data-i18n-skip="true">
+              <button
+                type="button"
+                onClick={() => fetchStatus({ force: true })}
+                disabled={loading}
+                title="Làm mới trạng thái MITM"
+                className="flex size-7 items-center justify-center rounded-lg border border-black/10 bg-white/50 text-text-muted transition-all hover:bg-white/80 hover:text-text-main dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/10 disabled:opacity-50"
+              >
+                <span className={`material-symbols-outlined text-[15px] ${loading ? "animate-spin" : ""}`}>
+                  refresh
+                </span>
+              </button>
+
+              {certExists && !certTrusted && (
+                <button
+                  type="button"
+                  onClick={() => handleAction("trust-cert")}
+                  disabled={loading}
+                  className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 text-[11px] font-bold text-amber-600 dark:text-amber-400 transition-all hover:bg-amber-500/25 disabled:opacity-50 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[14px]">verified_user</span>
+                  <span>Trust CA</span>
+                </button>
+              )}
+
+              {isRunning ? (
+                <button
+                  type="button"
+                  onClick={() => handleAction("stop")}
+                  disabled={loading}
+                  className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-red-500/40 bg-red-500/15 px-3 text-[11px] font-bold text-red-600 dark:text-red-400 transition-all hover:bg-red-500/25 disabled:opacity-50 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[14px]">stop_circle</span>
+                  <span>Dừng Server</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleAction("start")}
+                  disabled={loading || !status || (serverIsWindows && !isAdmin)}
+                  title={serverIsWindows && !isAdmin ? "Cần quyền Administrator" : undefined}
+                  className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-primary/40 bg-primary text-white px-3 text-[11px] font-bold shadow-2xs transition-all hover:bg-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[14px]">play_circle</span>
+                  <span>Khởi động Server</span>
+                </button>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-1 text-xs text-text-muted" data-i18n-skip="true">
-              {[
-                { label: "Cert", ok: status?.certExists },
-                { label: "Trusted", ok: status?.certTrusted },
-                { label: "Server", ok: isRunning },
-              ].map(({ label, ok }) => (
-                <span key={label} className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded ${ok ? "text-green-600" : "text-text-muted"}`}>
-                  <span className="material-symbols-outlined text-[12px]">
-                    {ok ? "check_circle" : "cancel"}
-                  </span>
-                  {label}
-                </span>
-              ))}
-            </div>
           </div>
 
-          {/* Purpose & How it works */}
-          <div className="px-2 py-2 rounded-lg bg-surface/50 border border-border/50 flex flex-col gap-2">
-            <p className="text-[11px] text-text-muted leading-relaxed">
-              <span className="font-medium text-text-main">Purpose:</span> Use Antigravity IDE & GitHub Copilot → with ANY provider/model from 9Router
-            </p>
-            <p className="text-[11px] text-text-muted leading-relaxed">
-              <span className="font-medium text-text-main">How it works:</span> Antigravity/Copilot IDE request → DNS redirect to localhost:443 → MITM proxy intercepts → 9Router → response to Antigravity/Copilot
-            </p>
-          </div>
-
-          {/* Base URL + API Key — same row pattern as Claude Code / cli-tools */}
-          <div className="flex flex-col gap-2">
-            <div className="grid gap-1 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">
-              <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">9Router Base URL</span>
-              <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
+          {/* Symmetrical 2-Column Compact Inline Configuration Inputs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="flex items-center gap-2 rounded-lg border border-black/[0.06] dark:border-white/[0.08] bg-white/35 dark:bg-white/[0.02] px-2.5 py-1.5">
+              <span className="material-symbols-outlined text-[14px] text-primary shrink-0">lan</span>
+              <span className="text-[11px] font-semibold text-text-muted shrink-0">Base URL:</span>
               <input
                 type="text"
                 value={mitmRouterBaseUrl}
                 onChange={(e) => setMitmRouterBaseUrl(e.target.value)}
                 placeholder={DEFAULT_MITM_ROUTER_BASE}
                 disabled={isRunning}
-                className="flex-1 min-w-0 px-2 py-1.5 bg-surface rounded border border-border text-xs text-text-main focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-50"
+                className="flex-1 min-w-0 h-6 px-2 bg-white/70 dark:bg-black/25 rounded border border-black/10 dark:border-white/10 text-[11px] font-mono text-text-main focus:outline-none focus:border-primary disabled:opacity-60"
               />
             </div>
-            {!isRunning && (
-              <div className="grid gap-1 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">
-                <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">API Key</span>
-                <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
-                <input
-                  type="text"
-                  list="mitm-api-keys"
-                  value={selectedApiKey}
-                  onChange={(e) => setSelectedApiKey(e.target.value)}
-                  placeholder={cloudEnabled ? "Enter or pick API key" : "sk_9router (default)"}
-                  className="flex-1 min-w-0 px-2 py-1.5 bg-surface rounded border border-border text-xs text-text-main focus:outline-none focus:ring-1 focus:ring-primary/50"
-                />
-                {apiKeys?.length > 0 && (
-                  <datalist id="mitm-api-keys">
-                    {apiKeys.map((key) => (
-                      <option key={key.id} value={key.key}>{key.name || key.key}</option>
-                    ))}
-                  </datalist>
-                )}
-              </div>
-            )}
-          </div>
 
-          {/* Action buttons */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-i18n-skip="true">
-            {status?.certExists && !status?.certTrusted && (
-              <button
-                onClick={() => handleAction("trust-cert")}
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-xs font-medium text-yellow-600 transition-colors hover:bg-yellow-500/20 disabled:opacity-50 sm:w-auto sm:py-1.5"
-              >
-                <span className="material-symbols-outlined text-[16px]">verified_user</span>
-                Trust Cert
-              </button>
-            )}
-            {isRunning ? (
-              <button
-                onClick={() => handleAction("stop")}
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/20 disabled:opacity-50 sm:w-auto sm:py-1.5"
-              >
-                <span className="material-symbols-outlined text-[16px]">stop_circle</span>
-                Stop Server
-              </button>
-            ) : (
-              <button
-                onClick={() => handleAction("start")}
-                disabled={loading || !status || (serverIsWindows && !isAdmin)}
-                title={serverIsWindows && !isAdmin ? "Administrator required" : undefined}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50 sm:w-auto sm:py-1.5"
-              >
-                <span className="material-symbols-outlined text-[16px]">play_circle</span>
-                Start Server
-              </button>
-            )}
-            {isRunning && (
-              <p className="text-xs text-text-muted">Enable DNS per tool below to activate interception</p>
-            )}
+            <div className="flex items-center gap-2 rounded-lg border border-black/[0.06] dark:border-white/[0.08] bg-white/35 dark:bg-white/[0.02] px-2.5 py-1.5">
+              <span className="material-symbols-outlined text-[14px] text-primary shrink-0">vpn_key</span>
+              <span className="text-[11px] font-semibold text-text-muted shrink-0">API Key:</span>
+              <input
+                type="text"
+                list="mitm-api-keys"
+                value={effectiveApiKey}
+                onChange={(e) => setSelectedApiKey(e.target.value)}
+                disabled={isRunning}
+                placeholder={cloudEnabled ? "Nhập hoặc chọn API key" : "sk_9router (mặc định)"}
+                className="flex-1 min-w-0 h-6 px-2 bg-white/70 dark:bg-black/25 rounded border border-black/10 dark:border-white/10 text-[11px] font-mono text-text-main focus:outline-none focus:border-primary disabled:opacity-60"
+              />
+              {apiKeys?.length > 0 && (
+                <datalist id="mitm-api-keys">
+                  {apiKeys.map((key) => (
+                    <option key={key.id} value={key.key}>{key.name || key.key}</option>
+                  ))}
+                </datalist>
+              )}
+            </div>
           </div>
 
           {/* Action error */}
           {actionError && (
-            <div className="flex items-start gap-2 px-2 py-1.5 rounded text-xs bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
-              <span className="material-symbols-outlined text-[14px] mt-0.5 shrink-0">error</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+              <span className="material-symbols-outlined text-[14px] shrink-0">error</span>
               <span>{actionError}</span>
             </div>
           )}
 
           {/* Windows admin warning */}
           {serverIsWindows && !isAdmin && (
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs bg-red-500/10 text-red-600 border border-red-500/20">
-              <span className="material-symbols-outlined text-[14px]">shield_lock</span>
-              <span>Administrator required — restart 9Router as Administrator to use MITM</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+              <span className="material-symbols-outlined text-[14px] shrink-0">shield_lock</span>
+              <span>Cần chạy 9Router bằng quyền Quản trị viên (Run as Administrator) khi muốn bật cổng 443. Bạn vẫn có thể cấu hình và lưu ánh xạ Model bình thường.</span>
             </div>
           )}
         </div>

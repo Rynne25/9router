@@ -21,10 +21,14 @@ export default function ChangelogModal({ isOpen, onClose }) {
         return res.text();
       }),
       import("marked"),
+      import("dompurify"),
     ])
-      .then(([md, { marked }]) => {
+      .then(([md, { marked }, dompurifyModule]) => {
         marked.setOptions({ gfm: true, breaks: true });
-        setHtml(marked.parse(md));
+        const rawHtml = marked.parse(md);
+        const DOMPurify = dompurifyModule.default || dompurifyModule;
+        const cleanHtml = typeof DOMPurify.sanitize === "function" ? DOMPurify.sanitize(rawHtml) : rawHtml;
+        setHtml(cleanHtml);
       })
       .catch((err) => setError(err.message || "Failed to load"))
       .finally(() => setLoading(false));

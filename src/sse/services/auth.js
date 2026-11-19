@@ -1,15 +1,44 @@
-import { getProviderConnections, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
+import { getProviderConnections, getProviderConnectionById, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
-import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
+import {
+  formatRetryAfter,
+  checkFallbackError,
+  isModelUnsupportedError,
+  isModelLockActive,
+  buildModelLockUpdate,
+  getEarliestModelLockUntil,
+} from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers.js";
-import { getAntigravityQuotaCache, getAntigravityModelQuota } from "./antigravityQuota.js";
+import {
+  getAntigravityQuotaCache,
+  getAntigravityModelQuota,
+  isAntigravityModelSupported,
+  isAntigravityQuotaExhausted,
+} from "./antigravityQuota.js";
+import {
+  isSyntheticLockKey,
+  normalizeEligibilityModelId,
+  isConnectionEligibleForModel,
+  markModelUnsupportedForConnection,
+  clearModelUnsupportedForConnection,
+} from "./modelEligibility.js";
 import * as log from "../utils/logger.js";
 
 // Mutex to prevent race conditions during account selection
 let selectionMutex = Promise.resolve();
 
 const GITHUB_MONTHLY_USAGE_LIMIT = "you've reached your additional usage limit for your plan";
+
+/**
+ * Check whether a connection supports the requested model based on its
+ * per-connection capability lists, fetched availableModels, modelLimits,
+ * and runtime unsupported-model cache.
+ * Does not mutate or disable the connection itself.
+ */
+export function isConnectionModelSupported(connection, model) {
+  return isConnectionEligibleForModel(connection, model).eligible;
+}
 
 function githubMonthlyResetMs(status, errorText, provider) {
   if (resolveProviderId(provider) !== "github" || Number(status) !== 402) return null;
@@ -79,23 +108,41 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       return null;
     }
 
-    // Antigravity quota cache is lazy: only populated after that account returns 409/429.
+    // Antigravity quota cache is lazy: only populated after that account returns 409/429
+    // or when quota is refreshed.
     const isAntigravity = providerId === "antigravity";
     const antigravityQuotaCache = isAntigravity && model ? getAntigravityQuotaCache() : null;
+    const targetModel = requestedModel || model;
+    const checkEligibility = Boolean(targetModel && !isSyntheticLockKey(targetModel));
+    let ineligibleCount = 0;
 
-    // Filter out model-locked, excluded, and Antigravity quota-exhausted connections.
+    // Filter out model-locked, excluded, unsupported, and quota-exhausted connections
+    // WITHOUT disabling the account toggle (other models on the same account still work).
     const availableConnections = connections.filter(c => {
       if (excludeSet.has(c.id)) return false;
       if (isModelLockActive(c, model)) return false;
-      const enabled = c.providerSpecificData?.enabledModels;
-      if (providerId === "codex" && Array.isArray(enabled) && enabled.length && requestedModel && !enabled.includes(requestedModel)) return false;
-      // Antigravity: skip if live quota exhausted for this model
-      if (isAntigravity && model && antigravityQuotaCache) {
-        const connQuotas = antigravityQuotaCache.get(c.id);
-        const quota = getAntigravityModelQuota(connQuotas, model) || connQuotas?.[model];
-        if (quota && quota.remainingPercentage <= 0 && quota.resetAt && new Date(quota.resetAt).getTime() > Date.now()) {
+      if (checkEligibility) {
+        const eligibility = isConnectionEligibleForModel(c, targetModel, {
+          providerId,
+          isAntigravityModelSupported,
+        });
+        if (!eligibility.eligible) {
+          ineligibleCount++;
           const account = c.id?.slice(0, 8) || "unknown";
-          log.info("AG_QUOTA", `${account} | CACHE_BLOCK ${model} — skip upstream until ${quota.resetAt}`);
+          if (isAntigravity) {
+            log.info("AG_QUOTA", `${account} | UNSUPPORTED ${targetModel} (${eligibility.reason}) — skip account for this model`);
+          } else {
+            log.debug("AUTH", `${account} | skip ${targetModel} (${eligibility.reason}) — model not eligible for this account`);
+          }
+          return false;
+        }
+      }
+      // Antigravity: skip if live or persisted quota is exhausted (0%)
+      if (isAntigravity && model && !isSyntheticLockKey(model)) {
+        const { exhausted, resetAt } = isAntigravityQuotaExhausted(c.id, model, c);
+        if (exhausted) {
+          const account = c.id?.slice(0, 8) || "unknown";
+          log.info("AG_QUOTA", `${account} | CACHE_BLOCK ${model} — skip upstream${resetAt ? ` until ${resetAt}` : " (0% quota)"}`);
           return false;
         }
       }
@@ -136,7 +183,11 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
           lastErrorCode: earliestConn?.errorCode || null
         };
       }
-      log.warn("AUTH", `${provider} | all ${connections.length} accounts unavailable`);
+      if (ineligibleCount > 0 && ineligibleCount === connections.length) {
+        log.warn("AUTH", `${provider} | all ${connections.length} accounts ineligible/unsupported for ${targetModel || model}`);
+      } else {
+        log.warn("AUTH", `${provider} | all ${connections.length} accounts unavailable`);
+      }
       return null;
     }
 
@@ -254,7 +305,7 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
   const githubResetAtMs = githubMonthlyResetMs(status, errorText, provider);
 
   // Provider-specific precise cooldown (e.g. codex usage_limit_reached resets_at) overrides backoff
-  let shouldFallback, cooldownMs, newBackoffLevel;
+  let shouldFallback, cooldownMs, newBackoffLevel, modelUnsupported = false;
   if (githubResetAtMs) {
     shouldFallback = true;
     cooldownMs = githubResetAtMs - Date.now();
@@ -267,11 +318,45 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
       : Math.min(resetsAtMs - Date.now(), MAX_RATE_LIMIT_COOLDOWN_MS);
     newBackoffLevel = 0;
   } else {
-    ({ shouldFallback, cooldownMs, newBackoffLevel } = checkFallbackError(status, errorText, backoffLevel, resolveProviderId(provider)));
+    ({ shouldFallback, cooldownMs, newBackoffLevel, modelUnsupported } = checkFallbackError(status, errorText, backoffLevel, resolveProviderId(provider)));
   }
   if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
 
   const reason = typeof errorText === "string" ? errorText.slice(0, 200) : "Provider error";
+  const isUnsupported = Boolean(model && !isSyntheticLockKey(model) && (modelUnsupported || isModelUnsupportedError(status, errorText)));
+  if (isUnsupported) {
+    markModelUnsupportedForConnection(connectionId, model, {
+      status,
+      reason,
+      ttlMs: cooldownMs,
+    });
+    // Auto-persist into connection.providerSpecificData.disabledModels
+    const cleanModel = normalizeEligibilityModelId(model);
+    if (cleanModel && typeof getProviderConnectionById === "function") {
+      try {
+        const maybePromise = getProviderConnectionById(connectionId);
+        if (maybePromise && typeof maybePromise.then === "function") {
+          maybePromise.then((existingConn) => {
+            if (!existingConn) return;
+            const psd = existingConn.providerSpecificData || {};
+            const currentDisabled = Array.isArray(psd.disabledModels) ? psd.disabledModels : [];
+            if (!currentDisabled.includes(cleanModel)) {
+              const updatedDisabled = [...currentDisabled, cleanModel];
+              updateProviderConnection(connectionId, {
+                providerSpecificData: {
+                  ...psd,
+                  disabledModels: updatedDisabled,
+                },
+              }).catch(() => {});
+            }
+          }).catch(() => {});
+        }
+      } catch {
+        // non-blocking
+      }
+    }
+  }
+
   const lockUpdate = buildModelLockUpdate(githubResetAtMs ? null : model, cooldownMs);
 
   await updateProviderConnection(connectionId, {
@@ -285,13 +370,17 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
 
   const lockKey = Object.keys(lockUpdate)[0];
   const connName = conn?.displayName || conn?.name || conn?.email || connectionId.slice(0, 8);
-  log.warn("AUTH", `${connName} locked ${lockKey} for ${Math.round(cooldownMs / 1000)}s [${status}]`);
+  if (isUnsupported) {
+    log.warn("AUTH", `${connName} marked ${model} unsupported (${status}) for ${Math.round(cooldownMs / 1000)}s`);
+  } else {
+    log.warn("AUTH", `${connName} locked ${lockKey} for ${Math.round(cooldownMs / 1000)}s [${status}]`);
+  }
 
   if (provider && status && reason) {
     console.error(`❌ ${provider} [${status}]: ${reason}`);
   }
 
-  return { shouldFallback: true, cooldownMs };
+  return { shouldFallback: true, cooldownMs, modelUnsupported: isUnsupported };
 }
 
 /**
@@ -305,6 +394,9 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
  */
 export async function clearAccountError(connectionId, currentConnection, model = null) {
   if (!connectionId || connectionId === "noauth") return;
+  if (model && !isSyntheticLockKey(model)) {
+    clearModelUnsupportedForConnection(connectionId, model);
+  }
   const conn = currentConnection._connection || currentConnection;
   const now = Date.now();
   const allLockKeys = Object.keys(conn).filter(k => k.startsWith("modelLock_"));

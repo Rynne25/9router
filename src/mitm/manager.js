@@ -19,6 +19,9 @@ const { LSOF_BIN } = require("./config");
 
 const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
 
+let _getSettings = null;
+let _updateSettings = null;
+
 function shellQuoteSingle(str) {
   if (str == null || str === "") return "''";
   return `'${String(str).replace(/'/g, "'\\''")}'`;
@@ -182,9 +185,6 @@ function decryptPassword(stored) {
     return null;
   }
 }
-
-let _getSettings = null;
-let _updateSettings = null;
 
 function initDbHooks(getSettingsFn, updateSettingsFn) {
   _getSettings = getSettingsFn;

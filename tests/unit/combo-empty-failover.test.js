@@ -67,6 +67,22 @@ describe("inspectSSELine", () => {
     expect(inspectSSELine("event: ping").content).toBe(false);
     expect(inspectSSELine(": keep-alive").content).toBe(false);
   });
+  it("Gemini text candidate frame is content", () => {
+    const line = 'data: {"candidates":[{"content":{"parts":[{"text":"Hello from Gemini"}]}}]}';
+    expect(inspectSSELine(line)).toMatchObject({ content: true });
+  });
+  it("Antigravity response wrapper with tool call is content", () => {
+    const line = 'data: {"response":{"candidates":[{"content":{"parts":[{"functionCall":{"name":"search"}}]}}]}}';
+    expect(inspectSSELine(line)).toMatchObject({ content: true });
+  });
+  it("Gemini STOP finishReason maps to stop", () => {
+    const line = 'data: {"candidates":[{"content":{"parts":[]},"finishReason":"STOP"}]}';
+    expect(inspectSSELine(line)).toMatchObject({ content: false, finishReason: "stop" });
+  });
+  it("Gemini SAFETY finishReason maps to content_filter", () => {
+    const line = 'data: {"candidates":[{"finishReason":"SAFETY"}]}';
+    expect(inspectSSELine(line)).toMatchObject({ content: false, finishReason: "content_filter" });
+  });
 });
 
 describe("scanSSEBuffer latches", () => {

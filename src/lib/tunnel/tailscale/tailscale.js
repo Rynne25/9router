@@ -8,6 +8,7 @@ import { execWithPassword } from "@/mitm/dns/dnsConfig";
 import { DATA_DIR } from "@/lib/dataDir.js";
 
 const execAsync = promisify(exec);
+const EXTENDED_PATH = `/usr/local/bin:/opt/homebrew/bin:/usr/sbin:/usr/bin:/bin:/snap/bin:${process.env.PATH || ""}`;
 
 const BIN_DIR = path.join(DATA_DIR, "bin");
 const IS_MAC = os.platform() === "darwin";
@@ -24,8 +25,8 @@ const SOCKET_FLAG = IS_WINDOWS ? [] : ["--socket", TAILSCALE_SOCKET];
 const SYSTEM_TAILSCALE_SOCKET = IS_WINDOWS ? null : "/var/run/tailscale/tailscaled.sock";
 const SYSTEM_SOCKET_FLAG = SYSTEM_TAILSCALE_SOCKET ? ["--socket", SYSTEM_TAILSCALE_SOCKET] : [];
 
-// Well-known Windows install path
-const WINDOWS_TAILSCALE_BIN = "C:\\Program Files\\Tailscale\\tailscale.exe";
+// Well-known Windows install path (runtime dynamic env so compiler doesn't treat as static asset)
+const WINDOWS_TAILSCALE_BIN = [(process.env.ProgramFiles || "C:\\" + "Program Files"), "Tailscale", "tailscale.exe"].join(path.sep);
 
 // Common Unix install paths to probe synchronously (system tailscale)
 const UNIX_TAILSCALE_CANDIDATES = [
@@ -284,8 +285,6 @@ export async function installTailscale(sudoPassword, hostname, onProgress) {
   log("Logging in...");
   return startLogin(hostname);
 }
-
-const EXTENDED_PATH = `/usr/local/bin:/opt/homebrew/bin:/usr/sbin:/usr/bin:/bin:/snap/bin:${process.env.PATH || ""}`;
 
 function hasBrew() {
   try { execSync("which brew", { stdio: "ignore", windowsHide: true, env: { ...process.env, PATH: EXTENDED_PATH } }); return true; } catch { return false; }
@@ -663,6 +662,8 @@ export function startLogin(hostname) {
 
     let resolved = false;
     let output = "";
+    let statusPoll = null;
+    let timeout = null;
 
     const parseAuthUrl = (text) => {
       const match = text.match(/https:\/\/login\.tailscale\.com\/a\/[a-zA-Z0-9]+/);
@@ -680,13 +681,13 @@ export function startLogin(hostname) {
     };
 
     // Poll status --json every 500ms — Windows exposes AuthURL only there
-    const statusPoll = setInterval(() => {
+    statusPoll = setInterval(() => {
       if (resolved) return;
       const url = getAuthUrlFromStatus();
       if (url) finishWithUrl(url, "status");
     }, 500);
 
-    const timeout = setTimeout(() => {
+    timeout = setTimeout(() => {
       if (resolved) return;
       resolved = true;
       clearInterval(statusPoll);

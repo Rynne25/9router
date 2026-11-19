@@ -74,14 +74,6 @@ export default function TokenSaverClient() {
     ? CAVEMAN_LEVELS
     : CAVEMAN_LEVELS.filter((lvl) => !lvl.wenyan);
 
-  useEffect(() => {
-    const current = CAVEMAN_LEVELS.find((lvl) => lvl.id === cavemanLevel);
-    if (current?.wenyan && !isWenyanLocale) {
-      setCavemanLevel("ultra");
-      patchSetting({ cavemanLevel: "ultra" });
-    }
-  }, [isWenyanLocale, cavemanLevel]);
-
   const patchSetting = async (patch) => {
     try {
       await fetch("/api/settings", {
@@ -93,6 +85,14 @@ export default function TokenSaverClient() {
       console.log("Error updating setting:", error);
     }
   };
+
+  useEffect(() => {
+    const current = CAVEMAN_LEVELS.find((lvl) => lvl.id === cavemanLevel);
+    if (current?.wenyan && !isWenyanLocale) {
+      setCavemanLevel("ultra");
+      patchSetting({ cavemanLevel: "ultra" });
+    }
+  }, [isWenyanLocale, cavemanLevel]);
 
   const handleRtkEnabled = async (value) => {
     try {
@@ -117,13 +117,6 @@ export default function TokenSaverClient() {
     setHeadroomUrl(nextUrl);
     setHeadroomEnabled(value);
     patchSetting({ headroomEnabled: value, headroomUrl: nextUrl });
-  };
-
-  const handleHeadroomUrlBlur = async () => {
-    const next = headroomUrl.trim() || "http://localhost:8787";
-    setHeadroomUrl(next);
-    await patchSetting({ headroomUrl: next });
-    refreshHeadroomStatus();
   };
 
   const refreshHeadroomStatus = useCallback(async () => {
@@ -183,6 +176,13 @@ export default function TokenSaverClient() {
       setPendingExtras([]);
     }
   }, []);
+
+  const handleHeadroomUrlBlur = async () => {
+    const next = headroomUrl.trim() || "http://localhost:8787";
+    setHeadroomUrl(next);
+    await patchSetting({ headroomUrl: next });
+    refreshHeadroomStatus();
+  };
 
   const handleHeadroomStart = useCallback(async () => {
     setHeadroomActionError("");

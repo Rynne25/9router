@@ -1,12 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 
 const oldGuidance = "This is the only time you will see this key. Store it securely.";
 const guidance = "Store this key securely. You can view or copy it later from the API Keys list.";
-const source = readFileSync(
-  new URL("../../src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.js", import.meta.url),
-  "utf-8"
-);
+const cardUrl = new URL("../../src/app/(dashboard)/dashboard/endpoint/components/ApiKeysCard.js", import.meta.url);
+const clientUrl = new URL("../../src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.js", import.meta.url);
+const source = readFileSync(existsSync(cardUrl) ? cardUrl : clientUrl, "utf-8");
 
 describe("API key visibility guidance source verification", () => {
   it("explains that created keys remain available in the API Keys list", () => {

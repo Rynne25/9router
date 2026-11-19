@@ -25,6 +25,8 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
   const [awsData, setAwsData] = useState({ profile: "", region: "", accessKeyId: "", sessionToken: "" });
   const [clearAwsSessionToken, setClearAwsSessionToken] = useState(false);
   const [region, setRegion] = useState("");
+  const [disabledModels, setDisabledModels] = useState([]);
+  const [newDisabledModelInput, setNewDisabledModelInput] = useState("");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [validating, setValidating] = useState(false);
@@ -33,6 +35,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
 
   useEffect(() => {
     if (connection) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         name: connection.name || "",
         priority: connection.priority || 1,
@@ -66,6 +69,10 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
         const savedRegion = connection.providerSpecificData?.region || providerCfg.defaultRegion || providerCfg.regions[0]?.id || "";
         setRegion(savedRegion);
       }
+      // Load disabledModels
+      const savedDisabled = connection.providerSpecificData?.disabledModels || [];
+      setDisabledModels(Array.isArray(savedDisabled) ? [...savedDisabled] : []);
+      setNewDisabledModelInput("");
       setTestResult(null);
       setValidationResult(null);
     }
@@ -198,6 +205,13 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
       if (providerRegions && region) {
         updates.providerSpecificData = buildRegionSpecificData();
       }
+
+      // Merge disabled models into providerSpecificData
+      updates.providerSpecificData = {
+        ...(connection.providerSpecificData || {}),
+        ...(updates.providerSpecificData || {}),
+        disabledModels: disabledModels.map((m) => m.trim()).filter(Boolean),
+      };
       
       await onSave(updates);
     } finally {
@@ -346,6 +360,104 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
             options={providerRegions.map((r) => ({ value: r.id, label: r.label }))}
           />
         )}
+
+        {/* Disabled Models per Account */}
+        <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-bold text-text-primary">Chặn Model trên tài khoản này</p>
+              <p className="text-[11px] text-text-muted">
+                Các model trong danh sách này sẽ không bao giờ được gửi vào tài khoản này (ví dụ tài khoản bị Google chặn Argon 4).
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Suggestions for Antigravity or common models */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-[10.5px] text-text-muted">Gợi ý nhanh:</span>
+            {["gemini-4-neon", "gemini-4-argon", "gemini-pro-orchestrator-g1-pro", "gemini-4-hydrogen-high", "claude-3-7-sonnet"].map((mId) => {
+              const isBlocked = disabledModels.includes(mId);
+              return (
+                <button
+                  key={mId}
+                  type="button"
+                  onClick={() => {
+                    if (isBlocked) {
+                      setDisabledModels(disabledModels.filter((m) => m !== mId));
+                    } else {
+                      setDisabledModels([...disabledModels, mId]);
+                    }
+                  }}
+                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-all cursor-pointer ${
+                    isBlocked
+                      ? "border-rose-500/40 bg-rose-500/15 text-rose-600 dark:text-rose-400 font-semibold"
+                      : "border-black/10 dark:border-white/10 text-text-muted hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5"
+                  }`}
+                >
+                  {isBlocked ? `✕ Chặn ${mId}` : `+ Chặn ${mId}`}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Blocked Chips */}
+          {disabledModels.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
+              {disabledModels.map((m) => (
+                <span
+                  key={m}
+                  className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-xs font-semibold text-rose-600 dark:text-rose-400"
+                >
+                  <span>{m}</span>
+                  <button
+                    type="button"
+                    onClick={() => setDisabledModels(disabledModels.filter((item) => item !== m))}
+                    className="size-3.5 flex items-center justify-center rounded-full hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 cursor-pointer"
+                    title={`Bỏ chặn ${m}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] text-text-muted italic pt-1">Chưa chặn model nào trên tài khoản này.</p>
+          )}
+
+          {/* Add custom model input */}
+          <div className="flex items-center gap-1.5 pt-1">
+            <input
+              type="text"
+              value={newDisabledModelInput}
+              onChange={(e) => setNewDisabledModelInput(e.target.value)}
+              placeholder="Nhập mã model để chặn (ví dụ: gemini-4-argon)..."
+              className="flex-1 h-7 rounded-lg border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/[0.04] px-2.5 text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-primary/50"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const val = newDisabledModelInput.trim();
+                  if (val && !disabledModels.includes(val)) {
+                    setDisabledModels([...disabledModels, val]);
+                    setNewDisabledModelInput("");
+                  }
+                }
+              }}
+            />
+            <Button
+              size="xs"
+              variant="secondary"
+              onClick={() => {
+                const val = newDisabledModelInput.trim();
+                if (val && !disabledModels.includes(val)) {
+                  setDisabledModels([...disabledModels, val]);
+                  setNewDisabledModelInput("");
+                }
+              }}
+            >
+              Thêm
+            </Button>
+          </div>
+        </div>
 
         {!isCompatible && !isAzure && !isCloudflareAi && (
           <div className="flex items-center gap-3">

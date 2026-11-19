@@ -15,8 +15,8 @@ export function codexHttpFetch(url, { headers, body, signal }) {
   return new Promise((resolve, reject) => {
     signal?.throwIfAborted();
     const req = https.request(url, { method: "POST", headers, signal }, (res) => {
-      const cleanup = () => signal?.removeEventListener("abort", abort);
       const abort = () => res.destroy(signal.reason || new Error("Aborted"));
+      const cleanup = () => signal?.removeEventListener("abort", abort);
       signal?.addEventListener("abort", abort, { once: true });
       res.once("close", cleanup);
       res.once("end", cleanup);

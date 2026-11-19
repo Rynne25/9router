@@ -6,6 +6,30 @@ import { CLAUDE_BLOCK } from "../translator/schema/blocks.js";
 
 const CC_ENTRYPOINT = "sdk-cli";
 
+// CC decoy tools — Claude Code native tool names, marked unavailable
+const CC_DECOY_TOOLS = [
+  { name: "Task", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "TaskOutput", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "TaskStop", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "TaskCreate", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "TaskGet", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "TaskUpdate", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "TaskList", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "Bash", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "Glob", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "Grep", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "Read", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "Edit", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "Write", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "NotebookEdit", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "WebFetch", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "WebSearch", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "AskUserQuestion", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "Skill", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "EnterPlanMode", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+  { name: "ExitPlanMode", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
+];
+
 // Generate the billing header expected from current Claude Code clients.
 // x-anthropic-billing-header: cc_version=<ver>.<build>; cc_entrypoint=sdk-cli; cch=<hash>;
 function generateBillingHeader(payload) {
@@ -175,30 +199,6 @@ export function decloakStreamChunk(chunk, toolNameMap) {
   if (!original) return chunk;
   return { ...chunk, content_block: { ...block, name: original } };
 }
-
-// CC decoy tools — Claude Code native tool names, marked unavailable
-const CC_DECOY_TOOLS = [
-  { name: "Task", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "TaskOutput", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "TaskStop", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "TaskCreate", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "TaskGet", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "TaskUpdate", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "TaskList", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "Bash", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "Glob", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "Grep", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "Read", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "Edit", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "Write", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "NotebookEdit", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "WebFetch", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "WebSearch", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "AskUserQuestion", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "Skill", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "EnterPlanMode", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-  { name: "ExitPlanMode", description: "This tool is currently unavailable.", input_schema: { type: "object", properties: {} } },
-];
 
 /**
  * Apply Claude cloaking to request body:

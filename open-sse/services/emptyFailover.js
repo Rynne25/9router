@@ -106,11 +106,34 @@ function inspectResponsesEvent(obj) {
   return { content, finishReason };
 }
 
+// Gemini / Antigravity format (either { candidates: [...] } or { response: { candidates: [...] } })
+function inspectGeminiEvent(obj) {
+  const candidates = obj?.candidates || obj?.response?.candidates;
+  if (!Array.isArray(candidates)) return null;
+  let content = false, finishReason = null;
+  for (const candidate of candidates) {
+    const parts = candidate?.content?.parts;
+    if (Array.isArray(parts)) {
+      for (const p of parts) {
+        if (typeof p?.text === "string" && p.text.length > 0) content = true;
+        if (p?.functionCall) content = true;
+        if (p?.inlineData) content = true;
+      }
+    }
+    if (candidate?.finishReason) {
+      finishReason = toOpenAIFinish(candidate.finishReason, FORMATS.GEMINI);
+    }
+  }
+  return { content, finishReason };
+}
+
 // Inspect one complete client-format SSE line (parsed with the shared parseSSELine) and report
 // whether it carries content and/or a finish reason. Non-data lines and "[DONE]" carry nothing.
 export function inspectSSELine(line) {
   const parsed = parseSSELine(line.trimStart());
   if (!parsed || parsed.done) return { content: false, finishReason: null };
+  const gemini = inspectGeminiEvent(parsed);
+  if (gemini) return gemini;
   if (typeof parsed.type === "string" && !Array.isArray(parsed.choices)) {
     return parsed.type.startsWith(RESPONSES_EVENT_PREFIX) ? inspectResponsesEvent(parsed) : inspectClaudeEvent(parsed);
   }

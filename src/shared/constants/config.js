@@ -9,15 +9,20 @@ export const APP_CONFIG = {
 
 // GitHub configuration
 export const GITHUB_CONFIG = {
-  changelogUrl: "https://raw.githubusercontent.com/decolua/9router/refs/heads/master/CHANGELOG.md",
+  repo: "Rynne3825/9router",
+  changelogUrl: "https://raw.githubusercontent.com/Rynne3825/9router/master/CHANGELOG.md",
+  rawPackageUrl: "https://raw.githubusercontent.com/Rynne3825/9router/master/package.json",
+  releasesUrl: "https://github.com/Rynne3825/9router/releases",
+  latestReleaseTarballUrl: "https://github.com/Rynne3825/9router/releases/latest/download/9router.tgz",
   donateUrl: "https://9router.com/api/donate",
 };
 
 // Updater configuration
 export const UPDATER_CONFIG = {
+  githubRepo: "Rynne3825/9router",
   npmPackageName: "9router",
   installCmd: "npm i -g 9router",
-  installCmdLatest: "npm i -g 9router@latest --prefer-online",
+  installCmdLatest: "npm i -g https://github.com/Rynne3825/9router/releases/latest/download/9router.tgz",
   shutdownCountdownSec: 3,
   exitDelayMs: 500,
   statusPort: 20129,

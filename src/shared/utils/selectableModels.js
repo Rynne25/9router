@@ -1,8 +1,8 @@
 import { applyQoderModelNames } from "@/shared/utils/providerCustomModels";
 // Model-set resolution for dashboard callers that need "the models a user can
-// currently route to". The rules mirror ModelSelectModal's picker memo (kept in
-// sync by hand for now — adopting this module there is the follow-up that would
-// make it a single source). Promoting them out of the CLI tool card is what
+// currently route to". Single source of truth shared by ModelSelectModal (via
+// useGroupedModels) and CLI tool cards. Promoting these rules out of the CLI tool
+// card is what keeps "Add All Active Models" in sync with the picker: anything
 // stops "Add All Active Models" from drifting away from the picker: anything
 // the picker knows from runtime data (no-auth free providers, user aliases,
 // registered custom models, live per-account catalogs, disabled models) used to

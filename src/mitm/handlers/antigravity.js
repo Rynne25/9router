@@ -13,6 +13,9 @@ async function intercept(req, res, bodyBuffer, mappedModel) {
   try {
     const body = JSON.parse(bodyBuffer.toString());
     if (body.model) body.model = mappedModel;
+    if (body.request?.generationConfig?.thinkingConfig?.thinkingLevel === "MINIMAL") {
+      body.request.generationConfig.thinkingConfig.thinkingLevel = "LOW";
+    }
 
     const routerRes = await fetchRouter(body, "/v1/chat/completions", req.headers);
     await pipeSSE(routerRes, res, dumper);

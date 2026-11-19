@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Card } from "@/shared/components";
@@ -13,7 +14,7 @@ function getStatus(status, tool) {
   return { label: "Not configured", cls: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" };
 }
 
-export default function ToolSummaryCard({ toolId, tool, status }) {
+function ToolSummaryCard({ toolId, tool, status }) {
   const s = getStatus(status, tool);
   return (
     <Link href={`/dashboard/cli-tools/${toolId}`} className="block">
@@ -38,3 +39,5 @@ export default function ToolSummaryCard({ toolId, tool, status }) {
     </Link>
   );
 }
+
+export default memo(ToolSummaryCard);

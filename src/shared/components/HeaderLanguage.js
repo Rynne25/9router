@@ -20,17 +20,20 @@ export default function HeaderLanguage() {
 
   useEffect(() => {
     setLocale(getLocaleFromCookie());
-  }, [open]);
+  }, []);
 
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center justify-center p-2 rounded-lg text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+        className="flex items-center justify-center size-7 rounded-lg text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5 transition-all text-xs font-semibold"
         title="Language"
         data-i18n-skip="true"
+        suppressHydrationWarning
       >
-        <span className="text-lg leading-none">{LOCALE_FLAGS[locale] || "🌐"}</span>
+        <span className="text-sm leading-none" suppressHydrationWarning>
+          {LOCALE_FLAGS[locale] || "🌐"}
+        </span>
       </button>
 
       <LanguageSwitcher

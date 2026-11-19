@@ -7,12 +7,12 @@ import UsageStats from "@/shared/components/UsageStats";
 import RequestDetailsTab from "./components/RequestDetailsTab";
 
 const PERIODS = [
-  { value: "today", label: "Today" },
+  { value: "today", label: "Hôm nay" },
   { value: "24h", label: "24h" },
-  { value: "7d", label: "7D" },
-  { value: "30d", label: "30D" },
-  { value: "60d", label: "60D" },
-  { value: "all", label: "All" },
+  { value: "7d", label: "7 ngày" },
+  { value: "30d", label: "30 ngày" },
+  { value: "60d", label: "60 ngày" },
+  { value: "all", label: "Tất cả" },
 ];
 
 export default function UsagePage() {
@@ -42,29 +42,58 @@ function UsageContent() {
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
-      {/* Tabs + period selector on same row */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-w-0 flex-col gap-5 px-1 sm:px-0">
+      {/* Page Header + Telemetry Status Badge */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-extrabold tracking-tight text-text-main sm:text-2xl">
+              Thống kê & Giám sát Lưu lượng
+            </h1>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-500 dark:text-emerald-400">
+              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Live Telemetry
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-text-muted">
+            Theo dõi khối lượng requests, tokens, tỷ lệ thành công và phân bổ định tuyến model
+          </p>
+        </div>
+
+        {/* Global Period Selector when in Overview tab */}
+        {activeTab === "overview" && (
+          <div className="flex items-center rounded-xl border border-border/80 bg-surface-2/60 p-1 backdrop-blur-md self-start sm:self-auto">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                  period === p.value
+                    ? "bg-primary text-white shadow-sm shadow-primary/25"
+                    : "text-text-muted hover:bg-surface-3/60 hover:text-text-main"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Main Tab Navigation */}
+      <div className="flex items-center border-b border-border-subtle pb-1">
         <SegmentedControl
           options={[
-            { value: "overview", label: "Overview" },
-            { value: "details", label: "Details" },
+            { value: "overview", label: "Tổng quan (Bento Telemetry)" },
+            { value: "details", label: "Chi tiết yêu cầu (Details)" },
           ]}
           value={activeTab}
           onChange={handleTabChange}
           className="w-full sm:w-auto"
         />
-        {activeTab === "overview" && (
-          <SegmentedControl
-            options={PERIODS}
-            value={period}
-            onChange={setPeriod}
-            size="sm"
-            className="w-full sm:w-auto"
-          />
-        )}
       </div>
 
+      {/* Tab Panels */}
       {activeTab === "overview" && (
         <Suspense fallback={<CardSkeleton />}>
           <UsageStats period={period} setPeriod={setPeriod} hidePeriodSelector />

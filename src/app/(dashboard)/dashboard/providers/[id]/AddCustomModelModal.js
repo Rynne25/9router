@@ -19,7 +19,20 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
 
   // Reset state when modal opens
   useEffect(() => {
-    if (isOpen) { setModelId(""); setCaps(defaultCaps()); setModelType("llm"); setTransport(""); setTestStatus(null); setTestError(""); }
+    if (!isOpen) return;
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      setModelId("");
+      setCaps(defaultCaps());
+      setModelType("llm");
+      setTransport("");
+      setTestStatus(null);
+      setTestError("");
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen]);
 
   // Strip provider's own alias prefix (e.g. "cc/model" -> "model" for cc provider)

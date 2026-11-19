@@ -75,6 +75,13 @@ export function generateBinaryStyleId() {
     return crypto.randomUUID() + Date.now().toString();
 }
 
+// Conversation-stable session store: Key = hash(scope+assistant text), Value = { sessionId, lastUsed }
+const assistantSessionStore = new Map();
+const ASSISTANT_MIN_LEN = 50;
+const ASSISTANT_CAP_LEN = 50;
+const MAX_ASSISTANT_SESSIONS = 5000;
+const MAX_CONTINUATION_SESSIONS = 5000;
+
 /**
  * Clears all session IDs (e.g. useful for testing or explicit reset)
  */
@@ -83,13 +90,6 @@ export function clearSessionStore() {
     assistantSessionStore.clear();
     continuationStore.clear();
 }
-
-// Conversation-stable session store: Key = hash(scope+assistant text), Value = { sessionId, lastUsed }
-const assistantSessionStore = new Map();
-const ASSISTANT_MIN_LEN = 50;
-const ASSISTANT_CAP_LEN = 50;
-const MAX_ASSISTANT_SESSIONS = 5000;
-const MAX_CONTINUATION_SESSIONS = 5000;
 
 // Client headers/body fields that carry an upstream session id (priority order)
 const SESSION_HEADER_KEYS = ["x-session-id", "session-id", "session_id", "x-amp-thread-id"];

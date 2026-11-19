@@ -67,6 +67,20 @@ const DEFAULT_SETTINGS = {
   pxpipeTimeoutMs: 15000,
   // Per-provider user header overrides applied at dispatch: { [providerId]: { headers: {..} } }
   providerOverrides: {},
+  // Remote Account Sync Settings
+  syncRole: "receiver", // "receiver" (chỉ nhận, cấm gửi) | "sender" (máy nguồn gửi đi)
+  syncToken: "",
+  syncEnabled: true,
+  syncAutoDiscoveryEnabled: true,
+  syncAllowLanDiscovery: true,
+  syncRemotePeerUrl: "",
+  syncRemoteToken: "",
+  syncAutoIntervalMinutes: 5,
+  syncOnPageLoad: true,
+  syncFilterProviders: [],
+  syncLastRunAt: null,
+  syncLastStatus: null,
+  syncDiscoveredPeer: null,
 };
 
 async function readRaw() {

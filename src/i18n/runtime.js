@@ -5,6 +5,7 @@ import { DEFAULT_LOCALE, LOCALE_COOKIE, normalizeLocale } from "./config";
 let translationMap = {};
 let currentLocale = DEFAULT_LOCALE;
 let reloadCallbacks = [];
+const localeCache = new Map();
 
 // Read locale from cookie
 function getLocaleFromCookie() {
@@ -16,16 +17,22 @@ function getLocaleFromCookie() {
   return normalizeLocale(value);
 }
 
-// Load translation map
+// Load translation map (cached in memory per locale)
 async function loadTranslations(locale) {
   if (locale === "en") {
     translationMap = {};
     return;
   }
-  
+  if (localeCache.has(locale)) {
+    translationMap = localeCache.get(locale);
+    return;
+  }
+
   try {
     const response = await fetch(`/i18n/literals/${locale}.json`);
-    translationMap = await response.json();
+    const loaded = await response.json();
+    localeCache.set(locale, loaded);
+    translationMap = loaded;
   } catch (err) {
     console.error("Failed to load translations:", err);
     translationMap = {};
@@ -54,6 +61,20 @@ export function onLocaleChange(callback) {
   };
 }
 
+function markUntranslatable(el) {
+  if (!el || el.nodeType !== Node.ELEMENT_NODE) return;
+  if (el.getAttribute("translate") !== "no") el.setAttribute("translate", "no");
+  if (el.classList && !el.classList.contains("notranslate")) el.classList.add("notranslate");
+}
+
+function protectUntranslatable(root) {
+  if (!root || root.nodeType !== Node.ELEMENT_NODE) return;
+  if (root.matches?.(".material-symbols-outlined, code, pre, [data-i18n-skip]")) {
+    markUntranslatable(root);
+  }
+  root.querySelectorAll?.(".material-symbols-outlined, code, pre, [data-i18n-skip]").forEach(markUntranslatable);
+}
+
 // Process text node
 function processTextNode(node) {
   const current = node.nodeValue;
@@ -62,6 +83,13 @@ function processTextNode(node) {
   // Skip if parent is script, style, code, or structural elements
   const parent = node.parentElement;
   if (!parent) return;
+
+  if (
+    parent.classList?.contains("material-symbols-outlined") ||
+    parent.closest?.(".material-symbols-outlined, [data-i18n-skip], code, pre")
+  ) {
+    return;
+  }
 
   // Skip if parent or any ancestor has data-i18n-skip attribute
   let element = parent;
@@ -107,7 +135,9 @@ function processTextNode(node) {
 // Process all text nodes in element
 function processElement(element) {
   if (!element) return;
-  
+  protectUntranslatable(element);
+  if (currentLocale === "en") return;
+
   const walker = document.createTreeWalker(
     element,
     NodeFilter.SHOW_TEXT,
@@ -132,6 +162,9 @@ export async function initRuntimeI18n() {
   if (typeof window === "undefined") return;
   
   currentLocale = getLocaleFromCookie();
+  if (typeof document !== "undefined" && document.documentElement) {
+    document.documentElement.lang = currentLocale === "vi" ? "vi" : currentLocale || "en";
+  }
   await loadTranslations(currentLocale);
   
   // Process existing DOM
@@ -140,21 +173,52 @@ export async function initRuntimeI18n() {
   // Watch for new nodes AND in-place text rewrites. React reuses text nodes on
   // re-render (only nodeValue changes → a characterData mutation with no
   // childList event), so observing childList alone leaves later-updated labels
-  // untranslated.
+  // untranslated. Defer processing via requestAnimationFrame to allow React
+  // hydration and commit phases to settle without DOM collision.
+  let rafPending = false;
+  const pendingAdded = new Set();
+  const pendingChars = new Set();
+
+  const flushPending = () => {
+    rafPending = false;
+    for (const node of pendingAdded) {
+      if (node.isConnected) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          processElement(node);
+        } else if (currentLocale !== "en" && node.nodeType === Node.TEXT_NODE) {
+          processTextNode(node);
+        }
+      }
+    }
+    pendingAdded.clear();
+
+    if (currentLocale !== "en") {
+      for (const node of pendingChars) {
+        if (node.isConnected) {
+          processTextNode(node);
+        }
+      }
+    }
+    pendingChars.clear();
+  };
+
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
       if (mutation.type === "characterData") {
-        processTextNode(mutation.target);
+        if (currentLocale !== "en") {
+          pendingChars.add(mutation.target);
+        }
         return;
       }
       mutation.addedNodes.forEach((node) => {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          processElement(node);
-        } else if (node.nodeType === Node.TEXT_NODE) {
-          processTextNode(node);
-        }
+        pendingAdded.add(node);
       });
     });
+
+    if (!rafPending && (pendingAdded.size > 0 || pendingChars.size > 0)) {
+      rafPending = true;
+      requestAnimationFrame(flushPending);
+    }
   });
   
   observer.observe(document.body, {
@@ -164,9 +228,19 @@ export async function initRuntimeI18n() {
   });
 }
 
+// Fast route-change pass: avoid re-fetching translation JSON or scanning full body when English
+export function translateRouteChange() {
+  if (typeof document === "undefined" || currentLocale === "en") return;
+  const target = document.querySelector("main") || document.body;
+  processElement(target);
+}
+
 // Reload translations when locale changes
 export async function reloadTranslations() {
   currentLocale = getLocaleFromCookie();
+  if (typeof document !== "undefined" && document.documentElement) {
+    document.documentElement.lang = currentLocale === "vi" ? "vi" : currentLocale || "en";
+  }
   await loadTranslations(currentLocale);
   
   // Notify all registered callbacks

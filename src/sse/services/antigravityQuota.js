@@ -6,10 +6,27 @@
 
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { getAntigravityUsage } from "open-sse/services/usage/google.js";
+import {
+  isArgonOrG1ProKey,
+  hasArgonOrG1Pro,
+  hasClaudeOrSessionQuota,
+  getAntigravityEffectiveTier,
+} from "@/shared/utils/antigravityTier.js";
+import {
+  isModelMarkedUnsupported,
+  clearModelUnsupportedForConnection,
+  extractModelIdSet,
+  matchesAnyCandidate,
+  checkModelLimitsEligibility,
+} from "./modelEligibility.js";
 import * as log from "../utils/logger.js";
 
 // In-memory cache: connectionId → { [modelId]: { remainingPercentage, resetAt } }
 const quotaCache = new Map();
+// In-memory cache of supported/available model IDs per connectionId (from fetchAvailableModels)
+const availableModelsCache = new Map();
+// In-memory cache of resolved Antigravity subscription tier per connectionId
+const tierCache = new Map();
 // Track last refresh per connection to avoid hammering
 const lastRefreshAt = new Map();
 // In-flight refresh promises — dedup concurrent 409/429 bursts
@@ -58,13 +75,251 @@ export function getAntigravityModelFamily(model) {
   if (clean.startsWith("claude-") || clean.startsWith("gpt-") || clean === "claude") {
     return "claude_gpt";
   }
-  if ((clean.startsWith("gemini-") && clean.includes("argon")) || clean === "gemini_argon") {
+  if ((clean.startsWith("gemini-") && (clean.includes("argon") || clean.includes("neon"))) || clean === "gemini_argon") {
     return "gemini_argon";
   }
-  if ((clean.startsWith("gemini-") && !clean.includes("image")) || clean === "gemini") {
+  if ((clean.startsWith("gemini-") && !clean.includes("image") && !clean.includes("orchestrator")) || clean === "gemini") {
     return "gemini";
   }
   return null;
+}
+
+const ANTIGRAVITY_MODEL_ALIASES = {
+  "gemini-4-neon": "gemini-4-argon-high",
+    "gemini-pro-orchestrator-neon": "gemini-4-argon-high",
+    "gemini-pro-orchestrator-argon": "gemini-4-argon-high",
+    "gemini-4-argon": "gemini-4-argon-high",
+  "gemini-4-hydrogen": "gemini-4-hydrogen-high",
+  "gemini-pro-orchestrator-g1-pro": "gemini-4-argon-high",
+  "claude-sonnet-5-5": "claude-sonnet-5-5-high",
+  "claude-opus-5-5": "claude-opus-5-5-high",
+  "gemini-3.8-flash": "gemini-3.8-flash-medium",
+  "gemini-3.7-flash": "gemini-3.7-flash-medium",
+  "gemini-3.6-flash": "gemini-3.6-flash-medium",
+};
+
+function normalizeAntigravityModelId(model) {
+  if (!model || typeof model !== "string") return "";
+  return (model.includes("/") ? model.slice(model.indexOf("/") + 1) : model)
+    .replace(/\[[^\]]+\]\s*$/, "")
+    .replace(/\([^()]+\)\s*$/, "")
+    .trim();
+}
+
+export function getAntigravityModelCandidates(model) {
+  if (!model || typeof model !== "string") return [];
+  const cleanModel = normalizeAntigravityModelId(model);
+  const candidates = [];
+  const push = (id) => {
+    if (id && !candidates.includes(id)) candidates.push(id);
+  };
+
+  push(model);
+  push(cleanModel);
+  if (ANTIGRAVITY_MODEL_ALIASES[cleanModel]) {
+    push(ANTIGRAVITY_MODEL_ALIASES[cleanModel]);
+  }
+  if (cleanModel === "gemini-pro-orchestrator-g1-pro") {
+    push("gemini-4-argon-high");
+    push("gemini-4-hydrogen-high");
+  }
+  if (/^gemini-3\.1-flash-image-\d+x\d+$/i.test(cleanModel)) {
+    push("gemini-3.1-flash-image");
+  }
+  if (cleanModel.startsWith("claude-opus-5-5") || cleanModel === "claude-opus-4-6") {
+    push("claude-opus-4-6-thinking");
+    push("claude-opus-5-5-high");
+  }
+  if (cleanModel.startsWith("claude-sonnet-5-5")) {
+    push("claude-sonnet-4-6");
+    push("claude-sonnet-5-5-high");
+  }
+  return candidates;
+}
+
+function isArgonOrHydrogenModel(cleanModel) {
+  if (!cleanModel) return false;
+  return isArgonOrG1ProKey(cleanModel) || (cleanModel.toLowerCase().includes("hydrogen") || cleanModel.toLowerCase().includes("neon"));
+}
+
+function resolveKnownAntigravityTier(connectionId, connection, availableSet, quotasSnapshot) {
+  if (connectionId && tierCache.has(connectionId)) {
+    return tierCache.get(connectionId);
+  }
+  const psd = connection?.providerSpecificData;
+  const rawTier = (
+    psd?.subscriptionTier ||
+    psd?.tier ||
+    connection?.subscriptionTier ||
+    connection?.tier ||
+    ""
+  ).toLowerCase().trim();
+
+  const hasAvailableArgon = availableSet
+    ? [...availableSet].some((id) => isArgonOrHydrogenModel(id))
+    : false;
+  const hasSnapshotData = Boolean(
+    (availableSet && availableSet.size > 0) ||
+    (quotasSnapshot && typeof quotasSnapshot === "object" && Object.keys(quotasSnapshot).length > 0)
+  );
+
+  if (psd?.subscriptionInfo) {
+    return getAntigravityEffectiveTier(connection, {
+      subscriptionInfo: psd.subscriptionInfo,
+      quotas: quotasSnapshot || undefined,
+    });
+  }
+
+  if (rawTier === "pro_jiro" || rawTier === "pro jiro" || rawTier === "pro-jiro") {
+    return "pro_jiro";
+  }
+  if (rawTier.includes("enterprise")) return "enterprise";
+  if (rawTier.includes("ultra")) return "ultra";
+  if (rawTier.includes("pro")) {
+    if (!hasSnapshotData) return "pro";
+    if (hasAvailableArgon || hasArgonOrG1Pro(connection, quotasSnapshot ? { quotas: quotasSnapshot } : null)) {
+      return "pro";
+    }
+    return "pro_jiro";
+  }
+  if (rawTier === "free" || rawTier.includes("legacy")) {
+    if (hasAvailableArgon || hasArgonOrG1Pro(connection, quotasSnapshot ? { quotas: quotasSnapshot } : null)) {
+      return "pro";
+    }
+    if (hasClaudeOrSessionQuota(connection, quotasSnapshot ? { quotas: quotasSnapshot } : null)) {
+      return "pro_jiro";
+    }
+    return "free";
+  }
+
+  // No explicit tier string on connection — only infer from persisted/full quota snapshot
+  if (quotasSnapshot && typeof quotasSnapshot === "object" && Object.keys(quotasSnapshot).length > 0) {
+    if (hasArgonOrG1Pro(connection, { quotas: quotasSnapshot })) return "pro";
+    if (hasClaudeOrSessionQuota(connection, { quotas: quotasSnapshot })) return "pro_jiro";
+    if (Object.keys(quotasSnapshot).length >= 1 && psd?.quotas) return "free";
+  }
+
+  return null;
+}
+
+/**
+ * Check whether an Antigravity connection supports the given model.
+ * Evaluates runtime unsupported cache, explicit connection allow/deny lists,
+ * modelLimits, fetched availableModels (live RAM or persisted), subscription tier
+ * compatibility (free / pro_jiro / pro / ultra / enterprise), and quota map.
+ * Fail-open on cold start when no capability/tier info has been fetched yet.
+ */
+export function isAntigravityModelSupported(connectionId, model, connection = null) {
+  if (!model || typeof model !== "string") return true;
+  const cleanModel = normalizeAntigravityModelId(model);
+  if (!cleanModel) return true;
+  const candidates = getAntigravityModelCandidates(model);
+  const psd = connection?.providerSpecificData;
+
+  // 1. Runtime unsupported cache (e.g. learned from 404 / invalid model error)
+  if (connectionId && (isModelMarkedUnsupported(connectionId, model) || isModelMarkedUnsupported(connectionId, cleanModel))) {
+    return false;
+  }
+
+  // 2. Explicit per-connection disabledModels / enabledModels / supportedModels / modelLimits
+  const disabledSet = extractModelIdSet(psd?.disabledModels);
+  if (disabledSet && matchesAnyCandidate(disabledSet, candidates)) {
+    return false;
+  }
+
+  const allowRaw = Array.isArray(psd?.enabledModels) && psd.enabledModels.length > 0
+    ? psd.enabledModels
+    : (Array.isArray(psd?.supportedModels) && psd.supportedModels.length > 0 ? psd.supportedModels : null);
+  const allowSet = extractModelIdSet(allowRaw);
+  if (allowSet && !matchesAnyCandidate(allowSet, candidates)) {
+    return false;
+  }
+
+  const limitsCheck = checkModelLimitsEligibility(
+    psd?.modelLimits,
+    candidates,
+    psd?.modelLimitsAuthoritative === true
+  );
+  if (!limitsCheck.eligible) {
+    return false;
+  }
+
+  // 3. Available models snapshot (live RAM cache first, then persisted providerSpecificData)
+  const liveAvailable = connectionId ? availableModelsCache.get(connectionId) : null;
+  const persistedAvailable = extractModelIdSet(psd?.availableModels) || extractModelIdSet(psd?.models || connection?.models);
+  const availableSet = liveAvailable && liveAvailable.size > 0 ? liveAvailable : persistedAvailable;
+
+  // Authoritative quota snapshot (persisted psd.quotas, or live quotaCache when backed by usage sync)
+  const persistedQuotas = psd?.quotas || psd?.rawQuotas || null;
+  const liveQuotas = connectionId && (availableModelsCache.has(connectionId) || tierCache.has(connectionId))
+    ? quotaCache.get(connectionId)
+    : null;
+  const quotasSnapshot = (liveQuotas && Object.keys(liveQuotas).length > 0) ? liveQuotas : persistedQuotas;
+
+  // 4. Tier compatibility check (when tier is explicitly known or derived from real usage data)
+  const knownTier = resolveKnownAntigravityTier(connectionId, connection, availableSet, quotasSnapshot);
+  const isArgonModel = isArgonOrHydrogenModel(cleanModel);
+  const isClaudeModel = cleanModel.toLowerCase().startsWith("claude-") || cleanModel.toLowerCase() === "claude";
+
+  if (knownTier === "free" && (isArgonModel || isClaudeModel)) {
+    return false;
+  }
+  if (knownTier === "pro_jiro" && isArgonModel) {
+    return false;
+  }
+
+  // 5. Fetched availableModels allowlist check
+  if (availableSet && availableSet.size > 0) {
+    if (!matchesAnyCandidate(availableSet, candidates)) {
+      return false;
+    }
+  } else if (isArgonModel && quotasSnapshot && typeof quotasSnapshot === "object") {
+    // 6. Fallback to populated quota map when availableModels wasn't saved
+    if (knownTier !== "ultra" && knownTier !== "enterprise") {
+      const keys = Object.keys(quotasSnapshot);
+      if (keys.length >= 2 && !keys.some((k) => isArgonOrHydrogenModel(k))) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Check whether an Antigravity connection's cached quota for a specific model is exhausted (0%).
+ * Checks live RAM cache first, then persisted connection.providerSpecificData.quotas (only with future resetAt).
+ * Automatically returns { exhausted: false } once resetAt has passed.
+ */
+export function isAntigravityQuotaExhausted(connectionId, model, connection = null) {
+  if (!connectionId || !model) return { exhausted: false, resetAt: null };
+  const liveQuotas = quotaCache.get(connectionId);
+  const persistedQuotas = connection?.providerSpecificData?.quotas || connection?.providerSpecificData?.rawQuotas || null;
+  const connQuotas = liveQuotas || persistedQuotas;
+  if (!connQuotas) return { exhausted: false, resetAt: null };
+
+  const cleanModel = normalizeAntigravityModelId(model);
+  const quota = getAntigravityModelQuota(connQuotas, model) || connQuotas?.[cleanModel] || connQuotas?.[model];
+  if (!quota || typeof quota !== "object") return { exhausted: false, resetAt: null };
+
+  const isZero = typeof quota.remainingPercentage === "number"
+    ? quota.remainingPercentage <= 0
+    : (typeof quota.total === "number" && quota.total > 0 && typeof quota.used === "number" && quota.used >= quota.total);
+
+  if (!isZero) return { exhausted: false, resetAt: null };
+
+  if (quota.resetAt) {
+    const resetMs = new Date(quota.resetAt).getTime();
+    if (Number.isFinite(resetMs) && resetMs <= Date.now()) {
+      return { exhausted: false, resetAt: null };
+    }
+    return { exhausted: true, resetAt: quota.resetAt };
+  }
+
+  // Require an explicit resetAt when reading persisted DB quotas so stale snapshots without resetAt don't block indefinitely
+  if (!liveQuotas) return { exhausted: false, resetAt: null };
+
+  return { exhausted: true, resetAt: null };
 }
 
 /**
@@ -88,8 +343,11 @@ export function getAntigravityModelQuota(quotas, model) {
   }
 
   // 2. Direct tier aliases if base model was passed
-  if (cleanModel === "gemini-4-argon" && quotas["gemini-4-argon-high"]) {
+  if (((cleanModel === "gemini-4-argon" || cleanModel === "gemini-4-neon") || cleanModel === "gemini-pro-orchestrator-g1-pro") && quotas["gemini-4-argon-high"]) {
     candidates.push(quotas["gemini-4-argon-high"]);
+  }
+  if (cleanModel === "gemini-4-hydrogen" && quotas["gemini-4-hydrogen-high"]) {
+    candidates.push(quotas["gemini-4-hydrogen-high"]);
   }
   if (cleanModel === "claude-sonnet-5-5" && quotas["claude-sonnet-5-5-high"]) {
     candidates.push(quotas["claude-sonnet-5-5-high"]);
@@ -198,6 +456,57 @@ export function getAntigravityQuotaCache() {
   return quotaCache;
 }
 
+export function getAntigravityAvailableModelsCache() {
+  return availableModelsCache;
+}
+
+export function getAntigravityTierCache() {
+  return tierCache;
+}
+
+/**
+ * Sync live usage response (from getAntigravityUsage) into in-memory caches
+ * so subsequent routing calls immediately know quotas, availableModels, and tier.
+ */
+export function syncAntigravityUsageCache(connectionId, usage) {
+  if (!connectionId || !usage || usage.message) return null;
+
+  if (usage.quotas && typeof usage.quotas === "object") {
+    quotaCache.set(connectionId, applyActiveStrikeBlocks(connectionId, usage.quotas));
+  }
+
+  if (Array.isArray(usage.availableModels) && usage.availableModels.length > 0) {
+    const modelSet = new Set(usage.availableModels);
+    availableModelsCache.set(connectionId, modelSet);
+    for (const m of modelSet) {
+      clearModelUnsupportedForConnection(connectionId, m);
+    }
+  }
+
+  const hasTierSignal = Boolean(
+    usage.subscriptionInfo ||
+    (usage.plan && usage.plan !== "Unknown") ||
+    usage.quotas?.gemini_weekly ||
+    usage.quotas?.gemini_argon_weekly ||
+    usage.quotas?.claude_gpt_session
+  );
+  if (hasTierSignal) {
+    const resolvedTier = getAntigravityEffectiveTier(
+      {
+        providerSpecificData: {
+          subscriptionInfo: usage.subscriptionInfo,
+          quotas: usage.quotas,
+          availableModels: usage.availableModels,
+        },
+      },
+      usage
+    );
+    tierCache.set(connectionId, resolvedTier);
+  }
+
+  return usage.quotas || null;
+}
+
 /**
  * Refresh quota for a single antigravity connection from upstream API.
  * Updates in-memory cache only. Cache expiry is the upstream model resetAt.
@@ -242,12 +551,10 @@ async function _doRefresh(connectionId, accessToken, providerSpecificData, now) 
     // Preserve known cache instead of replacing it with an upstream error response.
     if (!usage?.quotas || usage.message) return null;
 
-    // Update in-memory cache. Caller logs CACHE_BLOCK only if requested model is exhausted.
+    // Update in-memory caches. Caller logs CACHE_BLOCK only if requested model is exhausted.
     // Strike blocks are re-asserted after every refresh so an optimistic
     // upstream reading cannot resurrect a pair we just circuit-broke.
-    quotaCache.set(connectionId, applyActiveStrikeBlocks(connectionId, usage.quotas));
-
-    return usage.quotas;
+    return syncAntigravityUsageCache(connectionId, usage);
   } catch (e) {
     log.warn("AG_QUOTA", `${connectionId.slice(0, 8)} | refresh failed: ${e.message}`);
     return null;

@@ -44,23 +44,28 @@ describe("getDeactivatedProviderIds", () => {
 });
 
 describe("ModelSelectModal source verification for deactivated providers", () => {
-  const fileUrl = new URL("../../src/shared/components/ModelSelectModal.js", import.meta.url);
-  const src = fs.readFileSync(fileUrl, "utf-8");
+  const modalUrl = new URL("../../src/shared/components/ModelSelectModal.js", import.meta.url);
+  const groupedUrl = new URL("../../src/shared/components/model-select/useGroupedModels.js", import.meta.url);
+  const selectableUrl = new URL("../../src/shared/utils/selectableModels.js", import.meta.url);
+  const modalSrc = fs.readFileSync(modalUrl, "utf-8");
+  const groupedSrc = fs.readFileSync(groupedUrl, "utf-8");
+  const selectableSrc = fs.readFileSync(selectableUrl, "utf-8");
+  const combinedSrc = `${modalSrc}\n${groupedSrc}\n${selectableSrc}`;
 
   it("imports and uses getDeactivatedProviderIds", () => {
-    expect(src).toContain("getDeactivatedProviderIds");
-    expect(src).toContain("deactivatedProviderIds");
+    expect(combinedSrc).toContain("getDeactivatedProviderIds");
+    expect(combinedSrc).toContain("deactivatedProviderIds");
   });
 
   it("filters compatibleNodeIds by !deactivatedProviderIds.has(alias)", () => {
-    expect(src).toMatch(/!deactivatedProviderIds\.has\(alias\)/);
+    expect(selectableSrc).toMatch(/!deactivatedProviderIds\.has\(alias\)/);
   });
 
   it("filters providerIdsToShow by !deactivatedProviderIds.has(id)", () => {
-    expect(src).toMatch(/!deactivatedProviderIds\.has\(id\)/);
+    expect(selectableSrc).toMatch(/!deactivatedProviderIds\.has\(id\)/);
   });
 
   it("fetches /api/providers on modal open", () => {
-    expect(src).toContain('fetch("/api/providers")');
+    expect(modalSrc).toContain('fetch("/api/providers")');
   });
 });

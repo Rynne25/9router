@@ -48,6 +48,11 @@ async function pipeSSE(routerRes, res, dumper) {
   res.writeHead(status, resHeaders);
   if (dumper) dumper.writeHeader(routerRes.status, Object.fromEntries(routerRes.headers));
 
+  // Disable Nagle's algorithm to immediately flush tokens to IDE
+  if (res.socket && typeof res.socket.setNoDelay === "function") {
+    res.socket.setNoDelay(true);
+  }
+
   if (!routerRes.body) {
     const text = await routerRes.text().catch(() => "");
     if (dumper) { dumper.writeChunk(text); dumper.end(); }
@@ -56,12 +61,12 @@ async function pipeSSE(routerRes, res, dumper) {
   }
 
   const reader = routerRes.body.getReader();
-  const decoder = new TextDecoder();
   while (true) {
     const { done, value } = await reader.read();
     if (done) { if (dumper) dumper.end(); res.end(); break; }
     if (dumper) dumper.writeChunk(value);
-    res.write(decoder.decode(value, { stream: true }));
+    // Zero-copy: write raw Uint8Array directly, avoiding TextDecoder string conversion & re-encoding
+    res.write(value);
   }
 }
 
@@ -80,6 +85,10 @@ async function pipeTransformedSSE(routerRes, res, transformFn, state) {
   const resHeaders = { "Content-Type": ct, "Cache-Control": "no-cache", "Connection": "keep-alive" };
   if (ct.includes("text/event-stream")) resHeaders["X-Accel-Buffering"] = "no";
   res.writeHead(200, resHeaders);
+
+  if (res.socket && typeof res.socket.setNoDelay === "function") {
+    res.socket.setNoDelay(true);
+  }
 
   if (!routerRes.body) {
     res.end(await routerRes.text().catch(() => ""));
@@ -161,6 +170,10 @@ async function pipeTransformedEventStream(routerRes, res, transformFn, state) {
     "Connection": "keep-alive"
   };
   res.writeHead(200, resHeaders);
+
+  if (res.socket && typeof res.socket.setNoDelay === "function") {
+    res.socket.setNoDelay(true);
+  }
 
   if (!routerRes.body) {
     res.end(await routerRes.text().catch(() => ""));

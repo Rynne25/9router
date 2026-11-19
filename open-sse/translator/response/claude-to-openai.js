@@ -6,6 +6,8 @@ import { toOpenAIUsage } from "../concerns/usage.js";
 import { reasoningDelta } from "../concerns/reasoning.js";
 import { toOpenAIFinish } from "../concerns/finishReason.js";
 
+const convertStopReason = (reason) => toOpenAIFinish(reason, "claude");
+
 // Create OpenAI chunk helper
 function createChunk(state, delta, finishReason = null) {
   return buildChunk(
@@ -188,8 +190,6 @@ export function claudeToOpenAIResponse(chunk, state) {
 
   return results.length > 0 ? results : null;
 }
-
-const convertStopReason = (reason) => toOpenAIFinish(reason, "claude");
 
 // Register
 register(FORMATS.CLAUDE, FORMATS.OPENAI, null, claudeToOpenAIResponse);

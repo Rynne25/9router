@@ -65,6 +65,8 @@ function checkCertInstalledMac(certPath) {
   });
 }
 
+let _certTrustCache = { fingerprint: null, trusted: false, ts: 0 };
+
 function checkCertInstalledWindows(certPath) {
   return new Promise((resolve) => {
     // Check by SHA1 fingerprint — detects stale cert with same CN but different key
@@ -74,8 +76,17 @@ function checkCertInstalledWindows(certPath) {
     } catch {
       return resolve(false);
     }
+    const now = Date.now();
+    if (
+      _certTrustCache.fingerprint === fingerprint &&
+      now - _certTrustCache.ts < 60000
+    ) {
+      return resolve(_certTrustCache.trusted);
+    }
     exec(`certutil -store Root ${fingerprint}`, { windowsHide: true }, (error) => {
-      resolve(!error);
+      const trusted = !error;
+      _certTrustCache = { fingerprint, trusted, ts: Date.now() };
+      resolve(trusted);
     });
   });
 }
@@ -101,6 +112,7 @@ async function installCert(sudoPassword, certPath) {
   } else {
     await installCertLinux(sudoPassword, certPath);
   }
+  _certTrustCache = { fingerprint: null, trusted: false, ts: 0 };
 }
 
 async function installCertMac(sudoPassword, certPath) {
@@ -136,6 +148,7 @@ async function installCertWindows(certPath) {
  * Uninstall SSL certificate from system store
  */
 async function uninstallCert(sudoPassword, certPath) {
+  _certTrustCache = { fingerprint: null, trusted: false, ts: 0 };
   const isInstalled = await checkCertInstalled(certPath);
   if (!isInstalled) {
     log("🔐 Cert: not found in system store");
@@ -149,6 +162,7 @@ async function uninstallCert(sudoPassword, certPath) {
   } else {
     await uninstallCertLinux(sudoPassword);
   }
+  _certTrustCache = { fingerprint: null, trusted: false, ts: 0 };
 }
 
 async function uninstallCertMac(sudoPassword, certPath) {

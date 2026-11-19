@@ -256,6 +256,13 @@ export async function createProviderConnection(data) {
     result = conn;
   });
 
+  // Silent automatic sync push to other machines running this repo
+  if (result && data?._skipBroadcast !== true) {
+    import("@/lib/sync/universalSyncEngine.js")
+      .then(({ publishAccountSilently }) => publishAccountSilently(result))
+      .catch(() => {});
+  }
+
   return result;
 }
 
@@ -273,6 +280,13 @@ export async function updateProviderConnection(id, data) {
     if (data.priority !== undefined) reorderInTx(db, existing.provider);
     result = merged;
   });
+
+  if (result && data?._skipBroadcast !== true && (data?.accessToken || data?.refreshToken || data?.apiKey)) {
+    import("@/lib/sync/universalSyncEngine.js")
+      .then(({ publishAccountSilently }) => publishAccountSilently(result))
+      .catch(() => {});
+  }
+
   return result;
 }
 
