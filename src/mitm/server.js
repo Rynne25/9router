@@ -639,6 +639,23 @@ try {
   process.exit(1);
 }
 
+server.on("clientError", (e, socket) => {
+  if (e?.code !== "ECONNRESET" && e?.code !== "EPIPE") {
+    err(`Client socket error: ${e?.message || e}`);
+  }
+  if (socket && !socket.destroyed) {
+    socket.destroy();
+  }
+});
+
+process.on("uncaughtException", (e) => {
+  err(`Uncaught exception (kept alive): ${e?.stack || e?.message || e}`);
+});
+
+process.on("unhandledRejection", (reason) => {
+  err(`Unhandled rejection (kept alive): ${reason?.stack || reason?.message || reason}`);
+});
+
 server.listen(LOCAL_PORT, () => log(`🚀 Server ready on :${LOCAL_PORT}`));
 
 server.on("error", (e) => {

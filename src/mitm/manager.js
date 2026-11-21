@@ -49,10 +49,13 @@ const LOCK_FILE = path.join(MITM_DIR, ".mitm.lock");
 const MITM_MAX_RESTARTS = 5;
 const MITM_RESTART_DELAYS_MS = [5000, 10000, 20000, 30000, 60000];
 const MITM_RESTART_RESET_MS = 60000;
+const MITM_WATCHDOG_INTERVAL_MS = 30000;
 
 let mitmRestartCount = 0;
 let mitmLastStartTime = 0;
 let mitmIsRestarting = false;
+let mitmWatchdogTimer = null;
+let lastMitmApiKey = null;
 
 function resolveBundledServerPath() {
   if (process.env.MITM_SERVER_PATH) return process.env.MITM_SERVER_PATH;
@@ -434,7 +437,7 @@ async function scheduleMitmRestart(apiKey) {
       mitmIsRestarting = false;
       return;
     }
-    await startServer(apiKey, password);
+    await startServer(apiKey, password, true);
     log("🔄 Restarted successfully");
     mitmRestartCount = 0;
     mitmIsRestarting = false;
@@ -443,6 +446,41 @@ async function scheduleMitmRestart(apiKey) {
     mitmIsRestarting = false;
     // Schedule next retry
     scheduleMitmRestart(apiKey);
+  }
+}
+
+function stopMitmWatchdog() {
+  if (mitmWatchdogTimer) {
+    clearInterval(mitmWatchdogTimer);
+    mitmWatchdogTimer = null;
+  }
+}
+
+function startMitmWatchdog(apiKey) {
+  if (apiKey) lastMitmApiKey = apiKey;
+  if (mitmWatchdogTimer) return;
+
+  mitmWatchdogTimer = setInterval(async () => {
+    if (mitmIsRestarting || fs.existsSync(LOCK_FILE)) return;
+    try {
+      const settings = _getSettings ? await _getSettings() : null;
+      if (settings && !settings.mitmEnabled) {
+        stopMitmWatchdog();
+        return;
+      }
+      const health = await pollMitmHealth(2000, MITM_PORT);
+      if (!health && !mitmIsRestarting && !fs.existsSync(LOCK_FILE)) {
+        const keyToUse = lastMitmApiKey || apiKey || "sk_9router";
+        log("⚠️ MITM watchdog: server unresponsive on port 443, triggering auto-restart...");
+        scheduleMitmRestart(keyToUse);
+      }
+    } catch {
+      // Never crash the parent process from watchdog tick
+    }
+  }, MITM_WATCHDOG_INTERVAL_MS);
+
+  if (mitmWatchdogTimer.unref) {
+    mitmWatchdogTimer.unref();
   }
 }
 
@@ -731,6 +769,7 @@ async function startServer(apiKey, sudoPassword, forceKillPort443 = false) {
 
   // Server is healthy — remove lock file (PID file persists as the marker)
   try { fs.unlinkSync(LOCK_FILE); } catch { /* ignore */ }
+  startMitmWatchdog(apiKey);
 
   return { running: true, pid: serverPid };
   } catch (e) {
@@ -745,6 +784,7 @@ async function startServer(apiKey, sudoPassword, forceKillPort443 = false) {
  */
 async function stopServer(sudoPassword) {
   // Prevent auto-restart from triggering on intentional stop
+  stopMitmWatchdog();
   mitmIsRestarting = true;
   mitmRestartCount = 0;
   log("⏹ Stopping server...");
