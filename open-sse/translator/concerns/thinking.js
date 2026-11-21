@@ -13,6 +13,8 @@ export const LEVEL_TO_BUDGET = {
   medium: 8192,
   high: 24576,
   extra: 32768,
+  extra_high: 32768,
+  "extra-high": 32768,
   xhigh: 32768,
   max: 128000,
 };
@@ -29,6 +31,7 @@ export function effortToBudget(effort) {
 export function effortToThinkingLevel(effort) {
   const e = String(effort).toLowerCase().trim();
   if (e === "none" || e === "off") return "minimal";
+  if (e === "extra_high" || e === "extra-high" || e === "extra high") return "extra";
   if (e === "xhigh" || e === "max") return "high";
   return e;
 }

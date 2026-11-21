@@ -40,6 +40,7 @@ export function parseSuffix(model) {
   if (raw === "none" || raw === "off") return { cleanModel, override: { mode: "none" } };
   if (raw === "auto") return { cleanModel, override: { mode: "auto" } };
   if (raw === "ultra") return { cleanModel, override: { mode: "level", level: raw } };
+  if (raw === "extra_high" || raw === "extra-high" || raw === "extra high" || raw === "extra") return { cleanModel, override: { mode: "level", level: "extra" } };
   if (/^\d+$/.test(raw)) return { cleanModel, override: { mode: "budget", budget: Number(raw) } };
   if (LEVEL_TO_BUDGET[raw] !== undefined) return { cleanModel, override: { mode: "level", level: raw } };
   return { cleanModel, override: null };
@@ -82,7 +83,11 @@ export function extractThinking(body) {
   // Gemini shape (top-level, generationConfig, or request envelope)
   const tc = body.thinkingConfig || body.generationConfig?.thinkingConfig || body.request?.generationConfig?.thinkingConfig;
   if (tc && typeof tc === "object") {
-    if (typeof tc.thinkingLevel === "string") return { mode: "level", level: tc.thinkingLevel.toLowerCase() };
+    if (typeof tc.thinkingLevel === "string") {
+      let lvl = tc.thinkingLevel.toLowerCase().trim();
+      if (lvl === "extra_high" || lvl === "extra-high" || lvl === "extra high") lvl = "extra";
+      return { mode: "level", level: lvl };
+    }
     const tb = Number(tc.thinkingBudget);
     if (Number.isFinite(tb)) {
       if (tb === 0) return { mode: "none" };
