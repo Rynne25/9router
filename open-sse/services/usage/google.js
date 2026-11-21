@@ -200,7 +200,6 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
         'gemini-3.8-flash',
         'gemini-3.5-flash-lite',
         'gemini-3.1-flash-image',
-        'gemini-pro-orchestrator-g1-pro',
         'claude-opus-5-5-extra',
         'claude-opus-5-5-high',
         'claude-opus-5-5-medium',
@@ -225,7 +224,6 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
 
         // Skip internal models (except explicit orchestrators) and non-important models
         const isOrchestrator =
-          modelKey === "gemini-pro-orchestrator-g1-pro" ||
           modelKey === "gemini-pro-orchestrator-neon" ||
           modelKey === "gemini-pro-orchestrator-argon" ||
           modelKey === "claude-opus-5-5-orchestrator";

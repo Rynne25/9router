@@ -375,7 +375,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
           {/* Quick Suggestions for Antigravity or common models */}
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
             <span className="text-[10.5px] text-text-muted">Gợi ý nhanh:</span>
-            {["gemini-4-neon", "gemini-4-argon", "gemini-pro-orchestrator-g1-pro", "gemini-4-hydrogen-high", "claude-3-7-sonnet"].map((mId) => {
+            {["gemini-4-neon", "gemini-4-argon", "gemini-4-hydrogen-high", "claude-3-7-sonnet"].map((mId) => {
               const isBlocked = disabledModels.includes(mId);
               return (
                 <button
