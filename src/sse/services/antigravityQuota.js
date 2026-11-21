@@ -88,6 +88,7 @@ const ANTIGRAVITY_MODEL_ALIASES = {
   "gemini-4-neon": "gemini-4-argon-high",
     "gemini-pro-orchestrator-neon": "gemini-4-argon-high",
     "gemini-pro-orchestrator-argon": "gemini-4-argon-high",
+    "claude-opus-5-5-orchestrator": "claude-opus-5-5-high",
     "gemini-4-argon": "gemini-4-argon-high",
   "gemini-4-hydrogen": "gemini-4-hydrogen-high",
   "gemini-4-carbon": "gemini-4-carbon-high",

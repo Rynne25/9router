@@ -176,6 +176,7 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
         'gemini-4-neon',
         'gemini-pro-orchestrator-neon',
         'gemini-pro-orchestrator-argon',
+        'claude-opus-5-5-orchestrator',
         'gemini-4-argon-extra',
         'gemini-4-argon-high',
         'gemini-4-argon-medium',
@@ -226,7 +227,8 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
         const isOrchestrator =
           modelKey === "gemini-pro-orchestrator-g1-pro" ||
           modelKey === "gemini-pro-orchestrator-neon" ||
-          modelKey === "gemini-pro-orchestrator-argon";
+          modelKey === "gemini-pro-orchestrator-argon" ||
+          modelKey === "claude-opus-5-5-orchestrator";
         if ((info.isInternal && !isOrchestrator) || !importantModels.includes(modelKey)) {
           continue;
         }

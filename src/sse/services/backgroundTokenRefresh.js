@@ -103,14 +103,14 @@ export async function runBackgroundTokenRefreshTick(deps = {}) {
     const baseSensitiveDelay = Number(process.env.BG_REFRESH_GOOGLE_DELAY_MS) || 12_000;
     const baseNormalDelay = Number(process.env.BG_REFRESH_DELAY_MS) || 1_500;
 
+    const refreshedAccounts = [];
     for (let i = 0; i < due.length; i++) {
       const conn = due[i];
       try {
         await refresh(conn);
-        log.info("BG_TOKEN_REFRESH", "Connection refresh finished", {
-          id: conn.id,
-          email: conn.email || conn.name || conn.id,
+        refreshedAccounts.push({
           provider: conn.provider,
+          account: conn.email || conn.name || conn.id,
         });
       } catch (err) {
         log.warn("BG_TOKEN_REFRESH", "Connection refresh failed (swallowed)", {
@@ -128,6 +128,23 @@ export async function runBackgroundTokenRefreshTick(deps = {}) {
         const jitter = isSensitive ? Math.floor(Math.random() * 4000) : 200;
         await sleep(baseDelay + jitter);
       }
+    }
+
+    if (refreshedAccounts.length === 1) {
+      const only = refreshedAccounts[0];
+      log.info("BG_TOKEN_REFRESH", "Refreshed connection", {
+        provider: only.provider,
+        email: only.account,
+      });
+    } else if (refreshedAccounts.length > 1) {
+      const byProvider = refreshedAccounts.reduce((acc, item) => {
+        acc[item.provider] = (acc[item.provider] || 0) + 1;
+        return acc;
+      }, {});
+      const summary = Object.entries(byProvider)
+        .map(([prov, count]) => `${prov} x${count}`)
+        .join(", ");
+      log.info("BG_TOKEN_REFRESH", `Refreshed ${refreshedAccounts.length} connections (${summary})`);
     }
   } catch (err) {
     log.warn("BG_TOKEN_REFRESH", "Tick failed (swallowed)", {

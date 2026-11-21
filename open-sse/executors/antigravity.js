@@ -477,7 +477,7 @@ export class AntigravityExecutor extends BaseExecutor {
       if (!response.ok) return null;
 
       const tokens = await response.json();
-      log?.info?.("TOKEN", "Antigravity refreshed");
+      log?.debug?.("TOKEN", "Antigravity refreshed");
 
       return {
         accessToken: tokens.access_token,

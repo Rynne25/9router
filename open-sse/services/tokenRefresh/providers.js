@@ -224,7 +224,7 @@ export async function refreshGoogleToken(refreshToken, clientId, clientSecret, l
     }
 
     const tokens = await response.json();
-    log?.info?.("TOKEN_REFRESH", "Successfully refreshed Google token", { hasNewAccessToken: !!tokens.access_token, expiresIn: tokens.expires_in });
+    log?.debug?.("TOKEN_REFRESH", "Successfully refreshed Google token", { hasNewAccessToken: !!tokens.access_token, expiresIn: tokens.expires_in });
     return { accessToken: tokens.access_token, refreshToken: tokens.refresh_token || refreshToken, expiresIn: tokens.expires_in };
   } catch (error) {
     log?.error?.("TOKEN_REFRESH", `Network error refreshing Google token: ${error.message}`);
