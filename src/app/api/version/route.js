@@ -2,7 +2,7 @@ import https from "https";
 import pkg from "../../../../package.json" with { type: "json" };
 import { GITHUB_CONFIG } from "@/shared/constants/config";
 
-const GITHUB_REPO = GITHUB_CONFIG.repo || "Rynne3825/9router";
+const GITHUB_REPO = GITHUB_CONFIG.repo || "Rynne25/9router";
 const GITHUB_RAW_PACKAGE = GITHUB_CONFIG.rawPackageUrl || `https://raw.githubusercontent.com/${GITHUB_REPO}/master/package.json`;
 const VERSION_CACHE_TTL_MS = 60000; // cache lookup for 1 min so updates appear quickly
 

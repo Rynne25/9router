@@ -86,14 +86,13 @@ export function getAntigravityModelFamily(model) {
 
 const ANTIGRAVITY_MODEL_ALIASES = {
   "gemini-4-neon": "gemini-4-argon-high",
-    "gemini-pro-orchestrator-neon": "gemini-4-argon-high",
-    "gemini-pro-orchestrator-argon": "gemini-4-argon-high",
-    "claude-opus-5-5-orchestrator": "claude-opus-5-5-high",
-    "gemini-4-argon": "gemini-4-argon-high",
+  "gemini-pro-orchestrator-neon": "gemini-4-argon-high",
+  "gemini-pro-orchestrator-argon": "gemini-4-argon-high",
+  "claude-opus-5-5-orchestrator": "claude-opus-5-5-high",
+  "gemini-4-argon": "gemini-4-argon-high",
   "gemini-4-hydrogen": "gemini-4-hydrogen-high",
   "gemini-4-carbon": "gemini-4-carbon-high",
   "gpt-oss-120b": "gpt-oss-120b-medium",
-  "gemini-pro-orchestrator-g1-pro": "gemini-4-argon-high",
   "claude-sonnet-5-5": "claude-sonnet-5-5-high",
   "claude-opus-5-5": "claude-opus-5-5-high",
   "gemini-3.8-flash": "gemini-3.8-flash-medium",
@@ -347,17 +346,23 @@ export function getAntigravityModelQuota(quotas, model) {
   }
 
   // 2. Direct tier aliases if base model was passed
-  if (((cleanModel === "gemini-4-argon" || cleanModel === "gemini-4-neon") || cleanModel === "gemini-pro-orchestrator-g1-pro") && quotas["gemini-4-argon-high"]) {
+  if ((cleanModel === "gemini-4-argon" || cleanModel === "gemini-4-neon" || cleanModel === "gemini-pro-orchestrator-neon" || cleanModel === "gemini-pro-orchestrator-argon") && quotas["gemini-4-argon-high"]) {
     candidates.push(quotas["gemini-4-argon-high"]);
   }
   if (cleanModel === "gemini-4-hydrogen" && quotas["gemini-4-hydrogen-high"]) {
     candidates.push(quotas["gemini-4-hydrogen-high"]);
   }
+  if (cleanModel === "gemini-4-carbon" && quotas["gemini-4-carbon-high"]) {
+    candidates.push(quotas["gemini-4-carbon-high"]);
+  }
+  if ((cleanModel === "claude-opus-5-5" || cleanModel === "claude-opus-5-5-orchestrator") && quotas["claude-opus-5-5-high"]) {
+    candidates.push(quotas["claude-opus-5-5-high"]);
+  }
   if (cleanModel === "claude-sonnet-5-5" && quotas["claude-sonnet-5-5-high"]) {
     candidates.push(quotas["claude-sonnet-5-5-high"]);
   }
-  if (cleanModel === "claude-opus-5-5" && quotas["claude-opus-5-5-high"]) {
-    candidates.push(quotas["claude-opus-5-5-high"]);
+  if (cleanModel === "gpt-oss-120b" && quotas["gpt-oss-120b-medium"]) {
+    candidates.push(quotas["gpt-oss-120b-medium"]);
   }
   if (cleanModel === "gemini-3.8-flash" && quotas["gemini-3.8-flash-medium"]) {
     candidates.push(quotas["gemini-3.8-flash-medium"]);

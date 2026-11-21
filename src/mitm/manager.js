@@ -100,155 +100,42 @@ function ensureRuntimeServer(bundledPath) {
 }
 
 const SERVER_PATH = ensureRuntimeServer(resolveBundledServerPath());
-const ENCRYPT_ALGO = "aes-256-gcm";
-const ENCRYPT_SALT = "9router-mitm-pwd";
+const {
+  getCachedPassword,
+  setCachedPassword,
+  deriveKey,
+  encryptPassword,
+  decryptPassword,
+  initDbHooks: initCredentialHooks,
+  saveMitmSettings,
+  clearEncryptedPassword,
+  loadEncryptedPassword,
+  saveDnsToolState,
+  loadDnsToolState,
+  hasDnsPrivilege,
+} = require("./credentialStore");
 
-function getProcessUsingPort443() {
-  try {
-    if (IS_WIN) {
-      const psCmd = `powershell -NonInteractive -WindowStyle Hidden -Command ` +
-        `"$c = Get-NetTCPConnection -LocalPort 443 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if ($c) { $c.OwningProcess } else { 0 }"`;
-      const pidStr = execSync(psCmd, { encoding: "utf8", windowsHide: true }).trim();
-      const pid = parseInt(pidStr, 10);
-      if (pid && pid > 4) {
-        const tasklistResult = execSync(`tasklist /FI "PID eq ${pid}" /FO CSV /NH`, { encoding: "utf8", windowsHide: true });
-        const processMatch = tasklistResult.match(/"([^"]+)"/);
-        if (processMatch) return processMatch[1].replace(".exe", "");
-      }
-    } else {
-      const result = execSync(`${LSOF_BIN} -i :443`, { encoding: "utf8", windowsHide: true });
-      const lines = result.trim().split("\n");
-      if (lines.length > 1) return lines[1].split(/\s+/)[0];
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
+const {
+  isProcessAlive,
+  killProcess,
+  getProcessUsingPort443,
+  checkPort443Free,
+  getPort443Owner,
+  killPort443Owner,
+} = require("./portManager");
 
-let serverProcess = null;
-let serverPid = null;
-
-function getCachedPassword() { return globalThis.__mitmSudoPassword || null; }
-function setCachedPassword(pwd) { globalThis.__mitmSudoPassword = pwd; }
-
-function isProcessAlive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    return err.code === "EACCES";
-  }
-}
-
-function killProcess(pid, force = false, sudoPassword = null) {
-  if (IS_WIN) {
-    const flag = force ? "/F " : "";
-    exec(`taskkill ${flag}/PID ${pid}`, { windowsHide: true }, () => { });
-  } else {
-    const sig = force ? "SIGKILL" : "SIGTERM";
-    const cmd = `pkill -${sig} -P ${pid} 2>/dev/null; kill -${sig} ${pid} 2>/dev/null`;
-    if (sudoPassword || isSudoAvailable()) {
-      const { execWithPassword } = require("./dns/dnsConfig");
-      execWithPassword(cmd, sudoPassword || "").catch(() => exec(cmd, { windowsHide: true }, () => { }));
-    } else {
-      exec(cmd, { windowsHide: true }, () => { });
-    }
-  }
-}
-
-function deriveKey() {
-  try {
-    const { machineIdSync } = require("node-machine-id");
-    const raw = machineIdSync();
-    return crypto.createHash("sha256").update(raw + ENCRYPT_SALT).digest();
-  } catch {
-    return crypto.createHash("sha256").update(ENCRYPT_SALT).digest();
-  }
-}
-
-function encryptPassword(plaintext) {
-  const key = deriveKey();
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv(ENCRYPT_ALGO, key, iv);
-  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return `${iv.toString("hex")}:${tag.toString("hex")}:${encrypted.toString("hex")}`;
-}
-
-function decryptPassword(stored) {
-  try {
-    const [ivHex, tagHex, dataHex] = stored.split(":");
-    if (!ivHex || !tagHex || !dataHex) return null;
-    const key = deriveKey();
-    const decipher = crypto.createDecipheriv(ENCRYPT_ALGO, key, Buffer.from(ivHex, "hex"));
-    decipher.setAuthTag(Buffer.from(tagHex, "hex"));
-    return decipher.update(Buffer.from(dataHex, "hex")) + decipher.final("utf8");
-  } catch {
-    return null;
-  }
-}
+const {
+  pollMitmHealth,
+  startMitmWatchdog: startWatchdogImpl,
+  stopMitmWatchdog,
+} = require("./watchdog");
 
 function initDbHooks(getSettingsFn, updateSettingsFn) {
   _getSettings = getSettingsFn;
   _updateSettings = updateSettingsFn;
+  initCredentialHooks(getSettingsFn, updateSettingsFn);
 }
 
-async function saveMitmSettings(enabled, password) {
-  if (!_updateSettings) return;
-  try {
-    const updates = { mitmEnabled: enabled };
-    if (password) updates.mitmSudoEncrypted = encryptPassword(password);
-    await _updateSettings(updates);
-  } catch (e) {
-    err(`Failed to save settings: ${e.message}`);
-  }
-}
-
-async function clearEncryptedPassword() {
-  if (!_updateSettings) return;
-  try {
-    await _updateSettings({ mitmSudoEncrypted: null });
-  } catch (e) {
-    err(`Failed to clear encrypted password: ${e.message}`);
-  }
-}
-
-async function loadEncryptedPassword() {
-  if (!_getSettings) return null;
-  try {
-    const settings = await _getSettings();
-    if (!settings.mitmSudoEncrypted) return null;
-    return decryptPassword(settings.mitmSudoEncrypted);
-  } catch {
-    return null;
-  }
-}
-
-async function saveDnsToolState(tool, enabled) {
-  if (!_updateSettings || !_getSettings) return;
-  try {
-    const s = await _getSettings();
-    const next = { ...(s.dnsToolEnabled || {}), [tool]: enabled };
-    await _updateSettings({ dnsToolEnabled: next });
-  } catch (e) {
-    err(`Failed to save DNS state: ${e.message}`);
-  }
-}
-
-async function loadDnsToolState() {
-  if (!_getSettings) return {};
-  try {
-    const s = await _getSettings();
-    return s.dnsToolEnabled || {};
-  } catch {
-    return {};
-  }
-}
-
-/**
- * Re-apply DNS for tools previously enabled — called on app startup after MITM running.
- */
 async function restoreToolDNS(sudoPassword) {
   const state = await loadDnsToolState();
   const password = sudoPassword || getCachedPassword() || await loadEncryptedPassword();
@@ -260,59 +147,6 @@ async function restoreToolDNS(sudoPassword) {
       err(`DNS ${tool}: restore failed — ${e.message}`);
     }
   }
-}
-
-/**
- * Check if user has privilege to mutate hosts file.
- * Win: needs admin. Mac/Linux: root OR cached/encrypted sudo password.
- */
-async function hasDnsPrivilege() {
-  if (IS_WIN) return isAdmin();
-  if (isAdmin()) return true;
-  if (!isSudoPasswordRequired()) return true;
-  const pwd = getCachedPassword() || await loadEncryptedPassword();
-  return !!pwd;
-}
-
-function checkPort443Free() {
-  return new Promise((resolve) => {
-    const tester = net.createServer();
-    tester.once("error", (err) => {
-      if (err.code === "EADDRINUSE") resolve("in-use");
-      else resolve("no-permission");
-    });
-    tester.once("listening", () => { tester.close(() => resolve("free")); });
-    tester.listen(MITM_PORT, "127.0.0.1");
-  });
-}
-
-function getPort443Owner(sudoPassword) {
-  return new Promise((resolve) => {
-    if (IS_WIN) {
-      const psCmd = `powershell -NonInteractive -WindowStyle Hidden -Command "` +
-        `$c = Get-NetTCPConnection -LocalPort 443 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; ` +
-        `if ($c) { $c.OwningProcess } else { 0 }"`;    
-      exec(psCmd, { windowsHide: true }, (err, stdout) => {
-        if (err) return resolve(null);
-        const pid = parseInt(stdout.trim(), 10);
-        if (!pid || pid <= 4) return resolve(null);
-        exec(`tasklist /FI "PID eq ${pid}" /FO CSV /NH`, { windowsHide: true }, (e2, out2) => {
-          const m = out2?.match(/"([^"]+)"/);
-          resolve({ pid, name: m ? m[1] : "unknown" });
-        });
-      });
-    } else {
-      // Only find process actually LISTENING on TCP port 443
-      exec(`${LSOF_BIN} -nP -iTCP:443 -sTCP:LISTEN -t`, { windowsHide: true }, (err, stdout) => {
-        if (err || !stdout?.trim()) return resolve(null);
-        const pid = parseInt(stdout.trim().split("\n")[0], 10);
-        if (!pid || isNaN(pid)) return resolve(null);
-        exec(`ps -p ${pid} -o comm=`, { windowsHide: true }, (e2, out2) => {
-          resolve({ pid, name: (out2?.trim() || "unknown") });
-        });
-      });
-    }
-  });
 }
 
 async function killLeftoverMitm(sudoPassword) {
@@ -345,36 +179,6 @@ async function killLeftoverMitm(sudoPassword) {
   }
 }
 
-function pollMitmHealth(timeoutMs, port = MITM_PORT) {
-  return new Promise((resolve) => {
-    const deadline = Date.now() + timeoutMs;
-    const check = () => {
-      const req = https.request(
-        { hostname: "127.0.0.1", port, path: "/_mitm_health", method: "GET", rejectUnauthorized: false },
-        (res) => {
-          let body = "";
-          res.on("data", (d) => { body += d; });
-          res.on("end", () => {
-            try {
-              const json = JSON.parse(body);
-              resolve(json.ok === true ? { ok: true, pid: json.pid || null } : null);
-            } catch { resolve(null); }
-          });
-        }
-      );
-      req.on("error", () => {
-        if (Date.now() < deadline) setTimeout(check, 500);
-        else resolve(null);
-      });
-      req.end();
-    };
-    check();
-  });
-}
-
-/**
- * Get full MITM status including per-tool DNS status
- */
 async function getMitmStatus() {
   let running = serverProcess !== null && !serverProcess.killed;
   let pid = serverPid;
@@ -449,61 +253,8 @@ async function scheduleMitmRestart(apiKey) {
   }
 }
 
-function stopMitmWatchdog() {
-  if (mitmWatchdogTimer) {
-    clearInterval(mitmWatchdogTimer);
-    mitmWatchdogTimer = null;
-  }
-}
-
 function startMitmWatchdog(apiKey) {
-  if (apiKey) lastMitmApiKey = apiKey;
-  if (mitmWatchdogTimer) return;
-
-  mitmWatchdogTimer = setInterval(async () => {
-    if (mitmIsRestarting || fs.existsSync(LOCK_FILE)) return;
-    try {
-      const settings = _getSettings ? await _getSettings() : null;
-      if (settings && !settings.mitmEnabled) {
-        stopMitmWatchdog();
-        return;
-      }
-      const health = await pollMitmHealth(2000, MITM_PORT);
-      if (!health && !mitmIsRestarting && !fs.existsSync(LOCK_FILE)) {
-        const keyToUse = lastMitmApiKey || apiKey || "sk_9router";
-        log("⚠️ MITM watchdog: server unresponsive on port 443, triggering auto-restart...");
-        scheduleMitmRestart(keyToUse);
-      }
-    } catch {
-      // Never crash the parent process from watchdog tick
-    }
-  }, MITM_WATCHDOG_INTERVAL_MS);
-
-  if (mitmWatchdogTimer.unref) {
-    mitmWatchdogTimer.unref();
-  }
-}
-
-/**
- * Start MITM server only (cert + server, no DNS)
- */
-async function killPort443Owner(owner, sudoPassword) {
-  if (!owner || !owner.pid) return;
-  if (IS_WIN) {
-    try {
-      execSync(`powershell -NonInteractive -WindowStyle Hidden -Command "Stop-Process -Id ${owner.pid} -Force -ErrorAction SilentlyContinue"`, { windowsHide: true });
-    } catch { /* best effort */ }
-  } else {
-    try {
-      const { execWithPassword } = require("./dns/dnsConfig");
-      if (sudoPassword || isSudoAvailable()) {
-        await execWithPassword(`kill -9 ${owner.pid}`, sudoPassword || "");
-      } else {
-        execSync(`kill -9 ${owner.pid}`, { windowsHide: true });
-      }
-    } catch { /* best effort */ }
-  }
-  await new Promise(r => setTimeout(r, 800));
+  startWatchdogImpl(apiKey, () => mitmIsRestarting, _getSettings, (key) => scheduleMitmRestart(key));
 }
 
 async function startServer(apiKey, sudoPassword, forceKillPort443 = false) {

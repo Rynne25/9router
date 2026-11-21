@@ -118,11 +118,41 @@ export default function ConsoleLogClient() {
   const nextIdRef = useRef(cachedConsoleNextId);
   const copyTimerRef = useRef(null);
   const copyAllTimerRef = useRef(null);
+  const pendingQueueRef = useRef([]);
+  const batchFlushTimeoutRef = useRef(null);
+
+  const flushPendingLogs = useCallback(() => {
+    batchFlushTimeoutRef.current = null;
+    if (pendingQueueRef.current.length === 0) return;
+    const incoming = pendingQueueRef.current;
+    pendingQueueRef.current = [];
+    setEntries((prev) => {
+      const next = [...prev, ...incoming];
+      return next.length > CONSOLE_LOG_CONFIG.maxLines
+        ? next.slice(-CONSOLE_LOG_CONFIG.maxLines)
+        : next;
+    });
+  }, []);
+
+  const queueIncomingLog = useCallback((entry) => {
+    pendingQueueRef.current.push(entry);
+    if (!batchFlushTimeoutRef.current) {
+      batchFlushTimeoutRef.current = setTimeout(flushPendingLogs, 60);
+    }
+  }, [flushPendingLogs]);
+
+  const queueIncomingLogs = useCallback((entryList) => {
+    pendingQueueRef.current.push(...entryList);
+    if (!batchFlushTimeoutRef.current) {
+      batchFlushTimeoutRef.current = setTimeout(flushPendingLogs, 60);
+    }
+  }, [flushPendingLogs]);
 
   useEffect(() => {
     return () => {
       clearTimeout(copyTimerRef.current);
       clearTimeout(copyAllTimerRef.current);
+      if (batchFlushTimeoutRef.current) clearTimeout(batchFlushTimeoutRef.current);
     };
   }, []);
 
@@ -154,26 +184,20 @@ export default function ConsoleLogClient() {
       try {
         const msg = JSON.parse(e.data);
         if (msg.type === "init" && Array.isArray(msg.logs)) {
+          if (batchFlushTimeoutRef.current) clearTimeout(batchFlushTimeoutRef.current);
+          pendingQueueRef.current = [];
           const initial = msg.logs.slice(-CONSOLE_LOG_CONFIG.maxLines).map(toParsedEntry);
           setEntries(initial);
           setExpandedKeys(new Set());
         } else if (msg.type === "line" && typeof msg.line === "string") {
           const entry = toParsedEntry(msg.line);
-          setEntries((prev) => {
-            const next = [...prev, entry];
-            return next.length > CONSOLE_LOG_CONFIG.maxLines
-              ? next.slice(-CONSOLE_LOG_CONFIG.maxLines)
-              : next;
-          });
+          queueIncomingLog(entry);
         } else if (msg.type === "lines" && Array.isArray(msg.lines)) {
           const incoming = msg.lines.map(toParsedEntry);
-          setEntries((prev) => {
-            const next = [...prev, ...incoming];
-            return next.length > CONSOLE_LOG_CONFIG.maxLines
-              ? next.slice(-CONSOLE_LOG_CONFIG.maxLines)
-              : next;
-          });
+          queueIncomingLogs(incoming);
         } else if (msg.type === "clear") {
+          if (batchFlushTimeoutRef.current) clearTimeout(batchFlushTimeoutRef.current);
+          pendingQueueRef.current = [];
           setEntries([]);
           setExpandedKeys(new Set());
         }
@@ -184,8 +208,11 @@ export default function ConsoleLogClient() {
 
     es.onerror = () => setConnected(false);
 
-    return () => es.close();
-  }, [toParsedEntry]);
+    return () => {
+      es.close();
+      if (batchFlushTimeoutRef.current) clearTimeout(batchFlushTimeoutRef.current);
+    };
+  }, [toParsedEntry, queueIncomingLog, queueIncomingLogs]);
 
   const counts = useMemo(() => {
     const c = { all: entries.length, error: 0, warn: 0, request: 0, mitm: 0, token: 0 };

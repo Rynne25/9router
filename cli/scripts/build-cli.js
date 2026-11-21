@@ -308,6 +308,19 @@ function buildCliPackage() {
     fs.rmSync(betterDir, { recursive: true, force: true });
     console.log("✅ Stripped better-sqlite3 (lives in ~/.9router/runtime)");
   }
+
+  // Strip unused sql.js debug and zip files (>22MB saved)
+  const sqlDistDir = path.join(cliAppDir, "node_modules", "sql.js", "dist");
+  if (fs.existsSync(sqlDistDir)) {
+    for (const file of fs.readdirSync(sqlDistDir)) {
+      if (file.includes("debug") || file.endsWith(".zip")) {
+        try {
+          fs.rmSync(path.join(sqlDistDir, file), { force: true });
+        } catch {}
+      }
+    }
+    console.log("✅ Stripped sql.js debug and zip files (>22MB saved)");
+  }
   console.log("");
 
   // Step 4: Copy static files

@@ -125,7 +125,7 @@ try { ensureTrayRuntime({ silent: true }); } catch {}
 
 // Configuration constants
 const APP_NAME = pkg.name; // Use from package.json
-const INSTALL_CMD_LATEST = `npm install -g https://github.com/Rynne3825/9router/releases/latest/download/9router.tgz`;
+const INSTALL_CMD_LATEST = `npm install -g https://github.com/Rynne25/9router/releases/latest/download/9router.tgz`;
 
 const DEFAULT_PORT = 20128;
 const DEFAULT_HOST = "0.0.0.0";
@@ -493,10 +493,10 @@ function isRestrictedEnvironment() {
   return null;
 }
 
-const GITHUB_REPO = "Rynne3825/9router";
+const GITHUB_REPO = "Rynne25/9router";
 const GITHUB_RAW_PKG = `https://raw.githubusercontent.com/${GITHUB_REPO}/master/package.json`;
 
-// Check if new version available from GitHub repository Rynne3825/9router, return latest version or null
+// Check if new version available from GitHub repository Rynne25/9router, return latest version or null
 function checkForUpdate() {
   return new Promise((resolve) => {
     if (skipUpdate) {

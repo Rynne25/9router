@@ -198,6 +198,12 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
         'gemini-3.8-flash-tiered',
         'gemini-3.8-flash-low',
         'gemini-3.8-flash',
+        'gemini-3.7-flash-high',
+        'gemini-3.7-flash-medium',
+        'gemini-3.7-flash-low',
+        'gemini-3.6-flash-high',
+        'gemini-3.6-flash-medium',
+        'gemini-3.6-flash-low',
         'gemini-3.5-flash-lite',
         'gemini-3.1-flash-image',
         'claude-opus-5-5-extra',
@@ -312,28 +318,6 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
       Object.assign(quotas, weeklyQuotas);
     } catch {
       // Silently ignore — weekly is best-effort
-    }
-
-    // Synthesize gemini-pro-orchestrator-g1-pro quota bar on G1 Pro / Ultra accounts
-    // when fetchAvailableModels does not list it as a standalone key.
-    if (!quotas["gemini-pro-orchestrator-g1-pro"]) {
-      const g1ProSource =
-        quotas["gemini-4-neon-extra"] ||
-        quotas["gemini-4-neon-high"] ||
-        quotas["gemini-4-argon-high"] ||
-        quotas.gemini_argon_session ||
-        quotas.gemini_argon_weekly ||
-        quotas["gemini-4-hydrogen-high"];
-      if (g1ProSource) {
-        quotas["gemini-pro-orchestrator-g1-pro"] = {
-          used: g1ProSource.used ?? 0,
-          total: g1ProSource.total ?? 1000,
-          resetAt: g1ProSource.resetAt || null,
-          remainingPercentage: g1ProSource.remainingPercentage ?? 100,
-          unlimited: Boolean(g1ProSource.unlimited),
-          displayName: "Gemini Pro Orchestrator G1 Pro",
-        };
-      }
     }
 
     return {

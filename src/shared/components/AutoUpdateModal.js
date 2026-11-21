@@ -65,7 +65,7 @@ export default function AutoUpdateModal({
     try {
       abortControllerRef.current = new AbortController();
       const downloadUrl = latestVersion
-        ? `https://github.com/Rynne3825/9router/releases/download/v${latestVersion}/9router-${latestVersion}.tgz`
+        ? `https://github.com/Rynne25/9router/releases/download/v${latestVersion}/9router-${latestVersion}.tgz`
         : null;
       const res = await fetch("/api/version/update", {
         method: "POST",

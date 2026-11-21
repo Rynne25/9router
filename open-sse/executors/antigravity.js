@@ -139,6 +139,7 @@ const ANTIGRAVITY_TRANSIENT_ERROR_PATTERNS = [
   /timeout/i,
   /stream\s+(ended|closed|terminated|interrupted)/i,
   /empty\s+response/i,
+  /socket\s+hang\s+up|ECONNRESET|ETIMEDOUT|EPIPE|premature\s+close/i,
 ];
 
 const ANTIGRAVITY_TRANSIENT_STATUSES = new Set([

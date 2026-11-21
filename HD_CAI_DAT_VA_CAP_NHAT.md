@@ -12,7 +12,7 @@ Người bạn của bạn **không cần cài Git**, **không cần build mã n
 Mở **PowerShell** hoặc **Command Prompt (CMD)** và dán lệnh sau:
 
 ```bash
-npm install -g https://github.com/Rynne3825/9router/releases/download/v0.5.123/9router-0.5.123.tgz
+npm install -g https://github.com/Rynne25/9router/releases/download/v0.5.127/9router-0.5.127.tgz
 ```
 
 Sau khi cài đặt xong, gõ lệnh để khởi động:
@@ -48,7 +48,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 ## 🔔 Phần 2: Cơ Chế Tự Động Thông Báo Khi Có Bản Cập Nhật Mới
 
-Hệ thống đã được lập trình để **tự động kiểm tra phiên bản mới nhất** từ kho GitHub `https://github.com/Rynne3825/9router`:
+Hệ thống đã được lập trình để **tự động kiểm tra phiên bản mới nhất** từ kho GitHub `https://github.com/Rynne25/9router`:
 
 ### 1. Trên giao diện Web Dashboard:
 - Mỗi khi bạn của bạn mở Web Dashboard hoặc làm việc, hệ thống sẽ tự động so sánh phiên bản đang chạy với phiên bản mới nhất trên GitHub của bạn.
@@ -85,7 +85,7 @@ Mỗi khi bạn bổ sung tính năng mới hoặc sửa lỗi và muốn bạn 
    git push origin master
    ```
 4. **Tạo Release trên GitHub**:
-   - Truy cập: `https://github.com/Rynne3825/9router/releases/new`
+   - Truy cập: `https://github.com/Rynne25/9router/releases/new`
    - Đặt Tag và Tên release: `v0.5.120`
    - Kéo thả file `9router-0.5.120.tgz` vào ô đính kèm (**Attach binaries by dropping them here**).
    - Nhấn **Publish release**.

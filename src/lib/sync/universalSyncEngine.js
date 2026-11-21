@@ -3,6 +3,7 @@ import os from "os";
 import { getConsistentMachineId, isMasterReceiverMachine } from "@/shared/utils/machineId.js";
 import { smartMergeRemoteAccounts, getExportableAccounts } from "./syncService.js";
 
+// Preserved as "Rynne3825/9router" for backwards-compatible P2P ntfy sync topic hash & E2EE key across all machines
 const REPO_SIGNATURE = "Rynne3825/9router";
 const TOPIC_SALT = "9r-universal-topic-v1";
 const CIPHER_SALT = "9r-universal-cipher-v1";
