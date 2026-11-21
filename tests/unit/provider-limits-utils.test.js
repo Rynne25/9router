@@ -44,7 +44,7 @@ describe("ProviderLimits/utils barrel & decomposed utilities", () => {
     const { paired, singles } = utils.pairQuotasByFamily(rows);
     expect(paired).toHaveLength(2);
     expect(paired.map((p) => p.title)).toEqual(["Gemini", "Claude"]);
-    expect(singles.some((s) => s.cleanTitle === "G1 Pro / Argon")).toBe(true);
+    expect(singles.some((s) => s.cleanTitle === "Argon")).toBe(true);
   });
 
   it("evaluates depleted vs available quota consistently across models", () => {

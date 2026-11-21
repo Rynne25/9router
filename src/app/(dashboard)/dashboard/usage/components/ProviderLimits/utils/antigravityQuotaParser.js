@@ -81,13 +81,13 @@ export function parseAntigravityQuotas(quotas) {
       .forEach(([modelKey, quota]) => normalizedQuotas.push(toQuotaRow("Gemini", modelKey, quota)));
   }
 
-  // 1b. G1 Pro / Argon Family (Gemini 4 Argon & Gemini Pro Orchestrator share the same quota pool)
+  // 1b. Argon Family (Gemini 4 Argon & Gemini Pro Orchestrator share the same quota pool)
   let hasG1ProArgon = false;
   if (hasArgonSession) {
     summaryModels
       .filter(([k]) => k === "gemini_argon_session")
       .forEach(([, quota]) => {
-        normalizedQuotas.push(toQuotaRow("G1 Pro / Argon", "g1pro_argon_session", quota));
+        normalizedQuotas.push(toQuotaRow("Argon", "g1pro_argon_session", quota));
         hasG1ProArgon = true;
       });
   }
@@ -96,7 +96,7 @@ export function parseAntigravityQuotas(quotas) {
     summaryModels
       .filter(([k]) => k === "gemini_argon_weekly")
       .forEach(([, quota]) => {
-        normalizedQuotas.push(toQuotaRow("G1 Pro / Argon", "g1pro_argon_weekly", quota));
+        normalizedQuotas.push(toQuotaRow("Argon", "g1pro_argon_weekly", quota));
         hasG1ProArgon = true;
       });
   } else if (argonModels.length > 0) {
@@ -112,7 +112,7 @@ export function parseAntigravityQuotas(quotas) {
         rep.remainingPercentage === quotas.gemini_weekly?.remainingPercentage);
 
     if (!sharesMainGeminiPool) {
-      normalizedQuotas.push(toQuotaRow("G1 Pro / Argon", "g1pro_argon", rep));
+      normalizedQuotas.push(toQuotaRow("Argon", "g1pro_argon", rep));
       hasG1ProArgon = true;
     }
   }
@@ -139,7 +139,7 @@ export function parseAntigravityQuotas(quotas) {
       .forEach(([modelKey, quota]) => normalizedQuotas.push(toQuotaRow("Claude", modelKey, quota)));
   }
 
-  // 3. Standalone Models (merge G1 Pro Orchestrator into G1 Pro / Argon if missing)
+  // 3. Standalone Models (merge Orchestrator into Argon if missing)
   if (!hasG1ProArgon) {
     const g1ProSource =
       quotas["gemini-4-neon-extra"] ||
@@ -150,7 +150,7 @@ export function parseAntigravityQuotas(quotas) {
       quotas["gemini-4-hydrogen-high"];
     if (g1ProSource) {
       normalizedQuotas.push({
-        name: "G1 Pro / Argon",
+        name: "Argon",
         modelKey: "g1pro_argon",
         used: g1ProSource.used || 0,
         total: g1ProSource.total || 1000,

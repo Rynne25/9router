@@ -342,9 +342,9 @@ export default function AntigravityToolCard({
                 const groups = [
                   {
                     id: "gemini-4",
-                    title: "Gemini 4 Series (Argon & Hydrogen)",
+                    title: "Gemini 4 Series (Neon, Argon, Hydrogen & Carbon)",
                     icon: "auto_awesome",
-                    models: tool.defaultModels.filter((m) => m.id.startsWith("gemini-4")),
+                    models: tool.defaultModels.filter((m) => m.id.startsWith("gemini-4") || m.id.includes("orchestrator")),
                   },
                   {
                     id: "gemini-3.8",
@@ -357,6 +357,12 @@ export default function AntigravityToolCard({
                     title: "Claude Series (Opus & Sonnet)",
                     icon: "psychology",
                     models: tool.defaultModels.filter((m) => m.id.startsWith("claude")),
+                  },
+                  {
+                    id: "other",
+                    title: "Other Models (GPT-OSS)",
+                    icon: "memory",
+                    models: tool.defaultModels.filter((m) => m.id.startsWith("gpt-oss")),
                   },
                 ];
 

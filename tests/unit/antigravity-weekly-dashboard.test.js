@@ -279,7 +279,7 @@ describe("Antigravity dashboard normalization with weekly quotas", () => {
 
     const argonWeekly = quotas.find((q) => q.modelKey === "g1pro_argon_weekly");
     expect(argonWeekly).toMatchObject({
-      name: "G1 Pro / Argon",
+      name: "Argon",
       used: 570,
       total: 1000,
       remainingPercentage: 43,
@@ -314,7 +314,7 @@ describe("Antigravity dashboard normalization with weekly quotas", () => {
       remainingPercentage: 100,
     });
     expect(quotas[1]).toMatchObject({
-      name: "G1 Pro / Argon",
+      name: "Argon",
       remainingPercentage: 43,
     });
   });

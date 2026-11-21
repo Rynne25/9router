@@ -90,6 +90,8 @@ const ANTIGRAVITY_MODEL_ALIASES = {
     "gemini-pro-orchestrator-argon": "gemini-4-argon-high",
     "gemini-4-argon": "gemini-4-argon-high",
   "gemini-4-hydrogen": "gemini-4-hydrogen-high",
+  "gemini-4-carbon": "gemini-4-carbon-high",
+  "gpt-oss-120b": "gpt-oss-120b-medium",
   "gemini-pro-orchestrator-g1-pro": "gemini-4-argon-high",
   "claude-sonnet-5-5": "claude-sonnet-5-5-high",
   "claude-opus-5-5": "claude-opus-5-5-high",
@@ -139,7 +141,8 @@ export function getAntigravityModelCandidates(model) {
 
 function isArgonOrHydrogenModel(cleanModel) {
   if (!cleanModel) return false;
-  return isArgonOrG1ProKey(cleanModel) || (cleanModel.toLowerCase().includes("hydrogen") || cleanModel.toLowerCase().includes("neon"));
+  const lower = cleanModel.toLowerCase();
+  return isArgonOrG1ProKey(cleanModel) || lower.includes("hydrogen") || lower.includes("neon") || lower.includes("carbon");
 }
 
 function resolveKnownAntigravityTier(connectionId, connection, availableSet, quotasSnapshot) {

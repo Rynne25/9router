@@ -79,7 +79,7 @@ export function getQuotaFamilyInfo(quota) {
     const badge = cycle === "weekly" ? "Tuần" : "5h";
     return {
       familyKey: "g1pro_argon",
-      title: "G1 Pro / Argon",
+      title: "Argon",
       cycle,
       badge,
     };
