@@ -68,7 +68,26 @@ Hệ thống đã được lập trình để **tự động kiểm tra phiên b
 
 ---
 
-## 🛠️ Phần 3: Quy Trình Phát Hành Bản Mới (Dành Cho Chủ Repo)
+## 🛡️ Phần 3: Cấu Hình Tự Động Chạy Quyền Administrator (Windows)
+
+Để tính năng MITM Proxy (port 443) và cấu hình DNS tự động can thiệp file `hosts` mà **không bao giờ bị hỏi popup UAC** mỗi khi bật máy hay chạy lệnh:
+
+### 🚀 Cách thiết lập 1 click:
+Mở PowerShell tại thư mục repo và chạy:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup-admin-task.ps1
+```
+*(Chỉ cần bấm Yes xác nhận UAC 1 lần duy nhất lúc đăng ký).*
+
+Sau khi chạy xong:
+1. **Khởi động cùng Windows:** 9Router sẽ tự động chạy ngầm ở khay hệ thống (System Tray) với quyền Administrator cao nhất mỗi khi bạn đăng nhập Windows.
+2. **Icon Desktop:** Xuất hiện shortcut **`9Router (Admin)`** ngoài màn hình chính — click là chạy ngay quyền admin không hỏi UAC.
+3. **Lệnh gõ nhanh trong terminal:** Gõ `9router-admin` ở bất kỳ cửa sổ CMD/PowerShell nào để bật dịch vụ.
+4. **Khi cập nhật phiên bản mới:** Chạy `npm install -g 9router` bình thường. Lịch trình Admin và shortcut vẫn tự động trỏ đến phiên bản mới nhất mà không cần cài đặt lại!
+
+---
+
+## 🛠️ Phần 4: Quy Trình Phát Hành Bản Mới (Dành Cho Chủ Repo)
 
 Mỗi khi bạn bổ sung tính năng mới hoặc sửa lỗi và muốn bạn bè nhận được thông báo cập nhật, bạn chỉ cần thực hiện 4 bước đơn giản:
 
