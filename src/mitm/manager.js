@@ -100,6 +100,8 @@ function ensureRuntimeServer(bundledPath) {
 }
 
 const SERVER_PATH = ensureRuntimeServer(resolveBundledServerPath());
+let serverProcess = null;
+let serverPid = null;
 const {
   getCachedPassword,
   setCachedPassword,
