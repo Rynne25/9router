@@ -178,12 +178,9 @@ function resolveKnownAntigravityTier(connectionId, connection, availableSet, quo
   }
   if (rawTier.includes("enterprise")) return "enterprise";
   if (rawTier.includes("ultra")) return "ultra";
-  if (rawTier.includes("pro")) {
-    if (!hasSnapshotData) return "pro";
-    if (hasAvailableArgon || hasArgonOrG1Pro(connection, quotasSnapshot ? { quotas: quotasSnapshot } : null)) {
-      return "pro";
-    }
-    return "pro_jiro";
+  if (rawTier.includes("plus") || rawTier.includes("g1-plus")) return "plus";
+  if (rawTier.includes("pro") || rawTier.includes("g1-pro")) {
+    return "pro";
   }
   if (rawTier === "free" || rawTier.includes("legacy")) {
     if (hasAvailableArgon || hasArgonOrG1Pro(connection, quotasSnapshot ? { quotas: quotasSnapshot } : null)) {
@@ -264,7 +261,7 @@ export function isAntigravityModelSupported(connectionId, model, connection = nu
   const isArgonModel = isArgonOrHydrogenModel(cleanModel);
   const isClaudeModel = cleanModel.toLowerCase().startsWith("claude-") || cleanModel.toLowerCase() === "claude";
 
-  if (knownTier === "free" && (isArgonModel || isClaudeModel)) {
+  if ((knownTier === "free" || knownTier === "plus") && (isArgonModel || isClaudeModel)) {
     return false;
   }
   if (knownTier === "pro_jiro" && isArgonModel) {

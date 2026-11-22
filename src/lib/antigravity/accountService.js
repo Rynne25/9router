@@ -293,7 +293,8 @@ export function normalizeTier(rawTier) {
   const s = rawTier.toLowerCase().trim();
   if (s.includes("enterprise")) return "enterprise";
   if (s.includes("ultra")) return "ultra";
-  if (s.includes("pro")) return "pro";
+  if (s.includes("plus") || s.includes("g1-plus")) return "plus";
+  if (s.includes("pro") || s.includes("g1-pro") || s.includes("advanced") || s.includes("premium")) return "pro";
   if (s.includes("free") || s.includes("legacy")) return "free";
   return "free";
 }
@@ -391,6 +392,38 @@ export function hasArgonOrG1Pro(connection, quotaEntry = null) {
  */
 export function getAntigravityEffectiveTier(connection, quotaEntry = null) {
   if (!connection && !quotaEntry) return "free";
+
+  // 1. Check official paid subscription info (from Google loadCodeAssist)
+  const subInfo =
+    quotaEntry?.subscriptionInfo ||
+    quotaEntry?.raw?.subscriptionInfo ||
+    connection?.providerSpecificData?.subscriptionInfo;
+
+  const paidTierCandidate = (
+    subInfo?.paidTier?.id ||
+    subInfo?.paidTier?.name ||
+    subInfo?.currentTier?.id ||
+    subInfo?.currentTier?.name ||
+    quotaEntry?.plan ||
+    ""
+  ).toLowerCase().trim();
+
+  if (paidTierCandidate && !["free", "free-tier", "unknown"].includes(paidTierCandidate)) {
+    if (paidTierCandidate.includes("enterprise")) return "enterprise";
+    if (paidTierCandidate.includes("ultra")) return "ultra";
+    if (paidTierCandidate.includes("plus") || paidTierCandidate.includes("g1-plus")) return "plus";
+    if (
+      paidTierCandidate.includes("pro") ||
+      paidTierCandidate.includes("advanced") ||
+      paidTierCandidate.includes("premium") ||
+      paidTierCandidate.includes("google-one") ||
+      paidTierCandidate.includes("g1-pro")
+    ) {
+      return "pro";
+    }
+  }
+
+  // 2. Check explicit raw tier from connection or providerSpecificData
   const rawTier = (
     connection?.providerSpecificData?.subscriptionTier ||
     connection?.providerSpecificData?.tier ||
@@ -404,9 +437,16 @@ export function getAntigravityEffectiveTier(connection, quotaEntry = null) {
   }
   if (rawTier === "enterprise" || rawTier.includes("enterprise")) return "enterprise";
   if (rawTier === "ultra" || rawTier.includes("ultra")) return "ultra";
+  if (rawTier === "plus" || rawTier.includes("plus") || rawTier === "g1-plus" || rawTier === "g1-plus-tier") {
+    return "plus";
+  }
+  if (rawTier === "pro" || rawTier.includes("pro") || rawTier === "g1-pro" || rawTier === "g1-pro-tier") {
+    return "pro";
+  }
 
-  if (rawTier === "pro" || rawTier.includes("pro")) {
-    return hasArgonOrG1Pro(connection, quotaEntry) ? "pro" : "pro_jiro";
+  // 3. Heuristic deduction: If account has access to Argon or G1 Pro -> PRO
+  if (hasArgonOrG1Pro(connection, quotaEntry)) {
+    return "pro";
   }
 
   return "free";

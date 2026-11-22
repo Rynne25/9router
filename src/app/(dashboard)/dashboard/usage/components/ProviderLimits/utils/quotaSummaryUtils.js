@@ -12,6 +12,7 @@ const memoryConnectionsCache = new Map();
 export const TIER_FILTER_OPTIONS = [
   { value: "all", label: "Tất cả gói" },
   { value: "pro", label: "PRO (Argon / G1)" },
+  { value: "plus", label: "PLUS (Google AI Plus)" },
   { value: "pro_jiro", label: "PRO JIRO" },
   { value: "ultra", label: "ULTRA" },
   { value: "enterprise", label: "ENTERPRISE" },

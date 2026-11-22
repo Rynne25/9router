@@ -261,10 +261,11 @@ export function useProviderConnections({ providerId }) {
   }, [connections, fetchConnections]);
 
   const tierCounts = useMemo(() => {
-    const counts = { all: connections.length, pro: 0, pro_jiro: 0, ultra: 0, enterprise: 0, free: 0 };
+    const counts = { all: connections.length, pro: 0, plus: 0, pro_jiro: 0, ultra: 0, enterprise: 0, free: 0 };
     for (const c of connections) {
       const t = getAntigravityEffectiveTier(c);
       if (t === "pro") counts.pro += 1;
+      else if (t === "plus") counts.plus += 1;
       else if (t === "pro_jiro") counts.pro_jiro += 1;
       else if (t === "ultra") counts.ultra += 1;
       else if (t === "enterprise") counts.enterprise += 1;

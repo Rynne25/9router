@@ -24,7 +24,7 @@ async function handleRefreshAll() {
   const results = [];
   let refreshedCount = 0;
 
-  for (const conn of connections) {
+  async function refreshOne(conn) {
     if (conn.providerSpecificData?.validationBlocked || conn.validationBlocked) {
       results.push({
         id: conn.id,
@@ -39,7 +39,7 @@ async function handleRefreshAll() {
           message: conn.validationReason || conn.providerSpecificData?.validationReason || "Verification Required",
         },
       });
-      continue;
+      return;
     }
 
     if (!conn.refreshToken) {
@@ -49,7 +49,7 @@ async function handleRefreshAll() {
         ok: false,
         error: "Missing refresh token",
       });
-      continue;
+      return;
     }
 
     try {
@@ -63,10 +63,12 @@ async function handleRefreshAll() {
       // 2. Fetch updated project ID and tier
       let projectId = conn.projectId;
       let tier = conn.providerSpecificData?.tier || "free";
+      let assistData = null;
       try {
         const assist = await fetchProjectAndTier(accessToken);
         if (assist.projectId) projectId = assist.projectId;
         if (assist.tier) tier = assist.tier;
+        assistData = assist;
       } catch {
         // Keep existing if loadCodeAssist fails
       }
@@ -85,7 +87,7 @@ async function handleRefreshAll() {
         // Quota is best-effort
       }
 
-      // 3b. Auto-infer effective tier if loadCodeAssist didn't return a paid tier
+      // 3b. Auto-infer effective tier with priority to official paidTier
       const analyzedTier = getAntigravityEffectiveTier(
         {
           ...conn,
@@ -93,13 +95,16 @@ async function handleRefreshAll() {
             ...conn.providerSpecificData,
             tier,
             subscriptionTier: tier,
+            subscriptionInfo: assistData?.raw || quotaData?.subscriptionInfo || conn.providerSpecificData?.subscriptionInfo,
             quotas: quotaData?.quotas || conn.providerSpecificData?.quotas,
           },
         },
         quotaData
       );
-      if (tier === "free" && analyzedTier !== "free") {
+      if (analyzedTier && analyzedTier !== "free") {
         tier = analyzedTier;
+      } else if (assistData?.tier) {
+        tier = assistData.tier;
       }
 
       // 4. Update connection record in DB
@@ -107,6 +112,7 @@ async function handleRefreshAll() {
         ...(conn.providerSpecificData || {}),
         tier,
         subscriptionTier: tier,
+        subscriptionInfo: assistData?.raw || quotaData?.subscriptionInfo || conn.providerSpecificData?.subscriptionInfo,
         ...(quotaData?.quotas ? { quotas: quotaData.quotas } : {}),
         ...(Array.isArray(quotaData?.availableModels) && quotaData.availableModels.length > 0
           ? { availableModels: quotaData.availableModels }
@@ -156,6 +162,13 @@ async function handleRefreshAll() {
         verification,
       });
     }
+  }
+
+  // Concurrent execution: 5 accounts at a time to prevent UI timeout and speed up 5-10x
+  const CONCURRENCY = 5;
+  for (let i = 0; i < connections.length; i += CONCURRENCY) {
+    const chunk = connections.slice(i, i + CONCURRENCY);
+    await Promise.all(chunk.map((c) => refreshOne(c)));
   }
 
   return {

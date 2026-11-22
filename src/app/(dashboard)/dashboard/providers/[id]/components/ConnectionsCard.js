@@ -42,11 +42,12 @@ export default function ConnectionsCard({
 
   const tierTabs = [
     { key: "all", label: `Tất cả (${tierCounts.all})` },
-    { key: "pro", label: `PRO (${tierCounts.pro})` },
-    { key: "pro_jiro", label: `PRO JIRO (${tierCounts.pro_jiro})` },
-    { key: "ultra", label: `ULTRA (${tierCounts.ultra})` },
-    { key: "enterprise", label: `ENTERPRISE (${tierCounts.enterprise})` },
-    { key: "free", label: `MIỄN PHÍ (${tierCounts.free})` },
+    { key: "pro", label: `PRO (${tierCounts.pro || 0})` },
+    { key: "plus", label: `PLUS (${tierCounts.plus || 0})` },
+    { key: "pro_jiro", label: `PRO JIRO (${tierCounts.pro_jiro || 0})` },
+    { key: "ultra", label: `ULTRA (${tierCounts.ultra || 0})` },
+    { key: "enterprise", label: `ENTERPRISE (${tierCounts.enterprise || 0})` },
+    { key: "free", label: `MIỄN PHÍ (${tierCounts.free || 0})` },
   ];
 
   const selectedSet = new Set(selectedConnectionIds);

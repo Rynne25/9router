@@ -105,4 +105,38 @@ describe("Antigravity Tier Auto-Detection", () => {
     expect(getAntigravityEffectiveTier(conn, ultraQuota)).toBe("ultra");
     expect(getAntigravityEffectiveTier(conn, enterpriseQuota)).toBe("enterprise");
   });
+
+  it("detects plus when account has g1-plus-tier or Google AI Plus", () => {
+    const conn = {
+      email: "phamngovankhiem2k5@gmail.com",
+      provider: "antigravity",
+    };
+    const quotaEntry = {
+      subscriptionInfo: {
+        paidTier: { id: "g1-plus-tier", name: "Google AI Plus" },
+      },
+    };
+
+    expect(getAntigravityEffectiveTier(conn, quotaEntry)).toBe("plus");
+    expect(getTierBadgeLabel("plus")).toBe("PLUS");
+  });
+
+  it("detects pro when account has g1-pro-tier even without Argon models", () => {
+    const conn = {
+      email: "duongtronghieu16@gmail.com",
+      provider: "antigravity",
+    };
+    const quotaEntry = {
+      subscriptionInfo: {
+        paidTier: { id: "g1-pro-tier", name: "Google AI Pro" },
+      },
+      quotas: {
+        "claude-opus-4-6-thinking": { remaining: 100, total: 1000 },
+        "claude-sonnet-4-6": { remaining: 100, total: 1000 },
+      },
+    };
+
+    expect(getAntigravityEffectiveTier(conn, quotaEntry)).toBe("pro");
+    expect(getTierBadgeLabel(getAntigravityEffectiveTier(conn, quotaEntry))).toBe("PRO");
+  });
 });

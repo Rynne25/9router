@@ -534,6 +534,7 @@ export default function BulkImportAntigravityModal({ isOpen, onClose, onSuccess 
                             size="sm"
                             className={cn(
                               tier === "PRO" && "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20",
+                              tier === "PLUS" && "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20",
                               tier === "PRO JIRO" && "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20",
                               tier === "ULTRA" && "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20",
                               tier === "ENTERPRISE" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20",

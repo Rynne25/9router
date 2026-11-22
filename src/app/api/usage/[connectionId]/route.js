@@ -9,6 +9,7 @@ import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { USAGE_APIKEY_PROVIDERS } from "@/shared/constants/providers";
 import { isLeaseConnection } from "open-sse/services/minimaxCodeLease.js";
 import { syncAntigravityUsageCache } from "@/sse/services/antigravityQuota.js";
+import { getAntigravityEffectiveTier } from "@/shared/utils/antigravityTier";
 
 // Detect auth-expired messages returned by usage providers instead of throwing
 const AUTH_EXPIRED_PATTERNS = ["expired", "authentication", "unauthorized", "401", "re-authorize"];
@@ -200,6 +201,22 @@ export async function GET(request, { params }) {
 
     if (connection.provider === "antigravity" && usage && !usage.message) {
       syncAntigravityUsageCache(connection.id, usage);
+      try {
+        const effectiveTier = getAntigravityEffectiveTier(connection, usage);
+        updateProviderConnection(connection.id, {
+          providerSpecificData: {
+            ...(connection.providerSpecificData || {}),
+            tier: effectiveTier,
+            subscriptionTier: effectiveTier,
+            subscriptionInfo: usage.subscriptionInfo || connection.providerSpecificData?.subscriptionInfo,
+            ...(usage.quotas ? { quotas: usage.quotas } : {}),
+            ...(Array.isArray(usage.availableModels) && usage.availableModels.length > 0
+              ? { availableModels: usage.availableModels }
+              : {}),
+            lastRefreshedAt: new Date().toISOString(),
+          },
+        }).catch(() => {});
+      } catch {}
     }
 
     return Response.json(usage);
