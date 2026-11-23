@@ -13,8 +13,16 @@ async function intercept(req, res, bodyBuffer, mappedModel) {
   try {
     const body = JSON.parse(bodyBuffer.toString());
     if (body.model) body.model = mappedModel;
-    if (body.request?.generationConfig?.thinkingConfig?.thinkingLevel === "MINIMAL") {
-      body.request.generationConfig.thinkingConfig.thinkingLevel = "LOW";
+    const tl = body.request?.generationConfig?.thinkingConfig?.thinkingLevel;
+    if (tl) {
+      const lower = String(tl).toLowerCase().trim();
+      const modelLower = String(body.model || mappedModel || "").toLowerCase();
+      const isNeon = modelLower.includes("neon");
+      if (lower === "minimal") {
+        body.request.generationConfig.thinkingConfig.thinkingLevel = "LOW";
+      } else if ((lower === "xhigh" || lower === "max") && !isNeon) {
+        body.request.generationConfig.thinkingConfig.thinkingLevel = "HIGH";
+      }
     }
 
     const routerRes = await fetchRouter(body, "/v1/chat/completions", req.headers);

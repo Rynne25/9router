@@ -1,8 +1,10 @@
 import crypto from "crypto";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
-import { OAUTH_ENDPOINTS, ANTIGRAVITY_HEADERS, AG_DEFAULT_TOOLS, AG_TOOL_SUFFIX, ANTIGRAVITY_PROMPT_REWRITES } from "../config/appConstants.js";
+import { OAUTH_ENDPOINTS, ANTIGRAVITY_HEADERS, AG_DEFAULT_TOOLS, AG_TOOL_SUFFIX, ANTIGRAVITY_PROMPT_REWRITES, ANTIGRAVITY_DEFAULT_SYSTEM } from "../config/appConstants.js";
+import { GEMINI_ROLE } from "../translator/schema/roles.js";
 import { HTTP_STATUS } from "../config/runtimeConfig.js";
+import { GEMINI_LONG_DECODE_MAX_OUTPUT, supportsGeminiLongDecode, wantsGeminiLongDecode, withGeminiLongDecode } from "../utils/geminiLongDecode.js";
 import { resolveSessionId, toNumericSessionId } from "../utils/sessionManager.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { cleanJSONSchemaForAntigravity, normalizeGeminiContents } from "../translator/formats/gemini.js";
@@ -85,13 +87,84 @@ function parseImageConfig(model) {
   return config;
 }
 
+
+// Antigravity refuses some requests — e.g. a system prompt carrying fingerprinted third-party
+// agent text (see ANTIGRAVITY_PROMPT_REWRITES) — with a bare gRPC RESOURCE_EXHAUSTED: this generic
+// message and no details. Real quota errors carry reset info ("Individual quota reached ... Resets
+// in 1h56m", quotaResetTimeStamp, retryDelay). The bare form repeats for the same body every time,
+// so it is request-scoped: retrying, refreshing quota, or locking the account cannot help.
+const ANTIGRAVITY_BARE_EXHAUSTED_MESSAGE = /^Resource has been exhausted \(e\.g\. check quota\)\.?$/;
+export const ANTIGRAVITY_PROMPT_REJECTED_MESSAGE = "Antigravity rejected this request (upstream 429 RESOURCE_EXHAUSTED with no quota details, so this is not your quota). "
+  + "Antigravity refuses system prompts that carry certain third-party agent text. 9router rewrites the known strings "
+  + "(ANTIGRAVITY_PROMPT_REWRITES) and retries a refused prompt once with the system text moved into the first user turn, "
+  + "but this request was still refused.";
+
+export function isAntigravityPromptRejection(status, bodyText) {
+  if (status !== HTTP_STATUS.RATE_LIMITED || !bodyText) return false;
+  let err;
+  try { err = JSON.parse(bodyText)?.error; } catch { return false; }
+  if (err?.status !== "RESOURCE_EXHAUSTED") return false;
+  if (!ANTIGRAVITY_BARE_EXHAUSTED_MESSAGE.test(String(err.message || "").trim())) return false;
+  return !(Array.isArray(err.details) && err.details.length > 0);
+}
+
+// Read an upstream error body once and keep it readable for later callers. proxyAwareFetch's
+// DNS-bypass path (the default for Antigravity's Google hosts) returns a plain object with no
+// clone(), and its text() drains the socket, so the retry hook, the prompt-rejection check and
+// parseUpstreamError must share a single read. A real Response is cloned and left untouched.
+function readBodyOnce(response) {
+  if (!response?._bodyTextOnce) {
+    const canClone = typeof response?.clone === "function";
+    const read = canClone ? () => response.clone().text()
+      : typeof response?.text === "function" ? response.text.bind(response) : async () => "";
+    const pending = Promise.resolve().then(read).then(t => (typeof t === "string" ? t : ""), () => "");
+    response._bodyTextOnce = pending;
+    if (!canClone) {
+      response.text = () => pending;
+      response.json = async () => JSON.parse(await pending);
+    }
+  }
+  return response._bodyTextOnce;
+}
+
+// Antigravity fingerprints systemInstruction only: the same text sent in a user turn passes (probed
+// live). Returns a copy of the envelope with the system parts moved to the front of the first user
+// turn (normalizeGeminiContents merges the two), or null when there is no system text to move.
+export function moveSystemInstructionToContents(body) {
+  const { systemInstruction, ...request } = body?.request || {};
+  const parts = (systemInstruction?.parts || []).filter(p => typeof p?.text === "string" && p.text.trim());
+  if (parts.length === 0) return null;
+  return { ...body, request: { ...request, contents: [{ role: GEMINI_ROLE.USER, parts }, ...(request.contents || [])] } };
+}
+
 export class AntigravityExecutor extends BaseExecutor {
   constructor() {
     super("antigravity", PROVIDERS.antigravity);
   }
 
+  async execute(args) {
+    let result = await super.execute(args);
+    if (result?.response?.status === HTTP_STATUS.RATE_LIMITED && !isImageModel(args.model)) {
+      const moved = moveSystemInstructionToContents(args.body);
+      if (moved && isAntigravityPromptRejection(result.response.status, await readBodyOnce(result.response))) {
+        args.log?.warn?.("ANTIGRAVITY", "System prompt rejected (fingerprinted third-party text not in ANTIGRAVITY_PROMPT_REWRITES); retrying with it in the first user turn");
+        args = { ...args, body: moved };
+        result = await super.execute(args);
+      }
+    }
+    if (!result?.response?.ok) return result;
+    const finalBody = result.transformedBody;
+    if (!wantsGeminiLongDecode(this.provider, finalBody?.model || args.model, finalBody?.request?.generationConfig)) return result;
+    const nextHop = async (continuationToken) =>
+      (await super.execute({ ...args, body: { ...args.body, request: { ...args.body?.request, continuationToken } } })).response;
+    return withGeminiLongDecode(result, { stream: args.stream, nextHop, signal: args.signal, log: args.log });
+  }
+
   // Parse Antigravity quota error to extract precise resetsAtMs from ErrorInfo/RetryInfo
   parseError(response, bodyText) {
+    if (isAntigravityPromptRejection(response.status, bodyText)) {
+      return { status: HTTP_STATUS.BAD_REQUEST, message: ANTIGRAVITY_PROMPT_REJECTED_MESSAGE };
+    }
     if ((response.status === 429 || response.status === 409) && bodyText) {
       try {
         const json = JSON.parse(bodyText);
@@ -137,11 +210,13 @@ export class AntigravityExecutor extends BaseExecutor {
   // sessionId comes from transformRequest output; base.execute runs transformRequest before
   // buildHeaders, so we read it from instance state cached there (fallback: explicit arg).
   buildHeaders(credentials, stream = true, sessionId = null) {
-    return {
+    const headers = {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${credentials.accessToken}`,
       "User-Agent": this.config.headers?.["User-Agent"] || ANTIGRAVITY_HEADERS["User-Agent"],
     };
+    if (stream) headers["Accept"] = "text/event-stream";
+    return headers;
   }
 
   transformRequest(model, body, stream, credentials) {
@@ -287,9 +362,35 @@ export class AntigravityExecutor extends BaseExecutor {
       }
     }
 
+    // The real client always opens the system prompt with the Antigravity identity.
+    const systemParts = requestWithoutTools.systemInstruction?.parts;
+    const hasAgIdentity = (systemParts || []).some(
+      (part) => typeof part.text === "string" && part.text.includes("You are Antigravity")
+    );
+    if (!hasAgIdentity) {
+      requestWithoutTools.systemInstruction = {
+        ...(requestWithoutTools.systemInstruction || { role: GEMINI_ROLE.USER }),
+        parts: [{ text: ANTIGRAVITY_DEFAULT_SYSTEM }, ...(systemParts || [])]
+      };
+    }
+
     const generationConfig = { ...(requestWithoutTools.generationConfig || {}) };
-    if (generationConfig.maxOutputTokens > MAX_ANTIGRAVITY_OUTPUT_TOKENS) {
-      generationConfig.maxOutputTokens = MAX_ANTIGRAVITY_OUTPUT_TOKENS;
+    const outputCap = supportsGeminiLongDecode(this.provider, body.model || model)
+      ? GEMINI_LONG_DECODE_MAX_OUTPUT
+      : MAX_ANTIGRAVITY_OUTPUT_TOKENS;
+    if (generationConfig.maxOutputTokens > outputCap) {
+      generationConfig.maxOutputTokens = outputCap;
+    }
+    if (generationConfig.thinkingConfig?.thinkingLevel) {
+      const raw = generationConfig.thinkingConfig.thinkingLevel;
+      const lower = String(raw).toLowerCase().trim();
+      const modelLower = String(body.model || model).toLowerCase();
+      const isNeon = modelLower.includes("neon");
+      if (lower === "minimal") {
+        generationConfig.thinkingConfig.thinkingLevel = typeof raw === "string" && raw === raw.toUpperCase() ? "LOW" : "low";
+      } else if ((lower === "xhigh" || lower === "max") && !isNeon) {
+        generationConfig.thinkingConfig.thinkingLevel = typeof raw === "string" && raw === raw.toUpperCase() ? "HIGH" : "high";
+      }
     }
 
     const transformedRequest = {
@@ -438,11 +539,13 @@ export class AntigravityExecutor extends BaseExecutor {
     let retryMs = this.parseRetryHeaders(response.headers);
 
     try {
-      bodyText = await response.clone().text();
+      bodyText = await readBodyOnce(response);
       errorJson = bodyText ? JSON.parse(bodyText) : null;
     } catch {
       // ignore parse errors → fall through to status/message based retry
     }
+
+    if (isAntigravityPromptRejection(response.status, bodyText)) return false;
 
     const errorMessage = this.extractErrorMessage(errorJson, bodyText);
 

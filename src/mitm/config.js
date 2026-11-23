@@ -229,9 +229,10 @@ function extractModel(url, body) {
       const ver = cleanModelName.includes("3.8") ? "3.8" : cleanModelName.includes("3.7") ? "3.7" : "3.6";
       const rawLevel = parsed.request?.generationConfig?.thinkingConfig?.thinkingLevel
         || parsed.generationConfig?.thinkingConfig?.thinkingLevel;
-      const level = ["high", "medium", "low"].includes(String(rawLevel).toLowerCase())
-        ? String(rawLevel).toLowerCase()
-        : "medium";
+      const lowerLevel = String(rawLevel).toLowerCase();
+      const level = ["high", "medium", "low"].includes(lowerLevel)
+        ? lowerLevel
+        : (lowerLevel === "xhigh" || lowerLevel === "extra" || lowerLevel === "max" ? "high" : "medium");
       return `gemini-${ver}-flash-${level}`;
     }
     return model;

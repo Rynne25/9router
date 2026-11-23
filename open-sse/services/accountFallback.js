@@ -104,6 +104,11 @@ export function checkFallbackError(status, errorText, backoffLevel = 0, provider
     }
   }
 
+  // Request-scoped prompt rejection (or generic 400) is a fault of the request itself, not the credential
+  if (status === 400 && lowerError.includes("not your quota")) {
+    return { shouldFallback: false, cooldownMs: 0, requestScoped: true };
+  }
+
   // Catch rate-limit / too-fast / throttling / quota wording not covered by exact text rules above
   // so 4xx/5xx rate-limit variants still trigger per-(account, model) cooldown and fallback.
   if (lowerError && /too[-_\s]?fast|rate[-_\s]?limit|throttl|resource[-_\s]?exhausted/.test(lowerError)) {
