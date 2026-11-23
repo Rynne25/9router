@@ -10,8 +10,12 @@ let cached = null;
 
 export function getWritableDataDir() {
   if (cached) return cached;
+  const defaultAppDir = process.platform === "win32"
+    ? path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "9router")
+    : path.join(os.homedir(), ".9router");
   const candidates = [
     process.env.DATA_DIR,
+    defaultAppDir,
     path.join(os.homedir(), ".9router"),
     path.join(os.tmpdir(), "9router"),
   ].filter(Boolean);

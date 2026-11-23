@@ -24,6 +24,11 @@ export function startLocalServer(onCallback, fixedPort = null) {
       const url = new URL(req.url, `http://localhost`);
 
       if (url.pathname === "/callback" || url.pathname === "/auth/callback") {
+        if (!isLoopbackOrigin(req.headers.origin)) {
+          res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+          res.end("Cross-origin callback rejected");
+          return;
+        }
         const params = Object.fromEntries(url.searchParams);
 
         // Send success response to browser with auto-close attempt

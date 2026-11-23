@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSettings } from "@/lib/localDb";
 import { DEFAULT_HEADROOM_URL } from "@/lib/headroom/detect";
+import { assertPublicUrlResolved } from "@/shared/utils/ssrfGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,10 @@ async function getTargetBase() {
   const target = new URL(url);
   if (!["http:", "https:"].includes(target.protocol)) {
     throw new Error("Headroom URL must use http or https");
+  }
+  const hostname = target.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (!LOOPBACK_HOSTS.has(hostname)) {
+    await assertPublicUrlResolved(url);
   }
   return target;
 }
