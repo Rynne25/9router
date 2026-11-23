@@ -18,43 +18,43 @@
 }
 
 /* ============================================================
-   9Router palette — adopted from 9remote_private/web
-   Brand orange (dark) / soft coral (light), neutral warm bases
+   9Router palette — Geist Carbon (Linear / Vercel style)
+   Electric Indigo accent, neutral slate/carbon bases
    ============================================================ */
 :root {
-  /* Brand scale (light) - centered on #E56A4A */
-  --color-brand-50: #fdf1ed;
-  --color-brand-100: #fadccf;
-  --color-brand-200: #f4b59c;
-  --color-brand-300: #ee8d6a;
-  --color-brand-400: #ea7855;
-  --color-brand-500: #E56A4A;
-  --color-brand-600: #cc5236;
-  --color-brand-700: #a64027;
-  --color-brand-800: #7a2f1d;
-  --color-brand-900: #4d1e12;
+  /* Brand scale (Electric Indigo) */
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
 
-  /* Primary (legacy alias for backward compat with existing components) */
-  --color-primary: var(--color-brand-500);
-  --color-primary-hover: var(--color-brand-600);
+  /* Primary */
+  --color-primary: #4f46e5;
+  --color-primary-hover: #4338ca;
 
-  /* Surfaces & backgrounds (light - Apple Liquid Glass pearl) */
-  --color-bg: #EDF1F8;
-  --color-bg-alt: #E3E9F4;
-  --color-surface: rgba(255, 255, 255, 0.66);
-  --color-surface-2: rgba(241, 245, 252, 0.72);
-  --color-surface-3: rgba(226, 232, 244, 0.78);
-  --color-sidebar: rgba(255, 255, 255, 0.62);
+  /* Surfaces & backgrounds (Light Mode — Geist Daylight) */
+  --color-bg: #f8fafc;
+  --color-bg-alt: #f1f5f9;
+  --color-surface: rgba(255, 255, 255, 0.92);
+  --color-surface-2: #f8fafc;
+  --color-surface-3: #f1f5f9;
+  --color-sidebar: #ffffff;
 
-  /* Borders (refractive rim) */
-  --color-border: rgba(15, 23, 42, 0.10);
-  --color-border-subtle: rgba(15, 23, 42, 0.06);
+  /* Borders */
+  --color-border: rgba(15, 23, 42, 0.09);
+  --color-border-subtle: rgba(15, 23, 42, 0.05);
 
   /* Text */
-  --color-text: #0B101E;
-  --color-text-main: #0B101E;
-  --color-text-muted: #526077;
-  --color-text-subtle: #8492A6;
+  --color-text: #090d16;
+  --color-text-main: #090d16;
+  --color-text-muted: #475569;
+  --color-text-subtle: #94a3b8;
 
   /* Status */
   --color-danger: #EF4444;
@@ -64,61 +64,57 @@
 
   /* Radius */
   --radius-brand: 12px;
-  --radius-brand-lg: 18px;
+  --radius-brand-lg: 16px;
 
-  /* Liquid Glass Shadows (Light) */
+  /* Geist Daylight Shadows (Light) */
   --shadow-soft:
-    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.92),
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.55),
-    0 10px 28px -8px rgba(15, 23, 42, 0.08),
-    0 2px 6px -1px rgba(15, 23, 42, 0.04);
+    0 1px 2px 0 rgba(15, 23, 42, 0.04),
+    0 4px 12px -2px rgba(15, 23, 42, 0.06);
   --shadow-warm:
-    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.95),
-    0 12px 32px -6px rgba(229, 106, 74, 0.22);
+    0 8px 24px -6px rgba(99, 102, 241, 0.22),
+    0 2px 6px -1px rgba(15, 23, 42, 0.05);
   --shadow-elevated:
-    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.95),
-    0 18px 42px -10px rgba(15, 23, 42, 0.12),
-    0 4px 12px -4px rgba(15, 23, 42, 0.06);
+    0 12px 32px -8px rgba(15, 23, 42, 0.10),
+    0 2px 8px -2px rgba(15, 23, 42, 0.05);
   --shadow-elev:
-    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.95),
-    inset 0 -1px 0 0 rgba(15, 23, 42, 0.04),
-    0 16px 38px -10px rgba(15, 23, 42, 0.11);
-  --shadow-focus: 0 0 0 3px rgba(229, 106, 74, 0.26);
+    0 10px 28px -8px rgba(15, 23, 42, 0.09),
+    0 2px 6px -2px rgba(15, 23, 42, 0.04);
+  --shadow-focus: 0 0 0 3px rgba(99, 102, 241, 0.22);
 
   color-scheme: light;
 }
 
 .dark {
-  /* Brand scale (dark) - centered on #E56A4A */
-  --color-brand-50: #fdf1ed;
-  --color-brand-100: #fadccf;
-  --color-brand-200: #f4b59c;
-  --color-brand-300: #ee8d6a;
-  --color-brand-400: #ea7855;
-  --color-brand-500: #E56A4A;
-  --color-brand-600: #cc5236;
-  --color-brand-700: #a64027;
-  --color-brand-800: #7a2f1d;
-  --color-brand-900: #4d1e12;
+  /* Brand scale (Electric Indigo) */
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
 
-  --color-primary: #FF7654;
-  --color-primary-hover: #E56A4A;
+  --color-primary: #6366f1;
+  --color-primary-hover: #818cf8;
 
-  /* Surfaces (dark - Apple Liquid Glass over deep aurora obsidian) */
-  --color-bg: #05070E;
-  --color-bg-alt: #0A0E1A;
-  --color-surface: rgba(18, 23, 38, 0.52);
-  --color-surface-2: rgba(28, 35, 56, 0.56);
-  --color-surface-3: rgba(42, 52, 80, 0.62);
-  --color-sidebar: rgba(12, 16, 28, 0.58);
+  /* Surfaces (Dark Mode — Geist Carbon / Linear Obsidian) */
+  --color-bg: #08090e;
+  --color-bg-alt: #0c0e16;
+  --color-surface: rgba(17, 19, 28, 0.88);
+  --color-surface-2: rgba(24, 27, 39, 0.92);
+  --color-surface-3: rgba(32, 36, 52, 0.95);
+  --color-sidebar: rgba(11, 13, 20, 0.94);
 
-  --color-border: rgba(255, 255, 255, 0.13);
-  --color-border-subtle: rgba(255, 255, 255, 0.07);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-subtle: rgba(255, 255, 255, 0.04);
 
-  --color-text: #F8FAFC;
-  --color-text-main: #F8FAFC;
-  --color-text-muted: #94A3B8;
-  --color-text-subtle: #64748B;
+  --color-text: #f8fafc;
+  --color-text-main: #f8fafc;
+  --color-text-muted: #94a3b8;
+  --color-text-subtle: #64748b;
 
   --color-danger: #F87171;
   --color-success: #34D399;
@@ -126,25 +122,19 @@
   --color-info: #60A5FA;
 
   --shadow-soft:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.26),
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.09),
-    inset 0 -1px 0 0 rgba(255, 255, 255, 0.04),
-    0 14px 34px -8px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+    0 8px 24px -6px rgba(0, 0, 0, 0.55),
     0 2px 6px 0 rgba(0, 0, 0, 0.35);
   --shadow-warm:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.38),
-    0 14px 36px -6px rgba(255, 118, 84, 0.28),
-    0 0 24px -4px rgba(56, 189, 248, 0.16);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+    0 10px 28px -6px rgba(99, 102, 241, 0.25);
   --shadow-elevated:
-    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.34),
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.12),
-    0 22px 48px -10px rgba(0, 0, 0, 0.72);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+    0 18px 40px -10px rgba(0, 0, 0, 0.70);
   --shadow-elev:
-    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.32),
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.10),
-    inset 0 -1px 0 0 rgba(255, 255, 255, 0.05),
-    0 18px 42px -8px rgba(0, 0, 0, 0.68);
-  --shadow-focus: 0 0 0 3px rgba(255, 118, 84, 0.28);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+    0 14px 32px -8px rgba(0, 0, 0, 0.65);
+  --shadow-focus: 0 0 0 3px rgba(99, 102, 241, 0.25);
 
   color-scheme: dark;
 }
@@ -244,11 +234,11 @@ body {
 
 /* Selection - brand-tinted */
 ::selection {
-  background-color: rgba(229, 106, 74, 0.25);
+  background-color: rgba(99, 102, 241, 0.22);
   color: var(--color-primary);
 }
 .dark ::selection {
-  background-color: rgba(229, 106, 74, 0.3);
+  background-color: rgba(99, 102, 241, 0.28);
   color: var(--color-brand-300);
 }
 
@@ -280,19 +270,19 @@ input, textarea {
 /* Thin horizontal scrollbar - brand colored */
 .scroll-thin-x {
   scrollbar-width: thin;
-  scrollbar-color: rgba(229, 106, 74, 0.55) transparent;
+  scrollbar-color: rgba(99, 102, 241, 0.55) transparent;
 }
 .dark .scroll-thin-x {
-  scrollbar-color: rgba(229, 106, 74, 0.55) transparent;
+  scrollbar-color: rgba(99, 102, 241, 0.55) transparent;
 }
 .scroll-thin-x::-webkit-scrollbar { height: 3px; }
 .scroll-thin-x::-webkit-scrollbar-track { background: transparent; }
 .scroll-thin-x::-webkit-scrollbar-thumb {
-  background: rgba(229, 106, 74, 0.55);
+  background: rgba(99, 102, 241, 0.55);
   border-radius: 3px;
 }
 .dark .scroll-thin-x::-webkit-scrollbar-thumb {
-  background: rgba(229, 106, 74, 0.55);
+  background: rgba(99, 102, 241, 0.55);
 }
 
 /* Global thin mac-like scrollbars (overrides clunky Windows/Linux default) */
@@ -326,19 +316,13 @@ input, textarea {
   background-color: rgba(180, 180, 180, 0.5);
 }
 
-/* Reusable Liquid Glass cards & surfaces */
+/* Reusable Geist Carbon cards & surfaces */
 .card-soft,
 .liquid-glass-card {
   position: relative;
   background-color: var(--color-surface);
-  background-image: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.52) 0%,
-    rgba(255, 255, 255, 0.14) 45%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  backdrop-filter: blur(26px) saturate(190%);
-  -webkit-backdrop-filter: blur(26px) saturate(190%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-soft);
   border-radius: var(--radius-brand-lg);
@@ -347,24 +331,17 @@ input, textarea {
 .dark .card-soft,
 .dark .liquid-glass-card {
   background-image: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.11) 0%,
-    rgba(255, 255, 255, 0.03) 42%,
-    rgba(255, 255, 255, 0.008) 100%
+    180deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0) 100%
   );
 }
 
 .card-elev {
   position: relative;
   background-color: var(--color-surface);
-  background-image: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.62) 0%,
-    rgba(255, 255, 255, 0.18) 45%,
-    rgba(255, 255, 255, 0.06) 100%
-  );
-  backdrop-filter: blur(28px) saturate(200%);
-  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-elev);
   border-radius: var(--radius-brand-lg);
@@ -372,41 +349,27 @@ input, textarea {
 
 .dark .card-elev {
   background-image: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.14) 0%,
-    rgba(255, 255, 255, 0.04) 42%,
-    rgba(255, 255, 255, 0.01) 100%
+    180deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0) 100%
   );
 }
 
-/* Liquid Glass Pill / Nested Panel */
+/* Geist Carbon Pill / Nested Panel */
 .liquid-glass-panel {
-  background-color: rgba(255, 255, 255, 0.48);
-  background-image: linear-gradient(
-    145deg,
-    rgba(255, 255, 255, 0.55) 0%,
-    rgba(255, 255, 255, 0.12) 100%
-  );
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background-color: var(--color-surface-2);
+  border: 1px solid var(--color-border-subtle);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
-    0 4px 14px -4px rgba(15, 23, 42, 0.05);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.7),
+    0 1px 2px 0 rgba(15, 23, 42, 0.03);
 }
 
 .dark .liquid-glass-panel {
-  background-color: rgba(15, 21, 36, 0.46);
-  background-image: linear-gradient(
-    145deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.015) 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  background-color: var(--color-surface-2);
+  border: 1px solid var(--color-border);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.20),
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.06),
-    0 8px 22px -6px rgba(0, 0, 0, 0.45);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+    0 4px 12px -4px rgba(0, 0, 0, 0.40);
 }
 
 /* Liquid Glass Progress Tube */
@@ -416,7 +379,7 @@ input, textarea {
   border-radius: 9999px;
   background: rgba(15, 23, 42, 0.08);
   box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.16),
+    inset 0 1px 2px rgba(0, 0, 0, 0.12),
     0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
@@ -424,14 +387,14 @@ input, textarea {
   background: rgba(2, 6, 16, 0.65);
   box-shadow:
     inset 0 1.5px 3px rgba(0, 0, 0, 0.65),
-    0 1px 0 rgba(255, 255, 255, 0.10);
+    0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .liquid-glass-fill {
   position: relative;
   border-radius: 9999px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
     0 0 10px currentColor;
 }
 
@@ -440,33 +403,21 @@ input, textarea {
   background: linear-gradient(180deg, var(--color-bg-alt) 0%, var(--color-bg) 100%);
 }
 
-/* Apple Liquid Glass Translucent Sidebar / Header Surface */
+/* Geist Carbon Translucent Sidebar / Header Surface */
 .bg-vibrancy {
-  backdrop-filter: blur(28px) saturate(200%);
-  -webkit-backdrop-filter: blur(28px) saturate(200%);
-  background-color: rgba(255, 255, 255, 0.64);
-  background-image: linear-gradient(
-    160deg,
-    rgba(255, 255, 255, 0.72) 0%,
-    rgba(255, 255, 255, 0.32) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.88),
-    0 8px 30px -8px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  background-color: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
 }
 .dark .bg-vibrancy {
-  background-color: rgba(10, 14, 26, 0.56);
-  background-image: linear-gradient(
-    160deg,
-    rgba(255, 255, 255, 0.09) 0%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
+  background-color: rgba(11, 13, 20, 0.88);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
-    0 12px 36px -8px rgba(0, 0, 0, 0.65);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+    0 8px 24px -8px rgba(0, 0, 0, 0.55);
 }
 
-/* Ambient Aurora Mesh Background for Liquid Glass Refraction */
+/* Ambient Background for Geist Carbon */
 @keyframes auroraFloatSlow {
   0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
   50% { transform: translate3d(2%, -2%, 0) scale(1.06); }
@@ -474,20 +425,12 @@ input, textarea {
 
 .liquid-aurora-canvas {
   background-color: var(--color-bg);
-  background-image:
-    radial-gradient(ellipse 68% 55% at 14% 12%, rgba(56, 189, 248, 0.18) 0%, transparent 65%),
-    radial-gradient(ellipse 60% 50% at 88% 18%, rgba(139, 92, 246, 0.16) 0%, transparent 65%),
-    radial-gradient(ellipse 65% 55% at 78% 88%, rgba(229, 106, 74, 0.15) 0%, transparent 65%),
-    radial-gradient(ellipse 55% 48% at 18% 85%, rgba(16, 185, 129, 0.13) 0%, transparent 65%);
+  background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99, 102, 241, 0.12), transparent 70%);
 }
 
 .dark .liquid-aurora-canvas {
-  background-color: #05070E;
-  background-image:
-    radial-gradient(ellipse 72% 58% at 12% 10%, rgba(56, 189, 248, 0.20) 0%, transparent 62%),
-    radial-gradient(ellipse 64% 52% at 88% 15%, rgba(139, 92, 246, 0.20) 0%, transparent 62%),
-    radial-gradient(ellipse 68% 58% at 80% 90%, rgba(255, 118, 84, 0.17) 0%, transparent 64%),
-    radial-gradient(ellipse 56% 50% at 18% 86%, rgba(16, 185, 129, 0.14) 0%, transparent 62%);
+  background-color: var(--color-bg);
+  background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99, 102, 241, 0.12), transparent 70%);
 }
 
 /* macOS Traffic Lights */
@@ -563,12 +506,12 @@ button:disabled,
 
 @keyframes border-glow {
   0%, 100% {
-    box-shadow: 0 0 5px rgba(229, 106, 74, 0.3), 0 0 10px rgba(229, 106, 74, 0.2);
-    border-color: rgba(229, 106, 74, 0.5);
+    box-shadow: 0 0 5px rgba(99, 102, 241, 0.3), 0 0 10px rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.5);
   }
   50% {
-    box-shadow: 0 0 10px rgba(229, 106, 74, 0.5), 0 0 20px rgba(229, 106, 74, 0.3);
-    border-color: rgba(229, 106, 74, 0.8);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3);
+    border-color: rgba(99, 102, 241, 0.8);
   }
 }
 .animate-border-glow { animation: border-glow 2s ease-in-out infinite; }
@@ -601,8 +544,8 @@ button:disabled,
   100% { transform: translateX(220%) skewX(-20deg); }
 }
 @keyframes ctaGlowPulse {
-  0%, 100% { box-shadow: 0 8px 24px -8px rgba(229, 106, 74, 0.45), 0 0 0 0 rgba(229, 106, 74, 0.5); }
-  50% { box-shadow: 0 12px 32px -8px rgba(229, 106, 74, 0.6), 0 0 0 8px rgba(229, 106, 74, 0); }
+  0%, 100% { box-shadow: 0 8px 24px -8px rgba(99, 102, 241, 0.45), 0 0 0 0 rgba(99, 102, 241, 0.5); }
+  50% { box-shadow: 0 12px 32px -8px rgba(99, 102, 241, 0.6), 0 0 0 8px rgba(99, 102, 241, 0); }
 }
 .btn-cta {
   position: relative;
@@ -628,13 +571,13 @@ button:disabled,
 .dot-grid-bg {
   background-color: var(--color-bg);
   background-image:
-    radial-gradient(circle at 15% 20%, rgba(229, 106, 74, 0.10) 0%, transparent 40%),
-    radial-gradient(circle at 85% 80%, rgba(229, 106, 74, 0.06) 0%, transparent 40%);
+    radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.10) 0%, transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(99, 102, 241, 0.06) 0%, transparent 40%);
 }
 .dark .dot-grid-bg {
   background-image:
-    radial-gradient(circle at 15% 20%, rgba(229, 106, 74, 0.18) 0%, transparent 40%),
-    radial-gradient(circle at 85% 80%, rgba(229, 106, 74, 0.10) 0%, transparent 40%);
+    radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.18) 0%, transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(99, 102, 241, 0.10) 0%, transparent 40%);
 }
 
 /* Landing-style faint grid overlay (use absolute pos inside relative parent) */

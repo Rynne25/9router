@@ -138,6 +138,9 @@ async function tryGotScrapingFetch(url, options) {
 
 // DNS cache — use Map to avoid prototype pollution via malformed hostnames
 const DNS_CACHE = new Map();
+const HOSTS_SPOOF_CACHE = new Map();
+const HOSTS_SPOOF_TTL_MS = 5000;
+const bypassAgents = new Map();
 const GOOGLE_ANYCAST_IPS = [
   "172.217.114.4",
   "142.250.190.10",
@@ -148,6 +151,8 @@ const GOOGLE_ANYCAST_IPS = [
 
 export function resetDnsCacheForTests() {
   DNS_CACHE.clear();
+  HOSTS_SPOOF_CACHE.clear();
+  bypassAgents.clear();
 }
 const TLS_CERT_ERRORS = new Set([
   "SELF_SIGNED_CERT_IN_CHAIN",
@@ -211,7 +216,10 @@ function isLoopbackIp(ip) {
  * Check if OS lookup resolves hostname to loopback (i.e. /etc/hosts MITM active).
  * When OS DNS already returns a real public IP, skip DNS-bypass & 8.8.8.8 queries.
  */
-async function isHostsSpoofed(hostname) {
+export async function isHostsSpoofed(hostname) {
+  const cached = HOSTS_SPOOF_CACHE.get(hostname);
+  if (cached && Date.now() < cached.expiry) return cached.spoofed;
+
   try {
     const dns = await import("dns");
     const { promisify } = await import("util");
@@ -222,8 +230,11 @@ async function isHostsSpoofed(hostname) {
         setTimeout(() => reject(new Error("OS dns.lookup timeout")), DNS_RESOLVE_TIMEOUT_MS)
       ),
     ]);
-    return isLoopbackIp(res?.address);
+    const spoofed = isLoopbackIp(res?.address);
+    HOSTS_SPOOF_CACHE.set(hostname, { spoofed, expiry: Date.now() + HOSTS_SPOOF_TTL_MS });
+    return spoofed;
   } catch {
+    HOSTS_SPOOF_CACHE.set(hostname, { spoofed: true, expiry: Date.now() + HOSTS_SPOOF_TTL_MS });
     return true;
   }
 }
@@ -524,8 +535,6 @@ async function fetchWithTlsFallback(url, options, proxyUrl, forceFreshSocket = f
   }
 }
 
-const bypassAgents = new Map();
-
 function getBypassAgent(https, realIP, hostname) {
   const key = `${realIP}::${hostname}`;
   if (!bypassAgents.has(key)) {
@@ -534,11 +543,20 @@ function getBypassAgent(https, realIP, hostname) {
       keepAliveMsecs: 60000,
       maxSockets: 32,
       maxFreeSockets: 10,
-      timeout: 30000,
+      timeout: 120000,
     });
     bypassAgents.set(key, agent);
   }
   return bypassAgents.get(key);
+}
+
+function evictBypassAgent(realIP, hostname) {
+  const key = `${realIP}::${hostname}`;
+  const agent = bypassAgents.get(key);
+  if (agent) {
+    try { agent.destroy?.(); } catch {}
+    bypassAgents.delete(key);
+  }
 }
 
 /**
@@ -698,7 +716,17 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
       const parsedUrl = new URL(targetUrl);
       if (await isHostsSpoofed(parsedUrl.hostname)) {
         const realIP = await resolveRealIP(parsedUrl.hostname);
-        if (realIP) return await createBypassRequest(parsedUrl, realIP, options);
+        if (realIP) {
+          try {
+            return await createBypassRequest(parsedUrl, realIP, options);
+          } catch (bypassErr) {
+            if (!options.signal?.aborted && isBodyReplaySafe(options.body) && isStaleSocketError(bypassErr)) {
+              evictBypassAgent(realIP, parsedUrl.hostname);
+              return await createBypassRequest(parsedUrl, realIP, options);
+            }
+            throw bypassErr;
+          }
+        }
       }
     } catch (error) {
       console.warn(`[ProxyFetch] MITM bypass failed: ${error.message}`);

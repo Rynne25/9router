@@ -26,7 +26,7 @@ export default function Card({
     <div
       className={cn(
         elev ? "card-elev rounded-2xl" : "liquid-glass-card rounded-2xl",
-        hover && "hover:shadow-[var(--shadow-warm)] hover:border-brand-500/45 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer",
+        hover && "hover:shadow-[var(--shadow-warm)] hover:border-brand-500/40 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer",
         paddings[padding],
         className
       )}

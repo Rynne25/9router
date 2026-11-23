@@ -84,15 +84,6 @@ async function resolveTargetIP(hostname) {
     return cached.ip;
   }
 
-  if (hostname.includes("googleapis.com")) {
-    cachedTargetIPs[hostname] = { ip: GOOGLE_ANYCAST_IPS[0], ts: now };
-    if (!activeResolutions.has(hostname)) {
-      const p = _performResolve(hostname).catch(() => {}).finally(() => activeResolutions.delete(hostname));
-      activeResolutions.set(hostname, p);
-    }
-    return GOOGLE_ANYCAST_IPS[0];
-  }
-
   if (activeResolutions.has(hostname)) {
     return activeResolutions.get(hostname);
   }

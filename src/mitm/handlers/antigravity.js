@@ -10,6 +10,9 @@ const { fetchRouter, pipeSSE } = require("./base");
 async function intercept(req, res, bodyBuffer, mappedModel) {
   const dumper = IS_DEV ? createResponseDumper(req, "intercept-antigravity") : null;
   const isStream = req.url.includes(":streamGenerateContent");
+  const controller = new AbortController();
+  const onClose = () => { if (!res.writableEnded) controller.abort(); };
+  res.once("close", onClose);
   try {
     const body = JSON.parse(bodyBuffer.toString());
     if (body.model) body.model = mappedModel;
@@ -25,7 +28,7 @@ async function intercept(req, res, bodyBuffer, mappedModel) {
       }
     }
 
-    const routerRes = await fetchRouter(body, "/v1/chat/completions", req.headers);
+    const routerRes = await fetchRouter(body, "/v1/chat/completions", req.headers, controller.signal);
     await pipeSSE(routerRes, res, dumper);
   } catch (error) {
     err(`[antigravity] ${error.message}`);
@@ -38,6 +41,8 @@ async function intercept(req, res, bodyBuffer, mappedModel) {
       if (!res.headersSent) res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: { message: error.message, type: "mitm_error" } }));
     }
+  } finally {
+    res.removeListener("close", onClose);
   }
 }
 

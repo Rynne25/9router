@@ -11,12 +11,18 @@ class Http2SessionPool {
 
   async getSession(targetHost, targetIP) {
     const existing = this.sessions.get(targetHost);
-    if (existing && existing.client && !existing.client.destroyed && !existing.client.closed) {
-      existing.lastUsed = Date.now();
-      return existing.client;
-    }
-    if (existing && existing.connectingPromise) {
-      return existing.connectingPromise;
+    if (existing) {
+      if (existing.targetIP && targetIP && existing.targetIP !== targetIP) {
+        this.evict(targetHost);
+      } else {
+        if (existing.client && !existing.client.destroyed && !existing.client.closed) {
+          existing.lastUsed = Date.now();
+          return existing.client;
+        }
+        if (existing.connectingPromise) {
+          return existing.connectingPromise;
+        }
+      }
     }
     return this._createNewSession(targetHost, targetIP);
   }
@@ -70,9 +76,19 @@ class Http2SessionPool {
             return;
           }
           try {
-            client.ping((err) => {
-              if (err) {
-                log(`[mitm] HTTP/2 ping failed (${targetHost}): ${err.message}, evicting`);
+            let pongReceived = false;
+            const pingTimeout = setTimeout(() => {
+              if (!pongReceived) {
+                log(`[mitm] HTTP/2 ping timeout (${targetHost}), evicting`);
+                cleanup();
+              }
+            }, 5000);
+            if (pingTimeout.unref) pingTimeout.unref();
+            client.ping((pingErr) => {
+              pongReceived = true;
+              clearTimeout(pingTimeout);
+              if (pingErr) {
+                log(`[mitm] HTTP/2 ping failed (${targetHost}): ${pingErr.message}, evicting`);
                 cleanup();
               }
             });

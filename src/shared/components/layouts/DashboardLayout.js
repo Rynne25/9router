@@ -86,21 +86,8 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="flex h-screen w-full overflow-hidden liquid-aurora-canvas relative">
-      {/* Ambient Liquid Glass Light Orbs */}
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
-        <div
-          className="absolute -top-28 -left-24 h-[420px] w-[420px] rounded-full bg-sky-500/15 dark:bg-sky-500/18 blur-[110px] will-change-transform"
-          style={{ animation: "auroraFloatSlow 18s ease-in-out infinite" }}
-        />
-        <div
-          className="absolute top-1/4 -right-28 h-[460px] w-[460px] rounded-full bg-violet-500/14 dark:bg-indigo-500/18 blur-[125px] will-change-transform"
-          style={{ animation: "auroraFloatSlow 22s ease-in-out infinite reverse" }}
-        />
-        <div
-          className="absolute -bottom-32 left-1/3 h-[400px] w-[480px] rounded-full bg-brand-500/12 dark:bg-brand-500/15 blur-[120px] will-change-transform"
-          style={{ animation: "auroraFloatSlow 20s ease-in-out infinite" }}
-        />
-      </div>
+      {/* Ambient Geist Carbon Top Spotlight */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true"><div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[360px] w-[780px] rounded-full bg-brand-500/[0.06] dark:bg-brand-500/[0.09] blur-[120px]" /></div>
 
       <div className="fixed top-4 right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2">
         {notifications.map((n) => {

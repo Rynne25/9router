@@ -193,7 +193,21 @@ async function passthroughHttp2(req, res, bodyBuffer, headers, targetHost, onRes
 
     if (bodyBuffer.length > 0) stream.end(bodyBuffer);
 
+    let responseReceived = false;
+    let streamEnded = false;
+    const onResClose = () => {
+      if (!streamEnded && !stream.destroyed && !stream.closed) {
+        try { stream.close(http2.constants.NGHTTP2_CANCEL); } catch {}
+      }
+    };
+    res.once("close", onResClose);
+
+    stream.setTimeout(30000, () => {
+      if (!responseReceived) stream.close(http2.constants.NGHTTP2_CANCEL);
+    });
+
     stream.once("response", (responseHeaders) => {
+      responseReceived = true;
       const status = responseHeaders[":status"];
       log(`${req.method} ${req.url} ${status} in ${Date.now() - startTime}ms proto=h2 host=${targetHost}`);
       const outHeaders = {};
@@ -212,6 +226,8 @@ async function passthroughHttp2(req, res, bodyBuffer, headers, targetHost, onRes
         res.write(chunk); // Zero-copy raw chunk forward
       });
       stream.on("end", () => {
+        streamEnded = true;
+        res.removeListener("close", onResClose);
         if (dumper) dumper.end();
         if (!res.writableEnded) res.end();
         if (onResponse) try { onResponse(Buffer.concat(chunks), outHeaders); } catch {}
@@ -221,6 +237,8 @@ async function passthroughHttp2(req, res, bodyBuffer, headers, targetHost, onRes
     });
 
     stream.once("error", (e) => {
+      streamEnded = true;
+      res.removeListener("close", onResClose);
       err(`[mitm] http2 stream error: ${e.message}`);
       if (dumper) { dumper.writeChunk(`\n[ERROR h2-stream] ${e.message}\n`); dumper.end(); }
       if (!res.headersSent && !isRetry) {

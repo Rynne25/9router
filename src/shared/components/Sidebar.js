@@ -326,7 +326,7 @@ function Sidebar({ onClose }) {
                     "relative flex items-center rounded-xl transition-all duration-150 group",
                     isCollapsed ? "justify-center h-8.5 w-full px-0" : "gap-2.5 h-8 px-2.5",
                     active
-                      ? "bg-gradient-to-r from-primary/18 to-primary/5 text-primary border border-primary/25 shadow-xs font-semibold"
+                      ? "bg-primary/12 dark:bg-primary/15 text-primary border border-primary/25 shadow-xs font-semibold"
                       : "text-text-muted hover:bg-black/5 dark:hover:bg-white/[0.06] hover:text-text-main border border-transparent"
                   )}
                 >
@@ -465,7 +465,7 @@ function Sidebar({ onClose }) {
                         "relative flex items-center rounded-xl transition-all duration-150 group",
                         isCollapsed ? "justify-center h-8.5 w-full px-0" : "gap-2.5 h-8 px-2.5",
                         active
-                          ? "bg-gradient-to-r from-primary/18 to-primary/5 text-primary border border-primary/25 shadow-xs font-semibold"
+                          ? "bg-primary/12 dark:bg-primary/15 text-primary border border-primary/25 shadow-xs font-semibold"
                           : "text-text-muted hover:bg-black/5 dark:hover:bg-white/[0.06] hover:text-text-main border border-transparent"
                       )}
                     >

@@ -16,7 +16,7 @@ const STRIP_HEADERS = new Set([
  * Send body to 9Router at the given path and return the fetch Response object.
  * Optionally forwards client headers (stripped of hop-by-hop / overridden keys).
  */
-async function fetchRouter(openaiBody, path = "/v1/chat/completions", clientHeaders = {}) {
+async function fetchRouter(openaiBody, path = "/v1/chat/completions", clientHeaders = {}, signal = undefined) {
   const forwarded = {};
   for (const [k, v] of Object.entries(clientHeaders)) {
     if (!STRIP_HEADERS.has(k.toLowerCase())) forwarded[k] = v;
@@ -29,7 +29,8 @@ async function fetchRouter(openaiBody, path = "/v1/chat/completions", clientHead
       "Content-Type": "application/json",
       ...(API_KEY && { "Authorization": `Bearer ${API_KEY}` })
     },
-    body: JSON.stringify(openaiBody)
+    body: JSON.stringify(openaiBody),
+    ...(signal ? { signal } : {})
   });
 
   // Forward response as-is (status + body). pipeSSE will propagate status.
@@ -61,12 +62,21 @@ async function pipeSSE(routerRes, res, dumper) {
   }
 
   const reader = routerRes.body.getReader();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) { if (dumper) dumper.end(); res.end(); break; }
-    if (dumper) dumper.writeChunk(value);
-    // Zero-copy: write raw Uint8Array directly, avoiding TextDecoder string conversion & re-encoding
-    res.write(value);
+  const onClose = () => { try { reader.cancel().catch(() => {}); } catch {} };
+  res.once("close", onClose);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) { if (dumper) dumper.end(); res.end(); break; }
+      if (dumper) dumper.writeChunk(value);
+      // Zero-copy: write raw Uint8Array directly, avoiding TextDecoder string conversion & re-encoding
+      res.write(value);
+    }
+  } catch (err) {
+    if (dumper) { dumper.writeChunk(`\n[STREAM_END] ${err.message}\n`); dumper.end(); }
+    if (!res.writableEnded) res.end();
+  } finally {
+    res.removeListener("close", onClose);
   }
 }
 
