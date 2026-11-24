@@ -1,6 +1,6 @@
 import { ANTIGRAVITY_IDE_BASE_URL, ANTIGRAVITY_IDE_USER_AGENT, ANTIGRAVITY_OAUTH_CLIENT } from "../shared.js";
 
-export default {
+const antigravityRegistry = {
   id: "antigravity",
   priority: 20,
   alias: "ag",
@@ -47,6 +47,7 @@ export default {
   },
   models: [
     { id: "gemini-4-neon-extra", name: "Gemini 4 Neon (Extra)", upstreamModelId: "gemini-4-neon-extra(extra)" },
+    { id: "gemini-4-neon-xhigh", name: "Gemini 4 Neon (X-High)", upstreamModelId: "gemini-4-neon-extra(extra)" },
     { id: "gemini-4-neon-high", name: "Gemini 4 Neon (High)", upstreamModelId: "gemini-4-neon-high(high)" },
     { id: "gemini-4-neon-medium", name: "Gemini 4 Neon (Medium)", upstreamModelId: "gemini-4-neon-medium(medium)" },
     { id: "gemini-4-neon-low", name: "Gemini 4 Neon (Low)", upstreamModelId: "gemini-4-neon-low(low)" },
@@ -119,3 +120,5 @@ export default {
     usage: true,
   },
 };
+
+export default antigravityRegistry;

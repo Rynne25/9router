@@ -21,9 +21,10 @@ async function intercept(req, res, bodyBuffer, mappedModel) {
       const lower = String(tl).toLowerCase().trim();
       const modelLower = String(body.model || mappedModel || "").toLowerCase();
       const isNeon = modelLower.includes("neon");
-      if (lower === "minimal") {
+      const isXhigh = lower === "xhigh" || lower === "max" || lower === "100" || tl === 100;
+      if (lower === "minimal" || lower === "1" || tl === 1) {
         body.request.generationConfig.thinkingConfig.thinkingLevel = "LOW";
-      } else if ((lower === "xhigh" || lower === "max") && !isNeon) {
+      } else if (isXhigh && !isNeon) {
         body.request.generationConfig.thinkingConfig.thinkingLevel = "HIGH";
       }
     }

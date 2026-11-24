@@ -126,9 +126,30 @@ async function passthrough(req, res, bodyBuffer, onResponse) {
   let bodyForForwarding = versionOverride.bodyBuffer;
   if (tool === "antigravity" && bodyForForwarding && bodyForForwarding.length > 0) {
     try {
-      const s = bodyForForwarding.toString();
+      let s = bodyForForwarding.toString();
+      let changed = false;
       if (s.includes('"MINIMAL"')) {
-        bodyForForwarding = Buffer.from(s.replace(/"MINIMAL"/g, '"LOW"'));
+        s = s.replace(/"MINIMAL"/g, '"LOW"');
+        changed = true;
+      }
+      const model = extractModel(req.url, bodyBuffer);
+      const isNeon = Boolean(model && String(model).toLowerCase().includes("neon"));
+      if (!isNeon) {
+        if (s.includes('"XHIGH"')) {
+          s = s.replace(/"XHIGH"/g, '"HIGH"');
+          changed = true;
+        }
+        if (s.includes('"xhigh"')) {
+          s = s.replace(/"xhigh"/g, '"high"');
+          changed = true;
+        }
+        if (/"thinkingLevel"\s*:\s*100\b/.test(s)) {
+          s = s.replace(/"thinkingLevel"\s*:\s*100\b/g, '"thinkingLevel":"HIGH"');
+          changed = true;
+        }
+      }
+      if (changed) {
+        bodyForForwarding = Buffer.from(s);
       }
     } catch {}
   }

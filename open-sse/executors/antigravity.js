@@ -386,10 +386,11 @@ export class AntigravityExecutor extends BaseExecutor {
       const lower = String(raw).toLowerCase().trim();
       const modelLower = String(body.model || model).toLowerCase();
       const isNeon = modelLower.includes("neon");
-      if (lower === "minimal") {
-        generationConfig.thinkingConfig.thinkingLevel = typeof raw === "string" && raw === raw.toUpperCase() ? "LOW" : "low";
-      } else if ((lower === "xhigh" || lower === "max") && !isNeon) {
-        generationConfig.thinkingConfig.thinkingLevel = typeof raw === "string" && raw === raw.toUpperCase() ? "HIGH" : "high";
+      const isXhigh = lower === "xhigh" || lower === "max" || lower === "100" || raw === 100;
+      if (lower === "minimal" || lower === "1" || raw === 1) {
+        generationConfig.thinkingConfig.thinkingLevel = typeof raw === "string" && raw === raw.toLowerCase() ? "low" : "LOW";
+      } else if (isXhigh && !isNeon) {
+        generationConfig.thinkingConfig.thinkingLevel = typeof raw === "string" && raw === raw.toLowerCase() ? "high" : "HIGH";
       }
     }
 
