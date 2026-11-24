@@ -67,14 +67,15 @@ async function pipeSSE(routerRes, res, dumper) {
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) { if (dumper) dumper.end(); res.end(); break; }
+      if (done) { if (dumper) dumper.end(); if (!res.destroyed && !res.writableEnded) res.end(); break; }
+      if (res.destroyed || res.writableEnded) break;
       if (dumper) dumper.writeChunk(value);
       // Zero-copy: write raw Uint8Array directly, avoiding TextDecoder string conversion & re-encoding
       res.write(value);
     }
   } catch (err) {
     if (dumper) { dumper.writeChunk(`\n[STREAM_END] ${err.message}\n`); dumper.end(); }
-    if (!res.writableEnded) res.end();
+    if (!res.destroyed && !res.writableEnded) res.end();
   } finally {
     res.removeListener("close", onClose);
   }

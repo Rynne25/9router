@@ -427,11 +427,19 @@ try {
 }
 
 server.on("clientError", (e, socket) => {
-  if (e?.code !== "ECONNRESET" && e?.code !== "EPIPE") {
-    err(`Client socket error: ${e?.message || e}`);
+  const msg = String(e?.message || "");
+  const isIgnorable =
+    e?.code === "ECONNRESET" ||
+    e?.code === "EPIPE" ||
+    msg.includes("alert unknown ca") ||
+    msg.includes("alert number 48") ||
+    msg.includes("ssl alert") ||
+    msg.includes("handshake");
+  if (!isIgnorable) {
+    err(`Client socket error: ${msg || e}`);
   }
   if (socket && !socket.destroyed) {
-    socket.destroy();
+    try { socket.destroy(); } catch {}
   }
 });
 

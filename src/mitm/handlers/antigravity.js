@@ -32,15 +32,20 @@ async function intercept(req, res, bodyBuffer, mappedModel) {
     const routerRes = await fetchRouter(body, "/v1/chat/completions", req.headers, controller.signal);
     await pipeSSE(routerRes, res, dumper);
   } catch (error) {
+    if (error.name === "AbortError" || controller.signal.aborted || res.destroyed) {
+      if (dumper) dumper.end();
+      return;
+    }
     err(`[antigravity] ${error.message}`);
     if (dumper) { dumper.writeChunk(`\n[ERROR] ${error.message}\n`); dumper.end(); }
-    // For stream endpoint, send SSE error chunk so SDK doesn't hang waiting
-    if (isStream) {
-      if (!res.headersSent) res.writeHead(200, { "Content-Type": "text/event-stream" });
-      res.end(`data: ${JSON.stringify({ error: { message: error.message } })}\r\n\r\n`);
-    } else {
-      if (!res.headersSent) res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: error.message, type: "mitm_error" } }));
+    if (!res.destroyed && !res.writableEnded) {
+      if (isStream) {
+        if (!res.headersSent) res.writeHead(200, { "Content-Type": "text/event-stream" });
+        res.end(`data: ${JSON.stringify({ error: { message: error.message } })}\r\n\r\n`);
+      } else {
+        if (!res.headersSent) res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: { message: error.message, type: "mitm_error" } }));
+      }
     }
   } finally {
     res.removeListener("close", onClose);
