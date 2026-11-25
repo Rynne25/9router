@@ -75,10 +75,7 @@ export function getAntigravityModelFamily(model) {
   if (clean.startsWith("claude-") || clean.startsWith("gpt-") || clean === "claude") {
     return "claude_gpt";
   }
-  if ((clean.startsWith("gemini-") && (clean.includes("argon") || clean.includes("neon"))) || clean === "gemini_argon") {
-    return "gemini_argon";
-  }
-  if ((clean.startsWith("gemini-") && !clean.includes("image") && !clean.includes("orchestrator")) || clean === "gemini") {
+  if ((clean.startsWith("gemini-") && !clean.includes("image")) || clean.startsWith("gemini") || clean === "gemini_argon") {
     return "gemini";
   }
   return null;

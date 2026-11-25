@@ -103,39 +103,20 @@ export function clearConnectionsCacheForTest() {
 
 const ANTIGRAVITY_PILL_DEFS = [
   {
-    id: "argon4",
-    label: "Argon 4",
-    tone: "violet",
-    match: (key) => key.includes("argon"),
-  },
-  {
-    id: "g1pro",
-    label: "G1 Pro",
-    tone: "purple",
-    match: (key) => key.includes("orchestrator") || key.includes("g1-pro") || key.includes("g1pro"),
+    id: "gemini",
+    label: "Gemini",
+    tone: "sky",
+    match: (key) =>
+      key.startsWith("gemini") ||
+      key.includes("argon") ||
+      key.includes("neon") ||
+      key.includes("orchestrator"),
   },
   {
     id: "claude",
     label: "Claude",
     tone: "amber",
     match: (key) => key.startsWith("claude-") || key === "claude" || key === "claude_gpt_session",
-  },
-  {
-    id: "gemini",
-    label: "Gemini 3.8",
-    tone: "sky",
-    match: (key) =>
-      (key.startsWith("gemini-3") && !key.includes("image")) ||
-      key.startsWith("gemini-pro") ||
-      key === "gemini_session" ||
-      key === "gemini_weekly" ||
-      key === "gemini",
-  },
-  {
-    id: "hydrogen",
-    label: "Hydrogen 4",
-    tone: "cyan",
-    match: (key) => key.includes("hydrogen"),
   },
   {
     id: "image",

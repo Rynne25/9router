@@ -59,62 +59,25 @@ export function parseAntigravityQuotas(quotas) {
   const hasClaudeWeekly = Boolean(quotas.claude_gpt_weekly);
   const hasClaudeSession = Boolean(quotas.claude_gpt_session);
 
-  // 1. Gemini Family
-  if (hasGeminiSession) {
-    summaryModels
-      .filter(([k]) => k === "gemini_session")
-      .forEach(([modelKey, quota]) => normalizedQuotas.push(toQuotaRow("Gemini", modelKey, quota)));
+  // 1. Gemini Family (Argon, Neon, Hydrogen, Carbon & Gemini Pro all merged into Gemini)
+  const effectiveGeminiSession = quotas.gemini_session || quotas.gemini_argon_session;
+  const effectiveGeminiWeekly = quotas.gemini_weekly || quotas.gemini_argon_weekly;
+
+  if (effectiveGeminiSession) {
+    normalizedQuotas.push(toQuotaRow("Gemini", "gemini_session", effectiveGeminiSession));
   } else if (geminiModels.length > 0) {
     const rep = pickMinRemainingQuota(geminiModels);
-    const weeklyResetAt = quotas.gemini_weekly?.resetAt;
+    const weeklyResetAt = effectiveGeminiWeekly?.resetAt;
     const isDuplicateOfWeekly =
-      hasGeminiWeekly && rep.resetAt === weeklyResetAt && (rep.remainingPercentage ?? 0) === 0;
+      Boolean(effectiveGeminiWeekly) && rep.resetAt === weeklyResetAt && (rep.remainingPercentage ?? 0) === 0;
 
     if (!isDuplicateOfWeekly) {
       normalizedQuotas.push(toQuotaRow("Gemini", "gemini", rep));
     }
   }
 
-  if (hasGeminiWeekly) {
-    summaryModels
-      .filter(([k]) => k === "gemini_weekly")
-      .forEach(([modelKey, quota]) => normalizedQuotas.push(toQuotaRow("Gemini", modelKey, quota)));
-  }
-
-  // 1b. Argon Family (Gemini 4 Argon & Gemini Pro Orchestrator share the same quota pool)
-  let hasG1ProArgon = false;
-  if (hasArgonSession) {
-    summaryModels
-      .filter(([k]) => k === "gemini_argon_session")
-      .forEach(([, quota]) => {
-        normalizedQuotas.push(toQuotaRow("Argon", "g1pro_argon_session", quota));
-        hasG1ProArgon = true;
-      });
-  }
-
-  if (hasArgonWeekly) {
-    summaryModels
-      .filter(([k]) => k === "gemini_argon_weekly")
-      .forEach(([, quota]) => {
-        normalizedQuotas.push(toQuotaRow("Argon", "g1pro_argon_weekly", quota));
-        hasG1ProArgon = true;
-      });
-  } else if (argonModels.length > 0) {
-    const rep = pickMinRemainingQuota(argonModels);
-    const geminiSessionResetAt = quotas.gemini_session?.resetAt;
-    const geminiWeeklyResetAt = quotas.gemini_weekly?.resetAt;
-    const sharesMainGeminiPool =
-      (hasGeminiSession &&
-        rep.resetAt === geminiSessionResetAt &&
-        rep.remainingPercentage === quotas.gemini_session?.remainingPercentage) ||
-      (hasGeminiWeekly &&
-        rep.resetAt === geminiWeeklyResetAt &&
-        rep.remainingPercentage === quotas.gemini_weekly?.remainingPercentage);
-
-    if (!sharesMainGeminiPool) {
-      normalizedQuotas.push(toQuotaRow("Argon", "g1pro_argon", rep));
-      hasG1ProArgon = true;
-    }
+  if (effectiveGeminiWeekly) {
+    normalizedQuotas.push(toQuotaRow("Gemini", "gemini_weekly", effectiveGeminiWeekly));
   }
 
   // 2. Claude Family
@@ -139,26 +102,7 @@ export function parseAntigravityQuotas(quotas) {
       .forEach(([modelKey, quota]) => normalizedQuotas.push(toQuotaRow("Claude", modelKey, quota)));
   }
 
-  // 3. Standalone Models (merge Orchestrator into Argon if missing)
-  if (!hasG1ProArgon) {
-    const g1ProSource =
-      quotas["gemini-4-neon-extra"] ||
-      quotas["gemini-4-neon-high"] ||
-      quotas["gemini-4-argon-high"] ||
-      quotas.gemini_argon_session ||
-      quotas.gemini_argon_weekly ||
-      quotas["gemini-4-hydrogen-high"];
-    if (g1ProSource) {
-      normalizedQuotas.push({
-        name: "Argon",
-        modelKey: "g1pro_argon",
-        used: g1ProSource.used || 0,
-        total: g1ProSource.total || 1000,
-        resetAt: g1ProSource.resetAt || null,
-        remainingPercentage: g1ProSource.remainingPercentage ?? 100,
-      });
-    }
-  }
+  // 3. Standalone Models (Orchestrator covered under Gemini)
 
   standaloneModels
     .filter(([k]) => !k.includes("orchestrator"))

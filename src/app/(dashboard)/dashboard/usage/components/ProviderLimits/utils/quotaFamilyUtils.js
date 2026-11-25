@@ -60,26 +60,31 @@ export function getQuotaFamilyInfo(quota) {
   const rawName = String(quota.name || "").trim();
   const lowerName = rawName.toLowerCase();
 
-  // 1. G1 Pro / Argon / Neon merger
+  // 1. Gemini Family (Argon, Neon, Hydrogen, Carbon, G1 Pro Orchestrator all merged into Gemini)
   if (
-    key.includes("orchestrator") ||
-    lowerName.includes("orchestrator") ||
+    key === "gemini" ||
+    key === "gemini_session" ||
+    key === "gemini_weekly" ||
     key === "gemini_argon" ||
     key.startsWith("gemini_argon_") ||
     key === "gemini_neon" ||
     key.startsWith("gemini_neon_") ||
     key.startsWith("g1pro_argon") ||
+    key.includes("orchestrator") ||
+    lowerName.includes("orchestrator") ||
     lowerName.includes("argon") ||
     lowerName.includes("neon") ||
     lowerName.includes("g1 pro") ||
-    lowerName.includes("g1-pro")
+    lowerName.includes("g1-pro") ||
+    /^gemini\s*\((5h|weekly|flash\s*\/\s*pro)\)$/i.test(rawName) ||
+    lowerName === "gemini"
   ) {
     const windowGroup = getQuotaWindowGroup(quota);
-    const cycle = windowGroup === "weekly" ? "weekly" : windowGroup === "daily_5h" ? "daily_5h" : "weekly";
-    const badge = cycle === "weekly" ? "Tuần" : "5h";
+    const cycle = windowGroup === "weekly" ? "weekly" : windowGroup === "daily_5h" ? "daily_5h" : "standalone";
+    const badge = cycle === "weekly" ? "Tuần" : cycle === "daily_5h" ? "5h" : "Riêng";
     return {
-      familyKey: "g1pro_argon",
-      title: "Argon",
+      familyKey: "gemini",
+      title: "Gemini",
       cycle,
       badge,
     };
@@ -128,9 +133,8 @@ export function getQuotaFamilyInfo(quota) {
 
 const FAMILY_DISPLAY_PRIORITY = {
   gemini: 0,
-  g1pro_argon: 1,
-  claude_gpt: 2,
-  claude_session_weekly: 2,
+  claude_gpt: 1,
+  claude_session_weekly: 1,
 };
 
 /**
@@ -163,10 +167,6 @@ export function pairQuotasByFamily(quotas = []) {
       entry.daily = { ...quota, cleanTitle: info.title, cycleBadge: "5h" };
     } else if (info.cycle === "weekly" && !entry.weekly) {
       entry.weekly = { ...quota, cleanTitle: info.title, cycleBadge: "Tuần" };
-    } else if (info.familyKey === "g1pro_argon") {
-      if (!entry.weekly) {
-        entry.weekly = { ...quota, cleanTitle: info.title, cycleBadge: "Tuần" };
-      }
     } else {
       entry.standalone.push({ ...quota, cleanTitle: info.title, cycleBadge: info.badge });
     }

@@ -32,7 +32,7 @@ describe("ProviderLimits/utils barrel & decomposed utilities", () => {
     }
   });
 
-  it("pairs Antigravity daily/5h and weekly quotas into dual-bar families while keeping G1 Pro/Argon standalone", () => {
+  it("pairs Antigravity daily/5h and weekly quotas into dual-bar families with Argon merged into Gemini", () => {
     const rows = utils.parseAntigravityQuotas({
       gemini_session: { used: 10, total: 100, remainingPercentage: 90, resetAt: "2026-11-16T18:00:00Z" },
       gemini_weekly: { used: 20, total: 100, remainingPercentage: 80, resetAt: "2026-11-22T00:00:00Z" },
@@ -44,7 +44,7 @@ describe("ProviderLimits/utils barrel & decomposed utilities", () => {
     const { paired, singles } = utils.pairQuotasByFamily(rows);
     expect(paired).toHaveLength(2);
     expect(paired.map((p) => p.title)).toEqual(["Gemini", "Claude"]);
-    expect(singles.some((s) => s.cleanTitle === "Argon")).toBe(true);
+    expect(singles.some((s) => s.cleanTitle === "Argon")).toBe(false);
   });
 
   it("evaluates depleted vs available quota consistently across models", () => {
