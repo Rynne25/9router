@@ -2,7 +2,7 @@ import { spawn, execSync } from "child_process";
 import path from "path";
 import fs from "fs";
 import os from "os";
-import { UPDATER_CONFIG } from "@/shared/constants/config";
+import { GITHUB_CONFIG, UPDATER_CONFIG } from "@/shared/constants/config";
 
 const KILL_TIMEOUT_MS = 5000;
 const PROCESS_WAIT_MS = 1500;
@@ -165,7 +165,8 @@ function resolveRelaunchCommand() {
 }
 
 // Spawn detached headless updater (Node process) then exit current server
-export function spawnUpdaterAndExit(packageName = UPDATER_CONFIG.npmPackageName) {
+export function spawnUpdaterAndExit(packageName = GITHUB_CONFIG.latestReleaseTarballUrl) {
+  killMitmByPidFile();
   const updaterPath = ensureRuntimeUpdater(resolveBundledUpdaterPath());
   const isTray = process.env.TRAY_MODE === "1";
   const relaunch = resolveRelaunchCommand();

@@ -309,18 +309,32 @@ function buildCliPackage() {
     console.log("✅ Stripped better-sqlite3 (lives in ~/.9router/runtime)");
   }
 
-  // Strip unused sql.js debug and zip files (>22MB saved)
-  const sqlDistDir = path.join(cliAppDir, "node_modules", "sql.js", "dist");
-  if (fs.existsSync(sqlDistDir)) {
-    for (const file of fs.readdirSync(sqlDistDir)) {
-      if (file.includes("debug") || file.endsWith(".zip")) {
+  // Strip unused sql.js debug and zip files (>22MB saved) in both node_modules and traced .next-cli-build/node_modules
+  const sqlDistDirs = [path.join(cliAppDir, "node_modules", "sql.js", "dist")];
+  const tracedNmDir = path.join(cliAppDir, buildDistDirName, "node_modules");
+  if (fs.existsSync(tracedNmDir)) {
+    for (const entry of fs.readdirSync(tracedNmDir)) {
+      if (entry.startsWith("sql.js")) {
+        sqlDistDirs.push(path.join(tracedNmDir, entry, "dist"));
+      } else if (entry.startsWith("better-sqlite3")) {
         try {
-          fs.rmSync(path.join(sqlDistDir, file), { force: true });
+          fs.rmSync(path.join(tracedNmDir, entry), { recursive: true, force: true });
         } catch {}
       }
     }
-    console.log("✅ Stripped sql.js debug and zip files (>22MB saved)");
   }
+  for (const sqlDistDir of sqlDistDirs) {
+    if (fs.existsSync(sqlDistDir)) {
+      for (const file of fs.readdirSync(sqlDistDir)) {
+        if (file.includes("debug") || file.endsWith(".zip")) {
+          try {
+            fs.rmSync(path.join(sqlDistDir, file), { force: true });
+          } catch {}
+        }
+      }
+    }
+  }
+  console.log("✅ Stripped sql.js debug/zip and traced better-sqlite3");
   console.log("");
 
   // Step 4: Copy static files
@@ -396,6 +410,42 @@ function buildCliPackage() {
     console.error("❌ MITM build failed");
     process.exit(1);
   }
+
+  // Step 9: Prune source maps (*.map) and non-runtime root files to shrink tarball & speed up npm install
+  console.log("9️⃣  Pruning source maps and non-runtime files...");
+  let prunedMapCount = 0;
+  let prunedBytes = 0;
+  function pruneMapsRecursive(dir) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        pruneMapsRecursive(fullPath);
+      } else if (entry.name.endsWith(".map")) {
+        try {
+          prunedBytes += fs.statSync(fullPath).size;
+          fs.rmSync(fullPath, { force: true });
+          prunedMapCount++;
+        } catch {}
+      }
+    }
+  }
+  pruneMapsRecursive(cliAppDir);
+
+  const nonRuntimeEntries = [
+    "README.md", "README.zh-CN.md", "CHANGELOG.md", "DOCKER.md",
+    "HD_CAI_DAT_VA_CAP_NHAT.md", "AGENTS.md", "CLAUDE.md",
+    "captain-definition", "docker-compose.yml", "Dockerfile",
+    "eslint.config.mjs", "jsconfig.json", "postcss.config.mjs", "start.sh",
+    "skills", "images",
+  ];
+  for (const name of nonRuntimeEntries) {
+    const target = path.join(cliAppDir, name);
+    if (fs.existsSync(target)) {
+      try { fs.rmSync(target, { recursive: true, force: true }); } catch {}
+    }
+  }
+  console.log(`✅ Pruned ${prunedMapCount} .map files (~${(prunedBytes / 1048576).toFixed(1)} MB saved) + non-runtime docs\n`);
 
   console.log("✨ CLI package build completed!");
   console.log(`📁 Output: ${cliAppDir}`);

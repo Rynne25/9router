@@ -2,7 +2,7 @@
 // Spawns `npm i -g <pkg>@latest`, exposes progress via tiny HTTP server.
 // Survives after parent Next server exits (detached + unref by spawner).
 
-const { spawn } = require("child_process");
+const { spawn, execSync } = require("child_process");
 const http = require("http");
 const net = require("net");
 const path = require("path");
@@ -103,6 +103,52 @@ function isAppPortBusy() {
   });
 }
 
+function killPidForce(pid) {
+  if (!pid || pid === process.pid) return;
+  try {
+    if (process.platform === "win32") {
+      execSync(`taskkill /F /T /PID ${pid}`, { stdio: "ignore", windowsHide: true, timeout: 3000 });
+    } else {
+      process.kill(pid, "SIGKILL");
+    }
+  } catch { /* already dead or no permission */ }
+}
+
+// Force-stop any lingering 9router processes holding file locks on node_modules/9router
+function killLingeringProcesses() {
+  const dataDir = getDataDir();
+  const launcherPidFile = path.join(dataDir, "launcher.pid");
+  const mitmPidFile = path.join(dataDir, "mitm", ".mitm.pid");
+
+  try {
+    if (fs.existsSync(launcherPidFile)) {
+      const rec = JSON.parse(fs.readFileSync(launcherPidFile, "utf8"));
+      if (rec && rec.serverPid) killPidForce(rec.serverPid);
+      if (rec && rec.cliPid) killPidForce(rec.cliPid);
+    }
+  } catch { /* ignore */ }
+
+  try {
+    if (fs.existsSync(mitmPidFile)) {
+      const pid = parseInt(fs.readFileSync(mitmPidFile, "utf8").trim(), 10);
+      if (pid) killPidForce(pid);
+      try { fs.unlinkSync(mitmPidFile); } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+
+  if (process.platform === "win32") {
+    try {
+      const psCmd = "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { ($_.CommandLine -like '*9router*') -and ($_.CommandLine -notlike '*updater.js*') } | Select-Object -ExpandProperty ProcessId";
+      const out = execSync(`powershell -NonInteractive -NoProfile -WindowStyle Hidden -Command "${psCmd}"`, {
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: 4000,
+      });
+      out.split(/\r?\n/).map((s) => parseInt(s.trim(), 10)).filter((p) => p && p !== process.pid).forEach(killPidForce);
+    } catch { /* best effort */ }
+  }
+}
+
 // Wait for app process to fully exit before running npm (avoids Windows file-lock)
 async function waitForAppExit() {
   setPhase("waitingForExit");
@@ -111,17 +157,25 @@ async function waitForAppExit() {
   // Hard minimum delay: OS needs time to release file handles
   await sleep(waitMinMs);
 
-  // Poll app port until free or max timeout
+  // Poll app port until free or max timeout; proactively kill lingering processes halfway
   const deadline = Date.now() + (waitMaxMs - waitMinMs);
+  let killedLingering = false;
   while (Date.now() < deadline) {
     const busy = await isAppPortBusy();
     if (!busy) {
       pushLog(`[updater] app port :${appPort} is free, proceeding`);
       return;
     }
+    if (!killedLingering) {
+      killedLingering = true;
+      pushLog(`[updater] port :${appPort} still busy, stopping lingering 9router processes...`);
+      killLingeringProcesses();
+    }
     await sleep(waitCheckMs);
   }
-  pushLog(`[updater] timeout waiting for app, proceeding anyway`);
+  pushLog(`[updater] timeout waiting for app, cleaning lingering handles and proceeding`);
+  killLingeringProcesses();
+  await sleep(500);
 }
 
 function sleep(ms) {
@@ -164,7 +218,8 @@ function runInstall() {
       return;
     }
     if (state.attempt < maxRetries) {
-      pushLog(`[updater] retrying in ${Math.round(retryDelayMs / 1000)}s...`);
+      pushLog(`[updater] cleaning any remaining file locks and retrying in ${Math.round(retryDelayMs / 1000)}s...`);
+      killLingeringProcesses();
       setTimeout(runInstall, retryDelayMs);
       return;
     }

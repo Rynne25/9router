@@ -2,7 +2,7 @@ import { spawn, exec } from "child_process";
 import path from "path";
 import fs from "fs";
 import { spawnUpdaterAndExit } from "@/lib/appUpdater";
-import { UPDATER_CONFIG } from "@/shared/constants/config";
+import { GITHUB_CONFIG } from "@/shared/constants/config";
 
 /**
  * Check if the current 9Router is running inside a Git clone repository.
@@ -46,7 +46,7 @@ export async function executeAutoUpdate(sendEvent, targetPackage) {
         progress: 50,
         message: "Đang kích hoạt trình cập nhật độc lập qua NPM...",
       });
-      const pkgToInstall = targetPackage || UPDATER_CONFIG.npmPackageName;
+      const pkgToInstall = targetPackage || GITHUB_CONFIG.latestReleaseTarballUrl;
       spawnUpdaterAndExit(pkgToInstall);
       sendEvent({
         phase: "restarting",

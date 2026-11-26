@@ -115,6 +115,106 @@ if (args[0] === "connect" || args[0] === "show") {
   return;
 }
 
+// `9router update` stops any running 9router/MITM instances first to prevent
+// Windows EBUSY file locks, then runs npm install -g cleanly with auto-retry.
+if (args[0] === "update") {
+  (async () => {
+    const updateArgs = args.slice(1);
+    const shouldRestart = updateArgs.includes("--restart") || updateArgs.includes("-r");
+    const targetIdx = updateArgs.indexOf("--target");
+    const targetPkg = (targetIdx !== -1 && updateArgs[targetIdx + 1])
+      ? updateArgs[targetIdx + 1]
+      : "https://github.com/Rynne25/9router/releases/latest/download/9router.tgz";
+
+    const dataDir = process.platform === "win32"
+      ? path.join(process.env.APPDATA || "", "9router")
+      : path.join(os.homedir(), ".9router");
+
+    console.log("🛑 Đang dừng các tiến trình 9Router đang chạy để tránh lỗi khóa file (EBUSY)...");
+    const rec = readPidRecord(getPidFilePath(dataDir));
+    if (rec) {
+      stopRecordedInstance(rec);
+    }
+    try {
+      const mitmPidFile = path.join(dataDir, "mitm", ".mitm.pid");
+      if (fs.existsSync(mitmPidFile)) {
+        const mPid = parseInt(fs.readFileSync(mitmPidFile, "utf8").trim(), 10);
+        if (mPid) {
+          if (process.platform === "win32") {
+            execSync(`taskkill /F /T /PID ${mPid}`, { stdio: "ignore", windowsHide: true, timeout: 3000 });
+          } else {
+            process.kill(mPid, "SIGKILL");
+          }
+        }
+        fs.unlinkSync(mitmPidFile);
+      }
+    } catch {}
+
+    if (process.platform === "win32") {
+      try {
+        const psCmd = `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { ($_.CommandLine -like '*9router*') -and ($_.ProcessId -ne ${process.pid}) } | Select-Object -ExpandProperty ProcessId`;
+        const out = execSync(`powershell -NonInteractive -NoProfile -WindowStyle Hidden -Command "${psCmd}"`, {
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 4000,
+        });
+        for (const line of out.split(/\r?\n/)) {
+          const p = parseInt(line.trim(), 10);
+          if (p && p !== process.pid) {
+            try { execSync(`taskkill /F /T /PID ${p}`, { stdio: "ignore", windowsHide: true, timeout: 3000 }); } catch {}
+          }
+        }
+      } catch {}
+    }
+
+    await waitForPortFree(20128, { timeoutMs: 4000, intervalMs: 150 });
+    await new Promise((r) => setTimeout(r, 800));
+
+    const isWin = process.platform === "win32";
+    const npmCmd = isWin ? "npm.cmd" : "npm";
+    const maxAttempts = 2;
+    let ok = false;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      console.log(`📦 Đang cập nhật 9Router (lần ${attempt}/${maxAttempts})...`);
+      try {
+        execSync(`${npmCmd} install -g ${targetPkg} --prefer-online`, {
+          stdio: "inherit",
+          windowsHide: false,
+        });
+        ok = true;
+        break;
+      } catch {
+        if (attempt < maxAttempts) {
+          console.log("⚠️  Gặp lỗi khóa file, đang đợi giải phóng handle để thử lại...");
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+      }
+    }
+
+    if (!ok) {
+      console.error("❌ Cập nhật thất bại. Nếu đang chạy bằng quyền Administrator, hãy mở CMD/PowerShell bằng Run as Administrator rồi chạy lại `9router update`.");
+      process.exit(1);
+    }
+
+    console.log("✅ Cập nhật 9Router thành công!");
+    if (shouldRestart) {
+      console.log("🚀 Đang khởi động lại 9Router...");
+      const child = spawn(isWin ? "9router.cmd" : "9router", ["--no-browser", "--skip-update"], {
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true,
+        shell: isWin,
+      });
+      child.unref();
+    } else {
+      console.log("👉 Chạy `9router` để khởi động lại.");
+    }
+    process.exit(0);
+  })();
+  return;
+}
+
 // Self-heal SQLite runtime deps (sql.js + better-sqlite3) into ~/.9router/runtime
 // so the server can resolve them via NODE_PATH. Best-effort — sql.js is required,
 // better-sqlite3 is optional. Logs to stderr only on failure.
@@ -140,6 +240,14 @@ function getLanIp() {
   return null;
 }
 
+// Parse arguments
+let port = DEFAULT_PORT;
+let host = DEFAULT_HOST;
+let noBrowser = false;
+let skipUpdate = false;
+let showLog = false;
+let trayMode = false;
+
 // Local URL stays "localhost"; warn separately when bound to all interfaces (network-exposed).
 function getDisplayHost() {
   return host === DEFAULT_HOST ? "localhost" : host;
@@ -153,14 +261,6 @@ const PORT_RELEASE_WAIT_MS = 3000;
 const PROCESS_IDENTIFIERS = [
   '9router'  // Only package name - avoid killing other apps
 ];
-
-// Parse arguments
-let port = DEFAULT_PORT;
-let host = DEFAULT_HOST;
-let noBrowser = false;
-let skipUpdate = false;
-let showLog = false;
-let trayMode = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--port" || args[i] === "-p") {
@@ -193,6 +293,8 @@ Options:
   -v, --version       Show version
 
 Commands:
+  update              Stop running 9router safely and update to latest version
+                      (use --restart to auto-start after update)
   connect <server-url> Configure Claude Code for a remote 9router server
                       (npx 9router connect http://host:20128 — no install needed)
   show [tool…]        Show each CLI tool's current 9router config and models
@@ -708,7 +810,7 @@ function startServer(updatePromise) {
     serverStartTime = Date.now();
     crashLog = [];
     const child = spawn(RUNTIME, ["--max-old-space-size=6144", serverPath], {
-      cwd: standaloneDir,
+      cwd: os.tmpdir(),
       stdio: showLog ? "inherit" : ["ignore", "ignore", "pipe"],
       detached: true,
       windowsHide: true,

@@ -29,11 +29,11 @@ export const UPDATER_CONFIG = {
   statusPollIntervalMs: 1000,
   statusLogTailLines: 8,
   installRetries: 3,
-  installRetryDelayMs: 5000,
+  installRetryDelayMs: 2500,
   lingerAfterDoneMs: 30000,
-  waitForExitMinMs: 5000,
-  waitForExitMaxMs: 20000,
-  waitForExitCheckMs: 500,
+  waitForExitMinMs: 1500,
+  waitForExitMaxMs: 12000,
+  waitForExitCheckMs: 300,
   appPort: 20128,
 };
 
