@@ -199,7 +199,12 @@ async function getMitmStatus() {
     } catch { /* ignore */ }
   }
 
-  const dnsStatus = checkAllDNSStatus();
+  const rawDns = checkAllDNSStatus();
+  const toolRouting = await loadDnsToolState();
+  const dnsStatus = {};
+  for (const [tool, inHosts] of Object.entries(rawDns)) {
+    dnsStatus[tool] = inHosts && (toolRouting[tool] !== false);
+  }
   const rootCACertPath = path.join(MITM_DIR, "rootCA.crt");
   const certExists = fs.existsSync(rootCACertPath);
   const { checkCertInstalled } = require("./cert/install");
@@ -589,18 +594,8 @@ async function stopServer(sudoPassword) {
     await removeAllDNSEntries(sudoPassword);
   }
 
-  // Unset NODE_EXTRA_CA_CERTS so apps don't keep trusting stale MITM cert
-  if (IS_MAC) {
-    exec(`launchctl unsetenv NODE_EXTRA_CA_CERTS`, { windowsHide: true }, (e) => {
-      if (e) log(`[launchctl] Failed to unset NODE_EXTRA_CA_CERTS: ${e.message}`);
-      else log(`[launchctl] NODE_EXTRA_CA_CERTS unset`);
-    });
-  } else if (IS_WIN) {
-    exec(`reg delete HKCU\\Environment /F /V NODE_EXTRA_CA_CERTS`, { windowsHide: true }, (e) => {
-      if (e) log(`[reg] Failed to unset NODE_EXTRA_CA_CERTS: ${e.message}`);
-      else log(`[reg] NODE_EXTRA_CA_CERTS unset`);
-    });
-  }
+  // Keep NODE_EXTRA_CA_CERTS persistent so applications like Antigravity
+  // do not require restart across MITM stop/start cycles.
 
   try { fs.unlinkSync(PID_FILE); } catch { /* ignore */ }
   try { fs.unlinkSync(LOCK_FILE); } catch { /* ignore */ }
@@ -627,8 +622,7 @@ async function enableToolDNS(tool, sudoPassword) {
  * Disable DNS for a specific tool
  */
 async function disableToolDNS(tool, sudoPassword) {
-  const password = sudoPassword || getCachedPassword() || await loadEncryptedPassword();
-  await removeDNSEntry(tool, password);
+  // Smart Passthrough: keep hosts & TCP socket intact, pass through cleanly
   await saveDnsToolState(tool, false);
   return { success: true };
 }

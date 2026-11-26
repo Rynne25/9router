@@ -94,12 +94,29 @@ async function loadEncryptedPassword() {
   }
 }
 
+const fs = require("fs");
+const path = require("path");
+const { DATA_DIR } = require("./paths");
+
+const TOOL_STATE_FILE = path.join(DATA_DIR, "mitm", "tool-state.json");
+
+function syncToolStateFile(state) {
+  try {
+    const dir = path.dirname(TOOL_STATE_FILE);
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = `${TOOL_STATE_FILE}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(state || {}, null, 2), "utf8");
+    fs.renameSync(tmp, TOOL_STATE_FILE);
+  } catch { /* best effort */ }
+}
+
 async function saveDnsToolState(tool, enabled) {
   if (!_updateSettings || !_getSettings) return;
   try {
     const s = await _getSettings();
     const next = { ...(s.dnsToolEnabled || {}), [tool]: enabled };
     await _updateSettings({ dnsToolEnabled: next });
+    syncToolStateFile(next);
   } catch (e) {
     err(`Failed to save DNS state: ${e.message}`);
   }
@@ -109,7 +126,9 @@ async function loadDnsToolState() {
   if (!_getSettings) return {};
   try {
     const s = await _getSettings();
-    return s.dnsToolEnabled || {};
+    const state = s.dnsToolEnabled || {};
+    syncToolStateFile(state);
+    return state;
   } catch {
     return {};
   }

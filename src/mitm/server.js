@@ -10,7 +10,7 @@ const { log, err, dumpRequest, createResponseDumper, clearDumpDir } = require(".
 const { IS_DEV, LSOF_BIN, TARGET_HOSTS, URL_PATTERNS, MODEL_SYNONYMS, MODEL_PATTERNS, MODEL_NO_MAP, getToolForHost, isChatRequest, extractModel } = require("./config");
 const { DATA_DIR, MITM_DIR } = require("./paths");
 const { generateCert, getCertForDomain } = require("./cert/generate");
-const { getMitmAlias } = require("./dbReader");
+const { getMitmAlias, isToolRoutingEnabled } = require("./dbReader");
 const { applyAntigravityIdeVersionOverride } = require("./antigravityIdeVersion");
 const LOCAL_PORT = 443;
 const IS_WIN = process.platform === "win32";
@@ -356,6 +356,12 @@ const server = https.createServer(sslOptions, async (req, res) => {
 
     const tool = getToolForHost(req.headers.host);
     if (!tool) return passthrough(req, res, bodyBuffer);
+
+    // Smart Passthrough: if user toggled this tool off on the dashboard,
+    // forward directly to real upstream with zero interception, preserving sockets & certs.
+    if (!isToolRoutingEnabled(tool)) {
+      return passthrough(req, res, bodyBuffer);
+    }
 
     // Kiro IDE posts chat to `/` with x-amz-target (not path /generateAssistantResponse)
     if (!isChatRequest(tool, req)) return passthrough(req, res, bodyBuffer);

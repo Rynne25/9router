@@ -6,9 +6,13 @@ const path = require("path");
 const { DATA_DIR } = require("./paths");
 
 const CACHE_FILE = path.join(DATA_DIR, "mitm", "aliases.json");
+const TOOL_STATE_FILE = path.join(DATA_DIR, "mitm", "tool-state.json");
 
 let cachedData = null;
 let cachedMtimeMs = 0;
+
+let cachedToolState = null;
+let cachedToolStateMtimeMs = 0;
 
 function readCache() {
   try {
@@ -29,9 +33,36 @@ function readCache() {
   }
 }
 
+function readToolState() {
+  try {
+    if (!fs.existsSync(TOOL_STATE_FILE)) {
+      cachedToolState = null;
+      cachedToolStateMtimeMs = 0;
+      return {};
+    }
+    const { mtimeMs } = fs.statSync(TOOL_STATE_FILE);
+    if (cachedToolState !== null && mtimeMs === cachedToolStateMtimeMs) {
+      return cachedToolState;
+    }
+    cachedToolState = JSON.parse(fs.readFileSync(TOOL_STATE_FILE, "utf-8"));
+    cachedToolStateMtimeMs = mtimeMs;
+    return cachedToolState || {};
+  } catch {
+    return {};
+  }
+}
+
 function getMitmAlias(toolName) {
   const all = readCache();
   return all?.[toolName] || null;
 }
 
-module.exports = { getMitmAlias };
+function isToolRoutingEnabled(toolName) {
+  const state = readToolState();
+  if (state && typeof state[toolName] === "boolean") {
+    return state[toolName];
+  }
+  return true;
+}
+
+module.exports = { getMitmAlias, isToolRoutingEnabled };

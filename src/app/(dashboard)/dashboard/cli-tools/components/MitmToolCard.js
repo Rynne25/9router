@@ -131,9 +131,7 @@ function MitmToolCard({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to toggle DNS");
 
-      if (action === "enable") {
-        setWarning(`Khởi động lại ${tool.name} để áp dụng định tuyến DNS mới`);
-      }
+      // Smart Passthrough active: no application restart required
 
       setShowPasswordModal(false);
       setSudoPassword("");
