@@ -111,6 +111,7 @@ export default function ProviderDetailPage() {
           onOpenBulkProxy: () => bulkProxy.setShowBulkProxyModal(true),
           onBulkDelete: connState.handleBulkDelete,
           onRoundRobinToggle: connState.handleRoundRobinToggle,
+          onSoonestResetToggle: connState.handleSoonestResetToggle,
           onStickyLimitChange: connState.handleStickyLimitChange,
           onRefresh: fetchConnections,
           onTriggerOAuth: triggerOAuthConnection,

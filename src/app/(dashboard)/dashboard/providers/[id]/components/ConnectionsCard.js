@@ -75,6 +75,7 @@ export default function ConnectionsCard({
         onExportAntigravity={antigravity.handleExportAntigravity}
         onOpenBulkImportAntigravity={() => antigravity.setShowBulkImportAntigravity(true)}
         onRoundRobinToggle={actions.onRoundRobinToggle}
+        onSoonestResetToggle={actions.onSoonestResetToggle}
         onStickyLimitChange={actions.onStickyLimitChange}
       />
 
