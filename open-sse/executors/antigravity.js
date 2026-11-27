@@ -281,7 +281,8 @@ export class AntigravityExecutor extends BaseExecutor {
       for (const c of srcContents) {
         const imageParts = (c.parts || []).flatMap(p => {
           if (p.text !== undefined) return [{ text: p.text }];
-          if (p.inlineData?.data) return [{ inlineData: p.inlineData }];
+          const inline = p.inlineData || p.inline_data;
+          if (inline?.data) return [{ inlineData: inline }];
           return [];
         });
         if (imageParts.length > 0) {

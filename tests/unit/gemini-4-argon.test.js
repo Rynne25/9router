@@ -15,7 +15,7 @@ describe("Gemini 4 Argon capabilities", () => {
     expect(caps.thinkingCanDisable).toBe(false);
     expect(caps.contextWindow).toBe(1048576);
     expect(caps.maxOutput).toBe(65536);
-    expect(getThinkingLevels(provider, model)).toEqual(["low", "medium", "high"]);
+    expect(getThinkingLevels(provider, model)).toEqual(["low", "medium", "high", "extra"]);
   });
 });
 
@@ -40,9 +40,11 @@ describe("Gemini 4 Argon thinking clamp", () => {
     expect(body.generationConfig.thinkingConfig.thinkingLevel).toBe("high");
   });
 
-  it("keeps minimal for Gemini 3 models (regression guard)", () => {
+  it("keeps minimal for original Gemini 3 models (regression guard)", () => {
+    // gemini-3-flash-preview (original Gemini 3, *gemini-3* caps) has a real
+    // MINIMAL tier — the tiered 3.6/3.7/3.8 family does not (see PATTERN_THINKING).
     const body = { reasoning_effort: "none" };
-    applyThinking("gemini", "gemini-3.8-flash", body, "gemini");
+    applyThinking("gemini", "gemini-3-flash-preview", body, "gemini");
     expect(body.generationConfig.thinkingConfig).toEqual({ thinkingLevel: "minimal", includeThoughts: false });
   });
 });

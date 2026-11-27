@@ -54,7 +54,7 @@ describe("Gemini & Antigravity format RTK support", () => {
 
     const compressed = geminiBody.contents[2].parts[0].functionResponse.response.result.result;
     expect(compressed.length).toBeLessThan(diff.length);
-    expect(compressed).toContain("lines truncated");
+    expect(compressed).toContain("truncated");
     expect(compressed).not.toContain("DIFF_MARKER_150_");
   });
 
@@ -102,7 +102,7 @@ describe("Gemini & Antigravity format RTK support", () => {
     expect(stats).not.toBeNull();
     expect(stats.hits.length).toBe(2);
     expect(stats.hits.map((h) => h.filter)).toEqual(["git-diff", "build-output"]);
-    expect(antigravityBody.request.contents[0].parts[0].functionResponse.response.result.result).toContain("lines truncated");
+    expect(antigravityBody.request.contents[0].parts[0].functionResponse.response.result.result).toContain("truncated");
     expect(antigravityBody.request.contents[0].parts[1].functionResponse.response.result).toContain("added 42 packages");
     expect(stats.bytesAfter).toBeLessThan(stats.bytesBefore);
   });

@@ -10,7 +10,7 @@ export const CAVEMAN_LEVELS = {
   WENYAN_ULTRA: "wenyan-ultra",
 };
 
-const SHARED_BOUNDARIES = "Code blocks, file paths, commands, errors, URLs: keep exact. Security warnings, irreversible action confirmations, multi-step ordered sequences: write normal. Resume terse style after.";
+const SHARED_BOUNDARIES = "Code blocks, file paths, commands, errors, URLs, existing code comments: keep exact. Never drop negations (not/never/no/only/except) or alter meaning. Clarity beats compression. Security warnings, irreversible action confirmations, multi-step ordered sequences: write normal. Resume terse style after.";
 
 const SHARED_EXAMPLES = "Not: \"Sure! I'd be happy to help you with that. The issue you're experiencing is likely caused by...\" Yes: \"Bug in auth middleware. Token expiry check use `<` not `<=`. Fix:\"";
 
