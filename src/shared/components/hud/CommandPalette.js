@@ -8,17 +8,17 @@ import { useHudPrefs } from "@/shared/hooks/useHudPrefs";
 import { playHudSound } from "@/shared/utils/hudAudio";
 
 const ROUTE_ITEMS = [
-  { id: "nav-dashboard", label: "Command Center", hint: "/dashboard", icon: "radar", group: "Navigate", path: "/dashboard" },
-  { id: "nav-mitm", label: "MITM Telemetry", hint: "/dashboard/mitm", icon: "security", group: "Navigate", path: "/dashboard/mitm" },
-  { id: "nav-quota", label: "Quota Monitor", hint: "/dashboard/quota", icon: "speed", group: "Navigate", path: "/dashboard/quota" },
-  { id: "nav-antigravity", label: "Antigravity Fleet", hint: "/dashboard/providers/antigravity", icon: "satellite_alt", group: "Navigate", path: "/dashboard/providers/antigravity" },
-  { id: "nav-token-saver", label: "Token Saver", hint: "/dashboard/token-saver", icon: "compress", group: "Navigate", path: "/dashboard/token-saver" },
-  { id: "nav-endpoint", label: "API Endpoint", hint: "/dashboard/endpoint", icon: "api", group: "Navigate", path: "/dashboard/endpoint" },
-  { id: "nav-providers", label: "Providers", hint: "/dashboard/providers", icon: "dns", group: "Navigate", path: "/dashboard/providers" },
-  { id: "nav-combos", label: "Model Combos", hint: "/dashboard/combos", icon: "hub", group: "Navigate", path: "/dashboard/combos" },
-  { id: "nav-console", label: "Console Log", hint: "/dashboard/console-log", icon: "terminal", group: "Navigate", path: "/dashboard/console-log" },
-  { id: "nav-usage", label: "Usage Analytics", hint: "/dashboard/usage", icon: "monitoring", group: "Navigate", path: "/dashboard/usage" },
-  { id: "nav-cli-tools", label: "CLI Tools", hint: "/dashboard/cli-tools", icon: "build", group: "Navigate", path: "/dashboard/cli-tools" },
+  { id: "nav-dashboard", label: "Trung tâm Antigravity", hint: "/dashboard", icon: "radar", group: "Điều hướng", path: "/dashboard" },
+  { id: "nav-mitm", label: "Proxy MITM", hint: "/dashboard/mitm", icon: "security", group: "Điều hướng", path: "/dashboard/mitm" },
+  { id: "nav-quota", label: "Bảng Quota", hint: "/dashboard/quota", icon: "speed", group: "Điều hướng", path: "/dashboard/quota" },
+  { id: "nav-antigravity", label: "Tài khoản Antigravity", hint: "/dashboard/providers/antigravity", icon: "satellite_alt", group: "Điều hướng", path: "/dashboard/providers/antigravity" },
+  { id: "nav-token-saver", label: "Tiết kiệm Token", hint: "/dashboard/token-saver", icon: "compress", group: "Điều hướng", path: "/dashboard/token-saver" },
+  { id: "nav-endpoint", label: "Endpoint & Khóa API", hint: "/dashboard/endpoint", icon: "api", group: "Điều hướng", path: "/dashboard/endpoint" },
+  { id: "nav-providers", label: "Nhà cung cấp", hint: "/dashboard/providers", icon: "dns", group: "Điều hướng", path: "/dashboard/providers" },
+  { id: "nav-combos", label: "Kết hợp Model", hint: "/dashboard/combos", icon: "hub", group: "Điều hướng", path: "/dashboard/combos" },
+  { id: "nav-console", label: "Nhật ký Console", hint: "/dashboard/console-log", icon: "terminal", group: "Điều hướng", path: "/dashboard/console-log" },
+  { id: "nav-usage", label: "Thống kê sử dụng", hint: "/dashboard/usage", icon: "monitoring", group: "Điều hướng", path: "/dashboard/usage" },
+  { id: "nav-cli-tools", label: "Công cụ CLI", hint: "/dashboard/cli-tools", icon: "build", group: "Điều hướng", path: "/dashboard/cli-tools" },
 ];
 
 export function CommandPalette() {
@@ -126,42 +126,42 @@ export function CommandPalette() {
     const actionItems = [
       {
         id: "act-mitm-dns",
-        label: "Toggle Antigravity MITM DNS",
+        label: "Bật / Tắt DNS Antigravity MITM",
         hint: "PATCH /api/cli-tools/antigravity-mitm",
         icon: "dns",
-        group: "Actions",
+        group: "Thao tác",
         type: "mitm-dns",
       },
       {
         id: "act-ag-warmup",
-        label: "Warmup All Antigravity",
+        label: "Làm nóng tất cả tài khoản Antigravity",
         hint: "POST /api/oauth/antigravity/warmup",
         icon: "bolt",
-        group: "Actions",
+        group: "Thao tác",
         type: "ag-warmup",
       },
       {
         id: "act-theme",
-        label: `Switch Theme (${isDark ? "Light" : "Dark"})`,
-        hint: isDark ? "Switch to Tactical Daylight" : "Switch to Deep Orbital",
+        label: `Đổi giao diện (${isDark ? "Sáng" : "Tối"})`,
+        hint: isDark ? "Chuyển sang giao diện Sáng" : "Chuyển sang giao diện Tối",
         icon: isDark ? "light_mode" : "dark_mode",
-        group: "Preferences",
+        group: "Tùy chỉnh",
         type: "theme",
       },
       {
         id: "act-motion",
-        label: motionPaused ? "Resume HUD Motion" : "Pause HUD Motion",
-        hint: motionPaused ? "Enable orbital shader & counters" : "Freeze shader & counters",
+        label: motionPaused ? "Bật hiệu ứng HUD" : "Tạm dừng hiệu ứng HUD",
+        hint: motionPaused ? "Kích hoạt lại chuyển động nền & bộ đếm" : "Đóng băng hiệu ứng để đỡ rối mắt",
         icon: motionPaused ? "play_circle" : "pause_circle",
-        group: "Preferences",
+        group: "Tùy chỉnh",
         type: "motion",
       },
       {
         id: "act-sound",
-        label: soundEnabled ? "Mute HUD Sound" : "Enable HUD Sound",
-        hint: soundEnabled ? "Disable Web Audio cues" : "Enable subtle Web Audio cues",
+        label: soundEnabled ? "Tắt âm thanh HUD" : "Bật âm thanh HUD",
+        hint: soundEnabled ? "Tắt âm báo thao tác Web Audio" : "Bật âm báo nhẹ khi thao tác",
         icon: soundEnabled ? "volume_off" : "volume_up",
-        group: "Preferences",
+        group: "Tùy chỉnh",
         type: "sound",
       },
     ];
@@ -304,7 +304,7 @@ export function CommandPalette() {
     <dialog
       ref={dialogRef}
       closedby="any"
-      aria-label="Command Palette"
+      aria-label="Bảng lệnh nhanh"
       onClose={handleDialogClose}
       onKeyDown={handleKeyDown}
       className={cn(
@@ -328,8 +328,8 @@ export function CommandPalette() {
             setQuery(e.target.value);
             setSelectedIndex(0);
           }}
-          placeholder="Type a route, command, or HUD toggle..."
-          aria-label="Filter commands"
+          placeholder="Nhập trang, lệnh hoặc tùy chọn HUD..."
+          aria-label="Lọc lệnh nhanh"
           className="w-full bg-transparent text-sm text-[var(--color-text-main)] placeholder:text-[var(--color-text-subtle)] focus:outline-none"
         />
         <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded border border-[var(--color-border)] font-mono text-[10px] text-[var(--color-text-muted)]">
@@ -353,7 +353,7 @@ export function CommandPalette() {
             onClick={() => setFeedback(null)}
             className="text-[11px] opacity-75 hover:opacity-100"
           >
-            Dismiss
+            Đóng
           </button>
         </div>
       )}
@@ -362,7 +362,7 @@ export function CommandPalette() {
       <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
         {items.length === 0 ? (
           <div className="py-10 text-center text-sm text-[var(--color-text-muted)] font-mono">
-            No matching routes or tactical commands.
+            Không tìm thấy trang hoặc lệnh phù hợp.
           </div>
         ) : (
           items.map((item, idx) => {

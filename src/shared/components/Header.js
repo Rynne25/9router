@@ -98,85 +98,85 @@ const getPageInfo = (pathname) => {
     };
   if (pathname.includes("/auth-files"))
     return {
-      title: "Auth Files",
-      description: "Map provider credentials stored in the local database",
+      title: "Tệp xác thực",
+      description: "Ánh xạ thông tin xác thực nhà cung cấp trong cơ sở dữ liệu nội bộ",
       icon: "vpn_key",
       breadcrumbs: [],
     };
   if (pathname.includes("/quota"))
     return {
-      title: "Quota Deck",
-      description: "Track and manage your API quota limits",
+      title: "Bảng Quota",
+      description: "Theo dõi và quản lý giới hạn hạn mức API",
       icon: "data_usage",
       breadcrumbs: [],
     };
   if (pathname.includes("/mitm"))
     return {
-      title: "MITM Proxy",
-      description: "Intercept CLI tool traffic and route through 9Router",
+      title: "Proxy MITM",
+      description: "Chặn lưu lượng công cụ CLI và định tuyến qua 9Router",
       icon: "security",
       breadcrumbs: [],
     };
   if (pathname.includes("/token-saver"))
     return {
-      title: "Token Saver",
-      description: "Compress prompts and outputs to save tokens",
+      title: "Tiết kiệm Token",
+      description: "Nén prompt và phản hồi để giảm tối đa chi phí token",
       icon: "savings",
       breadcrumbs: [],
     };
   if (pathname.includes("/cli-tools"))
     return {
-      title: "CLI Tools",
-      description: "Configure CLI tools",
+      title: "Công cụ CLI",
+      description: "Cấu hình tích hợp cho các công cụ CLI",
       icon: "terminal",
       breadcrumbs: [],
     };
   if (pathname.includes("/proxy-pools"))
     return {
-      title: "Proxy Pools",
-      description: "Manage your proxy pool configurations",
+      title: "Proxy Pool",
+      description: "Quản lý cấu hình nhóm proxy luân phiên",
       icon: "lan",
       breadcrumbs: [],
     };
   if (pathname.includes("/skills"))
     return {
-      title: "Agent Skills",
-      description: "Copy a link and paste to your AI to use 9Router — no install needed",
+      title: "Kỹ năng Agent",
+      description: "Sao chép liên kết và dán vào AI để dùng 9Router không cần cài đặt",
       icon: "extension",
       breadcrumbs: [],
     };
   if (pathname.includes("/endpoint"))
     return {
-      title: "Endpoint & Key",
-      description: "API endpoint configuration",
+      title: "Endpoint & Khóa API",
+      description: "Cấu hình cổng API và danh sách khóa xác thực",
       icon: "api",
       breadcrumbs: [],
     };
   if (pathname.includes("/profile"))
     return {
-      title: "Settings",
-      description: "Manage your preferences",
+      title: "Cài đặt",
+      description: "Quản lý tùy chọn hệ thống và giao diện",
       icon: "settings",
       breadcrumbs: [],
     };
   if (pathname.includes("/translator"))
     return {
-      title: "Translator",
-      description: "Debug translation flow between formats",
+      title: "Trình dịch",
+      description: "Kiểm tra luồng chuyển đổi định dạng API",
       icon: "translate",
       breadcrumbs: [],
     };
   if (pathname.includes("/console-log"))
     return {
-      title: "Console Log",
-      description: "Live server console output",
+      title: "Nhật ký Console",
+      description: "Theo dõi log máy chủ theo thời gian thực",
       icon: "monitor",
       breadcrumbs: [],
     };
   if (pathname === "/dashboard")
     return {
-      title: "Antigravity Command Center",
-      description: "Orbital telemetry, MITM passthrough, and account pool",
+      title: "Trung tâm Antigravity",
+      description: "Giám sát luồng proxy, MITM passthrough và nhóm tài khoản",
       icon: "rocket_launch",
       breadcrumbs: [],
     };
@@ -225,8 +225,8 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   const pageInfo = useMemo(() => getPageInfo(pathname), [pathname]);
   const { title, icon, breadcrumbs } = pageInfo;
   const mitmLive = Boolean(mitmStatus?.running);
-  const motionLabel = motionPaused ? "Play Motion" : "Pause Motion";
-  const soundLabel = soundEnabled ? "Mute HUD Sound" : "Enable HUD Sound";
+  const motionLabel = motionPaused ? "Bật hiệu ứng" : "Tạm dừng hiệu ứng";
+  const soundLabel = soundEnabled ? "Tắt âm thanh HUD" : "Bật âm thanh HUD";
 
   return (
     <>
@@ -346,7 +346,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
               )}
               aria-hidden="true"
             />
-            <span className="hud-telemetry-num">{mitmLive ? ":443 LIVE" : ":443 STANDBY"}</span>
+            <span className="hud-telemetry-num">{mitmLive ? ":443 ĐANG CHẠY" : ":443 CHỜ"}</span>
           </Link>
 
           {/* Command Palette Trigger */}
@@ -356,12 +356,12 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
               playHudSound("click");
               openCommandPalette();
             }}
-            aria-label="Open Command Palette"
-            title="Command Palette (Ctrl+K / Cmd+K)"
+            aria-label="Mở bảng lệnh nhanh"
+            title="Bảng lệnh nhanh (Ctrl+K / Cmd+K)"
             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-border bg-surface-2/80 text-xs text-text-muted hover:text-cyan-700 dark:hover:text-cyan-300 hover:border-cyan-500/40 hover:bg-cyan-500/[0.08] transition-all"
           >
             <span className="material-symbols-outlined text-[15px]">search</span>
-            <span className="text-[11px] font-medium">Command</span>
+            <span className="text-[11px] font-medium">Lệnh nhanh</span>
             <kbd className="px-1 py-0.5 rounded bg-surface border border-border-subtle text-[10px] font-mono text-text-subtle leading-none">
               ⌘K
             </kbd>

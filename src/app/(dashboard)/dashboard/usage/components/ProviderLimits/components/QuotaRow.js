@@ -4,41 +4,10 @@ import { useState } from "react";
 import { cn } from "@/shared/utils/cn";
 import QuotaTable from "../QuotaTable";
 import {
-  extractSupportedModelPills,
-  getAntigravityEffectiveTier,
-  getAntigravityTierBadgeClass,
-  getConnectionHealthStatus,
   getConnectionValidationUrl,
   getQuotaVisibilityKey,
-  getTierBadgeLabel,
   isConnectionValidationBlocked,
 } from "../utils";
-
-const PILL_TONES = {
-  violet:
-    "border-violet-500/35 bg-violet-500/12 text-violet-700 dark:text-violet-300",
-  purple:
-    "border-purple-500/35 bg-purple-500/12 text-purple-700 dark:text-purple-300",
-  amber:
-    "border-amber-500/35 bg-amber-500/12 text-amber-700 dark:text-amber-300",
-  sky: "border-sky-500/35 bg-sky-500/12 text-sky-700 dark:text-sky-300",
-  cyan: "border-cyan-500/40 bg-cyan-500/12 text-cyan-700 dark:text-cyan-300",
-  pink: "border-pink-500/35 bg-pink-500/12 text-pink-700 dark:text-pink-300",
-  emerald:
-    "border-emerald-500/35 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
-  slate:
-    "border-black/10 bg-black/[0.04] text-text-muted dark:border-white/15 dark:bg-white/[0.06]",
-};
-
-const ROW_HEALTH_BORDER = {
-  healthy: "border-emerald-500/20",
-  low: "border-amber-500/30",
-  exhausted: "border-rose-500/30",
-  blocked: "border-rose-500/40",
-  error: "border-rose-500/35",
-  disabled: "border-slate-500/20",
-  loading: "border-cyan-500/20",
-};
 
 export default function QuotaRow({
   conn,
@@ -57,9 +26,6 @@ export default function QuotaRow({
 }) {
   const [copiedVerifyUrl, setCopiedVerifyUrl] = useState(false);
 
-  const modelPills = extractSupportedModelPills(conn, quota);
-  const effectiveTier = provider === "antigravity" ? getAntigravityEffectiveTier(conn, quota) : null;
-  const healthStatus = getConnectionHealthStatus(conn, quota, error);
   const isBlocked =
     provider === "antigravity" && isConnectionValidationBlocked(conn);
   const connValidationUrl = getConnectionValidationUrl(conn);
@@ -88,39 +54,6 @@ export default function QuotaRow({
         "[&_.liquid-glass-fill]:rounded-full",
       )}
     >
-      {/* Monospace Tier & Supported Model Capability Telemetry Strip */}
-      {(effectiveTier || modelPills.length > 0) && (
-        <div
-          className={cn(
-            "flex flex-wrap items-center gap-1 pb-1.5 border-b",
-            provider === "antigravity" && healthStatus === "healthy"
-              ? "border-cyan-500/20"
-              : ROW_HEALTH_BORDER[healthStatus] || "border-black/10 dark:border-white/10",
-          )}
-        >
-          {effectiveTier && (
-            <span
-              className={cn(
-                "inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-wider leading-none",
-                getAntigravityTierBadgeClass(effectiveTier),
-              )}
-            >
-              {getTierBadgeLabel(effectiveTier)}
-            </span>
-          )}
-          {modelPills.map((pill) => (
-            <span
-              key={pill.id}
-              className={cn(
-                "inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-wide leading-none",
-                PILL_TONES[pill.tone] || PILL_TONES.slate,
-              )}
-            >
-              {pill.label}
-            </span>
-          ))}
-        </div>
-      )}
 
       {/* Inline Warmup Feedback Banner */}
       {warmupFeedback && (

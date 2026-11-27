@@ -69,7 +69,7 @@ function ProviderCard({
                 </h3>
                 {isAntigravity && (
                   <span className="shrink-0 rounded border border-cyan-500/40 bg-cyan-500/15 px-1.5 py-0.2 font-mono text-[9px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300">
-                    PRIORITY
+                    ƯU TIÊN
                   </span>
                 )}
               </div>
@@ -80,12 +80,12 @@ function ProviderCard({
                       <span className="material-symbols-outlined text-[12px]">
                         pause_circle
                       </span>
-                      Disabled
+                      Đang tắt
                     </span>
                   </Badge>
                 ) : isNoAuth ? (
                   <Badge variant="success" size="sm" dot className="font-mono">
-                    Ready
+                    Sẵn sàng
                   </Badge>
                 ) : (
                   <>
@@ -117,7 +117,7 @@ function ProviderCard({
                   size="sm"
                   checked={!allDisabled}
                   onChange={() => {}}
-                  title={allDisabled ? "Enable provider" : "Disable provider"}
+                  title={allDisabled ? "Bật nhà cung cấp" : "Tắt nhà cung cấp"}
                 />
               </div>
             )}

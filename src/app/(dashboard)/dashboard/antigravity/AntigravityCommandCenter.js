@@ -23,7 +23,6 @@ import {
 import {
   getConnectionAverageRemaining,
   getConnectionHealthStatus,
-  extractSupportedModelPills,
   isConnectionValidationBlocked,
   getConnectionValidationUrl,
 } from "@/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils/quotaSummaryUtils";
@@ -72,35 +71,22 @@ async function runWithConcurrency(items, concurrency, worker) {
   await Promise.all(runners);
 }
 
-function getPillToneClass(tone) {
-  switch (tone) {
-    case "sky":
-      return "border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300";
-    case "amber":
-      return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
-    case "pink":
-      return "border-pink-500/30 bg-pink-500/10 text-pink-700 dark:text-pink-300";
-    default:
-      return "border-border bg-surface-2 text-text-muted";
-  }
-}
-
 function getStatusBadgeProps(healthStatus) {
   switch (healthStatus) {
     case "healthy":
-      return { variant: "success", label: "ACTIVE" };
+      return { variant: "success", label: "HOẠT ĐỘNG" };
     case "low":
-      return { variant: "warning", label: "LOW QUOTA" };
+      return { variant: "warning", label: "QUOTA THẤP" };
     case "exhausted":
-      return { variant: "error", label: "EXHAUSTED" };
+      return { variant: "error", label: "CẠN KIỆT" };
     case "blocked":
-      return { variant: "error", label: "VERIFY 403" };
+      return { variant: "error", label: "XÁC MINH 403" };
     case "error":
-      return { variant: "error", label: "ERROR" };
+      return { variant: "error", label: "LỖI" };
     case "disabled":
-      return { variant: "default", label: "DISABLED" };
+      return { variant: "default", label: "ĐANG TẮT" };
     default:
-      return { variant: "primary", label: "SYNCING" };
+      return { variant: "primary", label: "ĐANG ĐỒNG BỘ" };
   }
 }
 
@@ -404,12 +390,12 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
       playHudSound("confirm");
       const msg =
         nextAction === "enable"
-          ? "Antigravity DNS Intercept enabled (Zero IDE Restart)"
-          : "Antigravity switched to Smart Passthrough";
+          ? "Đã bật chặn DNS Antigravity (Không cần khởi động lại IDE)"
+          : "Đã chuyển Antigravity sang chế độ Passthrough thông minh";
       notify.success(msg);
       setActionBanner({ tone: "success", text: msg });
     } catch (err) {
-      const msg = err?.message || "Failed to toggle Antigravity DNS";
+      const msg = err?.message || "Không thể bật/tắt DNS Antigravity";
       setDnsError(msg);
       playHudSound("alert");
       setActionBanner({ tone: "error", text: msg });
@@ -422,7 +408,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
     if (warmingUpAll) return;
     playHudSound("click");
     setWarmingUpAll(true);
-    setActionBanner({ tone: "info", text: "Running Antigravity warmup sweep across all accounts..." });
+    setActionBanner({ tone: "info", text: "Đang làm nóng toàn bộ tài khoản Antigravity..." });
 
     try {
       const res = await fetch("/api/oauth/antigravity/warmup", {
@@ -432,21 +418,21 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || `Warmup failed (${res.status})`);
+        throw new Error(data.error || `Làm nóng thất bại (${res.status})`);
       }
       const results = Array.isArray(data.results) ? data.results : [];
       const okCount = results.filter((r) => r.ok).length;
       const msg =
         results.length > 0
-          ? `Warmup complete: ${okCount}/${results.length} accounts active`
-          : data.message || "Warmup sweep completed";
+          ? `Hoàn tất làm nóng: ${okCount}/${results.length} tài khoản hoạt động`
+          : data.message || "Đã hoàn tất làm nóng";
       playHudSound("confirm");
       notify.success(msg);
       setActionBanner({ tone: "success", text: msg });
       invalidateCache(PROVIDERS_CACHE_KEY);
       await loadAllTelemetry({ force: true });
     } catch (err) {
-      const msg = err?.message || "Warmup failed";
+      const msg = err?.message || "Làm nóng thất bại";
       playHudSound("alert");
       notify.error(msg);
       setActionBanner({ tone: "error", text: msg });
@@ -459,7 +445,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
     if (refreshingAll) return;
     playHudSound("click");
     setRefreshingAll(true);
-    setActionBanner({ tone: "info", text: "Refreshing Antigravity OAuth tokens & live quotas..." });
+    setActionBanner({ tone: "info", text: "Đang làm mới OAuth token & quota Antigravity..." });
 
     try {
       const res = await fetch("/api/oauth/antigravity/refresh-all", {
@@ -469,16 +455,16 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || `Refresh failed (${res.status})`);
+        throw new Error(data.error || `Làm mới thất bại (${res.status})`);
       }
-      const msg = data.message || `Refreshed ${data.refreshedCount ?? 0}/${data.total ?? 0} tokens`;
+      const msg = data.message || `Đã làm mới ${data.refreshedCount ?? 0}/${data.total ?? 0} token`;
       playHudSound("confirm");
       notify.success(msg);
       setActionBanner({ tone: "success", text: msg });
       invalidateCache(PROVIDERS_CACHE_KEY);
       await loadAllTelemetry({ force: true });
     } catch (err) {
-      const msg = err?.message || "Token refresh failed";
+      const msg = err?.message || "Làm mới token thất bại";
       playHudSound("alert");
       notify.error(msg);
       setActionBanner({ tone: "error", text: msg });
@@ -508,12 +494,12 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
         invalidateCache(SETTINGS_CACHE_KEY);
         setActionBanner({
           tone: "success",
-          text: `${label} ${nextVal ? "armed" : "disarmed"}`,
+          text: `${label}: ${nextVal ? "Đã bật" : "Đã tắt"}`,
         });
       } catch (err) {
         setSavers((prev) => ({ ...prev, [key]: prevVal }));
         playHudSound("alert");
-        notify.error(`Failed to update ${label}: ${err?.message || "Network error"}`);
+        notify.error(`Lỗi cập nhật ${label}: ${err?.message || "Lỗi mạng"}`);
       } finally {
         setSavingSettingKey(null);
       }
@@ -533,36 +519,36 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
   const saverRows = [
     {
       key: "rtkEnabled",
-      label: "RTK Tool Filter",
+      label: "Bộ lọc RTK",
       code: "RTK",
-      desc: "Compresses CLI/tool outputs before Antigravity context injection.",
-      statusText: savers.rtkEnabled ? "FILTER ARMED" : "STANDBY",
+      desc: "Nén kết quả CLI/công cụ trước khi đưa vào ngữ cảnh Antigravity.",
+      statusText: savers.rtkEnabled ? "ĐANG BẬT" : "ĐANG CHỜ",
     },
     {
       key: "headroomEnabled",
       label: "Headroom Sidecar",
       code: "HEADROOM",
-      desc: "Semantic prompt & turn compression proxy for long IDE sessions.",
+      desc: "Proxy nén ngữ cảnh ngữ nghĩa cho các phiên IDE dài.",
       statusText: headroomStatus?.running
-        ? "PROXY LIVE"
+        ? "ĐANG CHẠY"
         : headroomStatus?.installed
-          ? "INSTALLED"
-          : "NOT INSTALLED",
+          ? "ĐÃ CÀI ĐẶT"
+          : "CHƯA CÀI",
       statusLive: Boolean(headroomStatus?.running),
     },
     {
       key: "cavemanEnabled",
-      label: "Caveman Compression",
+      label: "Nén đầu ra Caveman",
       code: "CAVEMAN",
-      desc: "Terse directive injection reducing verbose assistant token burn.",
-      statusText: savers.cavemanEnabled ? "INJECTING" : "STANDBY",
+      desc: "Chèn chỉ thị trả lời ngắn gọn, giảm lượng token phản hồi thừa.",
+      statusText: savers.cavemanEnabled ? "ĐANG TIÊM" : "ĐANG CHỜ",
     },
     {
       key: "ponytailEnabled",
-      label: "Ponytail Context",
+      label: "Tối giản Ponytail",
       code: "PONYTAIL",
-      desc: "Trims redundant historical noise across multi-turn agent loops.",
-      statusText: savers.ponytailEnabled ? "PRUNING" : "STANDBY",
+      desc: "Loại bỏ nhiễu dư thừa khi agent chạy vòng lặp nhiều bước.",
+      statusText: savers.ponytailEnabled ? "ĐANG TỐI ƯU" : "ĐANG CHỜ",
     },
   ];
 
@@ -579,11 +565,11 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                   !motionPaused && "animate-pulse"
                 )}
               />
-              ANTIGRAVITY COMMAND CENTER
+              TRUNG TÂM ĐIỀU KHIỂN ANTIGRAVITY
             </span>
             {machineId ? (
               <span className="hidden sm:inline-flex items-center gap-1 rounded border border-border bg-surface-2 px-2 py-0.5 font-mono text-[10px] text-text-muted">
-                NODE {machineId.slice(0, 8).toUpperCase()}
+                MÁY {machineId.slice(0, 8).toUpperCase()}
               </span>
             ) : null}
           </div>
@@ -599,7 +585,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
               }}
               loading={providersLoading}
             >
-              Sync Telemetry
+              Đồng bộ Telemetry
             </Button>
           </div>
         </div>
@@ -609,7 +595,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
           <HudFrame accent="cyan" padding="sm" chamfer="sm">
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                Active AG Accounts
+                Tài khoản AG đang bật
               </span>
               <span className="material-symbols-outlined text-[16px] text-cyan-600 dark:text-cyan-400">
                 groups
@@ -620,7 +606,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                 <NumberTicker value={telemetrySummary.activeCount} />
               </span>
               <span className="font-mono text-xs text-text-muted hud-telemetry-num">
-                / {telemetrySummary.totalCount} total
+                / {telemetrySummary.totalCount} tổng
               </span>
             </div>
           </HudFrame>
@@ -628,7 +614,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
           <HudFrame accent={avgQuotaAccent} padding="sm" chamfer="sm">
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                Avg Quota
+                Quota trung bình
               </span>
               <span className="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400">
                 donut_large
@@ -654,7 +640,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                 )}
               </span>
               <span className="font-mono text-xs text-text-muted hud-telemetry-num">
-                {telemetrySummary.healthyCount} healthy
+                {telemetrySummary.healthyCount} sẵn sàng
               </span>
             </div>
           </HudFrame>
@@ -666,7 +652,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
           >
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                MITM Status
+                Trạng thái MITM
               </span>
               <span
                 className={cn(
@@ -693,9 +679,9 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
               >
                 {mitmStatus?.running
                   ? mitmStatus?.dnsStatus?.antigravity
-                    ? "DNS LIVE"
+                    ? "ĐANG CHẶN DNS"
                     : "PASSTHROUGH"
-                  : "STANDBY"}
+                  : "ĐANG CHỜ"}
               </span>
             </div>
           </HudFrame>
@@ -703,7 +689,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
           <HudFrame accent="cyan" padding="sm" chamfer="sm">
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                Token Savers
+                Tiết kiệm Token
               </span>
               <span className="material-symbols-outlined text-[16px] text-cyan-600 dark:text-cyan-400">
                 bolt
@@ -714,7 +700,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                 <NumberTicker value={telemetrySummary.armedSaversCount} suffix="/4" />
               </span>
               <span className="font-mono text-xs text-text-muted">
-                {headroomStatus?.running ? "HR LIVE" : "ARMED"}
+                {headroomStatus?.running ? "HEADROOM CHẠY" : "ĐÃ BẬT"}
               </span>
             </div>
           </HudFrame>
@@ -744,7 +730,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
           accent="cyan"
           padding="md"
           chamfer="md"
-          header="Tactical Quick Actions"
+          header="Thao tác nhanh"
           statusDot="cyan"
         >
           <div className="flex flex-col gap-2.5">
@@ -758,7 +744,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                 onClick={handleWarmupAll}
                 fullWidth
               >
-                Warmup All
+                Làm nóng tất cả
               </Button>
               <Button
                 variant="secondary"
@@ -769,7 +755,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                 onClick={handleRefreshAll}
                 fullWidth
               >
-                Refresh Tokens
+                Làm mới Token
               </Button>
             </div>
 
@@ -783,7 +769,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                   <span className="material-symbols-outlined text-[16px] text-cyan-600 dark:text-cyan-400">
                     tune
                   </span>
-                  <span>MITM Mapping</span>
+                  <span>Ánh xạ Model MITM</span>
                 </span>
                 <span className="font-mono text-[10px] text-text-muted group-hover:text-cyan-500">
                   /mitm →
@@ -799,7 +785,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                   <span className="material-symbols-outlined text-[16px] text-cyan-600 dark:text-cyan-400">
                     api
                   </span>
-                  <span>Endpoint &amp; Keys</span>
+                  <span>Endpoint &amp; Khóa API</span>
                 </span>
                 <span className="font-mono text-[10px] text-text-muted group-hover:text-cyan-500">
                   /v1 →
@@ -815,7 +801,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                   <span className="material-symbols-outlined text-[16px] text-cyan-600 dark:text-cyan-400">
                     monitoring
                   </span>
-                  <span>Live Console</span>
+                  <span>Nhật ký Console trực tiếp</span>
                 </span>
                 <span className="font-mono text-[10px] text-text-muted group-hover:text-cyan-500">
                   SSE →
@@ -840,14 +826,14 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
               <div className="flex items-center gap-1.5 shrink-0">
                 {actionBanner.href ? (
                   <Link href={actionBanner.href} className="underline font-semibold">
-                    {actionBanner.hrefLabel || "Open"}
+                    {actionBanner.hrefLabel || "Mở"}
                   </Link>
                 ) : null}
                 <button
                   type="button"
                   onClick={() => setActionBanner(null)}
                   className="opacity-70 hover:opacity-100 cursor-pointer"
-                  aria-label="Dismiss status message"
+                  aria-label="Đóng thông báo"
                 >
                   <span className="material-symbols-outlined text-[14px]">close</span>
                 </button>
@@ -855,7 +841,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
             </div>
           ) : (
             <div className="rounded-lg border border-border-subtle bg-surface/60 px-2.5 py-2 font-mono text-[10.5px] text-text-muted">
-              Ready for Antigravity warmup, token refresh &amp; live routing.
+              Sẵn sàng làm nóng Antigravity, làm mới token và định tuyến trực tiếp.
             </div>
           )}
         </HudFrame>
@@ -878,10 +864,10 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
               </div>
               <div>
                 <h2 className="text-sm font-bold text-text-main tracking-tight">
-                  Antigravity Account Pool
+                  Nhóm tài khoản Antigravity
                 </h2>
                 <p className="font-mono text-[10.5px] text-text-muted">
-                  Live OAuth quota telemetry &amp; model family access
+                  Theo dõi quota OAuth theo thời gian thực
                 </p>
               </div>
             </div>
@@ -892,7 +878,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                 onClick={() => playHudSound("click")}
                 className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-2.5 py-1 font-mono text-[10.5px] font-semibold text-text-main hover:border-cyan-500/40 transition-colors"
               >
-                <span>Quota Deck</span>
+                <span>Bảng Quota</span>
                 <span className="material-symbols-outlined text-[13px]">open_in_new</span>
               </Link>
               <Link
@@ -900,7 +886,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                 onClick={() => playHudSound("click")}
                 className="inline-flex items-center gap-1 rounded-md border border-cyan-500/35 bg-cyan-500/10 px-2.5 py-1 font-mono text-[10.5px] font-semibold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 transition-colors"
               >
-                <span>Manage</span>
+                <span>Quản lý</span>
                 <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
               </Link>
             </div>
@@ -922,15 +908,15 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
               </div>
               <div className="max-w-sm">
                 <p className="text-sm font-bold text-text-main">
-                  No Antigravity Accounts Connected
+                  Chưa kết nối tài khoản Antigravity
                 </p>
                 <p className="mt-1 text-xs text-text-muted">
-                  Connect an Antigravity OAuth account to unlock Gemini 4, Claude, and orbital failover pooling.
+                  Kết nối tài khoản Antigravity OAuth để dùng Gemini 4, Claude và tự động chuyển mạch dự phòng.
                 </p>
               </div>
               <Link href="/dashboard/providers/antigravity" onClick={() => playHudSound("click")}>
                 <Button variant="primary" size="sm" icon="add_circle">
-                  Connect Antigravity Account
+                  Kết nối tài khoản Antigravity
                 </Button>
               </Link>
             </div>
@@ -948,7 +934,6 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                 const tier = getAntigravityEffectiveTier(conn, quotaEntry);
                 const tierLabel = getTierBadgeLabel(tier);
                 const tierClass = getAntigravityTierBadgeClass(tier);
-                const pills = extractSupportedModelPills(conn, quotaEntry);
                 const breakdown = extractFamilyBreakdown(quotaEntry);
                 const accountLabel =
                   conn.email || conn.displayName || conn.name || conn.id.slice(0, 10);
@@ -1001,22 +986,6 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                         ) : null}
                       </div>
 
-                      {pills.length > 0 ? (
-                        <div className="flex flex-wrap items-center gap-1">
-                          {pills.map((pill) => (
-                            <span
-                              key={pill.id}
-                              className={cn(
-                                "inline-flex items-center rounded border px-1.5 py-0.2 font-mono text-[9.5px] font-medium",
-                                getPillToneClass(pill.tone)
-                              )}
-                            >
-                              {pill.label}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-
                       {breakdown.length > 0 ? (
                         <div className="flex items-center gap-2.5 font-mono text-[10px] text-text-muted hud-telemetry-num">
                           {breakdown.map((b) => (
@@ -1053,10 +1022,10 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
           <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-border-subtle">
             <div>
               <h2 className="text-sm font-bold text-text-main tracking-tight">
-                Antigravity Token Saver Matrix
+                Ma trận Tiết kiệm Token
               </h2>
               <p className="font-mono text-[10.5px] text-text-muted">
-                {telemetrySummary.armedSaversCount}/4 compression layers armed
+                Đang bật {telemetrySummary.armedSaversCount}/4 lớp nén
               </p>
             </div>
             <Link
@@ -1064,7 +1033,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
               onClick={() => playHudSound("click")}
               className="inline-flex items-center gap-1 rounded-md border border-cyan-500/35 bg-cyan-500/10 px-2.5 py-1 font-mono text-[10.5px] font-semibold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 transition-colors"
             >
-              <span>Full Matrix</span>
+              <span>Xem tất cả</span>
               <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
             </Link>
           </div>

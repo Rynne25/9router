@@ -130,13 +130,13 @@ export default function EndpointPageClient({ machineId: _machineId = "" }) {
           <div className="flex flex-wrap items-center gap-2.5 min-w-0">
             <span className="inline-flex items-center gap-1.5 rounded border border-emerald-500/40 bg-emerald-500/12 px-2 py-0.5 font-mono text-[10.5px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
               <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              /v1 ONLINE
+              /v1 ĐANG MỞ
             </span>
             <code className="truncate rounded-md border border-cyan-500/25 bg-black/[0.04] dark:bg-white/[0.05] px-2 py-0.5 font-mono text-xs font-semibold text-cyan-800 dark:text-cyan-200 max-w-full sm:max-w-[340px]">
               {baseUrl}
             </code>
             <span className="inline-flex items-center gap-1 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] px-2 py-0.5 font-mono text-[11px] tabular-nums text-text-muted">
-              KEYS
+              KHÓA API
               <NumberTicker value={activeKeysCount} className="font-bold text-text-main" />
             </span>
             <span
@@ -146,11 +146,11 @@ export default function EndpointPageClient({ machineId: _machineId = "" }) {
                   : "border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300"
               }`}
             >
-              {requireApiKey ? "AUTH: API KEY" : "AUTH: OPEN"}
+              {requireApiKey ? "XÁC THỰC: API KEY" : "XÁC THỰC: MỞ"}
             </span>
             {tunnelOnline && (
               <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/35 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                TUNNEL LIVE
+                TUNNEL ĐANG BẬT
               </span>
             )}
           </div>
@@ -160,7 +160,7 @@ export default function EndpointPageClient({ machineId: _machineId = "" }) {
             className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-cyan-500/45 bg-cyan-500/15 px-3 font-mono text-xs font-semibold text-cyan-700 dark:text-cyan-200 hover:bg-cyan-500/25 transition-colors"
           >
             <span className="material-symbols-outlined text-[15px]">rocket_launch</span>
-            <span>Antigravity Command Center</span>
+            <span>Trung tâm Antigravity</span>
           </Link>
         </div>
       </HudFrame>

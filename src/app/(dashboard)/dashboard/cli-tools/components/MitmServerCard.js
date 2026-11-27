@@ -176,7 +176,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
                 <span className="material-symbols-outlined text-[16px]">security</span>
               </div>
               <h2 className="text-xs sm:text-sm font-bold text-text-main tracking-tight">
-                Proxy MITM Server
+                Máy chủ Proxy MITM
               </h2>
 
               {/* Orbital Telemetry Status Badges */}
@@ -188,12 +188,12 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
                         motionPaused ? "" : "animate-pulse"
                       }`}
                     />
-                    <span>:443 LIVE</span>
+                    <span>:443 ĐANG CHẠY</span>
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] dark:bg-white/[0.05] border border-black/10 dark:border-white/10 px-2 py-0.5 font-mono text-[10px] font-bold text-text-muted">
                     <span className="size-1.5 rounded-full bg-slate-400" />
-                    <span>:443 STANDBY</span>
+                    <span>:443 ĐANG CHỜ</span>
                   </span>
                 )}
 
@@ -207,12 +207,12 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
                   <span className="material-symbols-outlined text-[12px]">
                     {certTrusted ? "verified_user" : "workspace_premium"}
                   </span>
-                  <span>{certTrusted ? "TRUSTED CERT" : "CERT UNTRUSTED"}</span>
+                  <span>{certTrusted ? "CHỨNG CHỈ TIN CẬY" : "CHƯA TIN CẬY CA"}</span>
                 </span>
 
                 <span className="hidden sm:inline-flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-cyan-700 dark:text-cyan-300">
                   <span className="material-symbols-outlined text-[12px]">alt_route</span>
-                  <span>SMART PASSTHROUGH</span>
+                  <span>CHUYỂN TIẾP THÔNG MINH</span>
                 </span>
               </div>
 
@@ -276,7 +276,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
                   className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 text-[11px] font-bold text-amber-700 dark:text-amber-300 transition-all hover:bg-amber-500/25 disabled:opacity-50 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[14px]">verified_user</span>
-                  <span>Trust CA</span>
+                  <span>Tin cậy CA</span>
                 </button>
               )}
 
@@ -310,7 +310,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
             <div className="flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-white/55 dark:bg-[#070D1B]/75 px-2.5 py-1.5 transition-colors focus-within:border-cyan-500/50">
               <span className="material-symbols-outlined text-[14px] text-cyan-600 dark:text-cyan-400 shrink-0">lan</span>
               <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted shrink-0">
-                Router URL
+                URL Router
               </span>
               <input
                 type="text"
@@ -325,7 +325,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
             <div className="flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-white/55 dark:bg-[#070D1B]/75 px-2.5 py-1.5 transition-colors focus-within:border-cyan-500/50">
               <span className="material-symbols-outlined text-[14px] text-cyan-600 dark:text-cyan-400 shrink-0">vpn_key</span>
               <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted shrink-0">
-                API Key
+                Khóa API
               </span>
               <input
                 type="text"
@@ -368,14 +368,14 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
       {showPasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm">
           <div className="mx-4 flex w-full max-w-sm flex-col gap-4 rounded-xl border border-cyan-500/30 bg-surface p-5 shadow-xl sm:p-6">
-            <h3 className="font-semibold text-text-main">Sudo Password Required</h3>
+            <h3 className="font-semibold text-text-main">Yêu cầu mật khẩu Sudo</h3>
             <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
               <span className="material-symbols-outlined text-amber-500 text-[20px]">warning</span>
-              <p className="text-xs text-text-muted">Required for SSL certificate and server startup</p>
+              <p className="text-xs text-text-muted">Cần quyền sudo để cài chứng chỉ SSL và khởi động máy chủ</p>
             </div>
             <Input
               type="password"
-              placeholder="Enter sudo password"
+              placeholder="Nhập mật khẩu sudo"
               value={sudoPassword}
               onChange={(e) => setSudoPassword(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !loading) handleConfirmPassword(); }}
@@ -388,10 +388,10 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
             )}
             <div className="flex items-center justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => { setShowPasswordModal(false); setSudoPassword(""); setModalError(null); }} disabled={loading}>
-                Cancel
+                Hủy
               </Button>
               <Button variant="primary" size="sm" onClick={handleConfirmPassword} loading={loading}>
-                Confirm
+                Xác nhận
               </Button>
             </div>
           </div>
@@ -402,23 +402,23 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
       {port443Conflict && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm">
           <div className="mx-4 flex w-full max-w-md flex-col gap-4 rounded-xl border border-cyan-500/30 bg-surface p-5 shadow-xl sm:p-6">
-            <h3 className="font-semibold text-text-main">Port 443 Already In Use</h3>
+            <h3 className="font-semibold text-text-main">Cổng 443 đang bị chiếm dụng</h3>
             <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
               <span className="material-symbols-outlined text-amber-500 text-[20px]">warning</span>
               <div className="flex flex-col gap-1 text-xs text-text-muted">
-                <p>Port 443 is currently used by another process:</p>
+                <p>Cổng 443 hiện đang được sử dụng bởi tiến trình khác:</p>
                 <p className="font-mono text-text-main" data-i18n-skip="true">
                   {port443Conflict.owner.name} (PID {port443Conflict.owner.pid})
                 </p>
-                <p>Kill this process to start MITM Server?</p>
+                <p>Bạn có muốn tắt tiến trình này để bật MITM Server không?</p>
               </div>
             </div>
             <div className="flex items-center justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => { setPort443Conflict(null); setLoading(false); }} disabled={loading}>
-                Cancel
+                Hủy
               </Button>
               <Button variant="primary" size="sm" onClick={handleKillAndStart} loading={loading}>
-                Kill & Start
+                Tắt &amp; Khởi động
               </Button>
             </div>
           </div>

@@ -43,24 +43,15 @@ void main() {
   float aspect = u_resolution.x / max(u_resolution.y, 1.0);
   vec2 centered = (uv - vec2(0.56, 0.42)) * vec2(aspect, 1.0);
   float dist = length(centered);
-  float angle = atan(centered.y, centered.x);
 
   // Subtle deep-space noise flow
   float flow = noise(centered * 2.4 + vec2(u_time * 0.035, -u_time * 0.025));
   float flow2 = noise(centered * 4.8 - vec2(u_time * 0.02, u_time * 0.03));
   float field = mix(flow, flow2, 0.45);
 
-  // Concentric orbital telemetry rings
-  float ring1 = smoothstep(0.0055, 0.0, abs(dist - 0.34));
-  float ring2 = smoothstep(0.0045, 0.0, abs(dist - 0.58));
-  float ring3 = smoothstep(0.0040, 0.0, abs(dist - 0.86));
-
-  // Faint radar sweep wedge
-  float sweepAngle = mod(angle - u_time * 0.22 + 6.283185, 6.283185);
-  float radarWedge = exp(-sweepAngle * 2.6) * smoothstep(0.95, 0.12, dist) * step(0.08, dist);
-
-  // Faint coordinate ticks along primary ring
-  float ticks = smoothstep(0.92, 0.99, cos(angle * 24.0)) * smoothstep(0.022, 0.0, abs(dist - 0.58));
+  // Soft ambient corner glows (no center distraction)
+  float cornerTopGlow = exp(-length((uv - vec2(0.18, 0.85)) * vec2(aspect, 1.0)) * 2.2);
+  float cornerBottomGlow = exp(-length((uv - vec2(0.88, 0.14)) * vec2(aspect, 1.0)) * 2.4);
 
   vec3 baseDark = vec3(0.0196, 0.0314, 0.0667);   // #050811
   vec3 altDark = vec3(0.0353, 0.0588, 0.1176);    // #090F1E
@@ -72,14 +63,12 @@ void main() {
   vec3 blueLight = vec3(0.0078, 0.5176, 0.7804);  // #0284C7
 
   vec3 darkColor = mix(baseDark, altDark, field * 0.65 + (1.0 - uv.y) * 0.35);
-  darkColor += cyanGlow * (0.045 * exp(-dist * 1.9));
-  darkColor += skyAccent * (ring1 * 0.09 + ring2 * 0.065 + ring3 * 0.045 + ticks * 0.08);
-  darkColor += cyanGlow * (radarWedge * 0.075);
+  darkColor += cyanGlow * (0.03 * exp(-dist * 1.9) + cornerTopGlow * 0.035);
+  darkColor += skyAccent * (cornerBottomGlow * 0.025);
 
   vec3 lightColor = mix(baseLight, altLight, field * 0.5 + uv.y * 0.35);
-  lightColor = mix(lightColor, blueLight, 0.035 * exp(-dist * 1.8));
-  lightColor = mix(lightColor, blueLight, ring1 * 0.06 + ring2 * 0.045 + ring3 * 0.03 + ticks * 0.055);
-  lightColor = mix(lightColor, blueLight, radarWedge * 0.055);
+  lightColor = mix(lightColor, blueLight, 0.025 * exp(-dist * 1.8) + cornerTopGlow * 0.025);
+  lightColor = mix(lightColor, blueLight, cornerBottomGlow * 0.02);
 
   vec3 finalColor = mix(lightColor, darkColor, u_dark);
   outColor = vec4(finalColor, 1.0);

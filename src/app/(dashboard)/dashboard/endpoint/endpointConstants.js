@@ -1,10 +1,10 @@
 export const WENYAN_LOCALES = ["zh-CN", "zh-TW"];
 
 export const TUNNEL_BENEFITS = [
-  { icon: "public", title: "Access Anywhere", desc: "Use your API from any network" },
-  { icon: "group", title: "Share Endpoint", desc: "Share URL with team members" },
-  { icon: "code", title: "Use in Cursor/Cline", desc: "Connect AI tools remotely" },
-  { icon: "lock", title: "Encrypted", desc: "End-to-end TLS via Cloudflare" },
+  { icon: "public", title: "Truy cập mọi nơi", desc: "Dùng API của bạn từ bất kỳ mạng nào" },
+  { icon: "group", title: "Chia sẻ Endpoint", desc: "Chia sẻ URL trực tiếp với đồng đội" },
+  { icon: "code", title: "Dùng trên Cursor/Cline", desc: "Kết nối công cụ AI từ xa" },
+  { icon: "lock", title: "Mã hóa đầu cuối", desc: "TLS đầu cuối qua Cloudflare" },
 ];
 
 export const TUNNEL_PING_INTERVAL_MS = 2000;
@@ -17,22 +17,22 @@ export const CLIENT_PING_SLOW_MS = 60000;
 export const CLIENT_PING_TIMEOUT_MS = 5000;
 
 export const CAVEMAN_LEVELS = [
-  { id: "lite", label: "Lite", desc: "Drop filler, keep grammar" },
-  { id: "full", label: "Full", desc: "Drop articles, fragments OK" },
-  { id: "ultra", label: "Ultra", desc: "Telegraphic, max compression" },
-  { id: "wenyan-lite", label: "文 Lite", desc: "Classical Chinese, light compression", wenyan: true },
-  { id: "wenyan", label: "文 Full", desc: "Maximum 文言文, 80-90% reduction", wenyan: true },
-  { id: "wenyan-ultra", label: "文 Ultra", desc: "Extreme classical compression", wenyan: true },
+  { id: "lite", label: "Nhẹ", desc: "Bỏ từ thừa, giữ nguyên ngữ pháp" },
+  { id: "full", label: "Đầy đủ", desc: "Lược bỏ mạo từ, viết gọn theo cụm" },
+  { id: "ultra", label: "Tối đa", desc: "Siêu cô đọng, nén mức tối đa" },
+  { id: "wenyan-lite", label: "文 Lite", desc: "Văn ngôn cổ điển, nén nhẹ", wenyan: true },
+  { id: "wenyan", label: "文 Full", desc: "Văn ngôn cổ điển, giảm 80-90%", wenyan: true },
+  { id: "wenyan-ultra", label: "文 Ultra", desc: "Văn ngôn cô đọng cực đại", wenyan: true },
 ];
 
 export const PONYTAIL_LEVELS = [
-  { id: "lite", label: "Lite", desc: "Build asked, name lazier option" },
-  { id: "full", label: "Full", desc: "Ladder enforced: stdlib/native first" },
-  { id: "ultra", label: "Ultra", desc: "YAGNI extremist, deletion first" },
+  { id: "lite", label: "Nhẹ", desc: "Làm đúng phần được hỏi, gợi ý hướng gọn hơn" },
+  { id: "full", label: "Đầy đủ", desc: "Ưu tiên thư viện chuẩn & API gốc trước" },
+  { id: "ultra", label: "Tối đa", desc: "YAGNI triệt để, ưu tiên xóa thay vì thêm" },
 ];
 
 // Anthropic prompt-cache TTL for conversation breakpoints (system/tools stay 1h).
 export const CLAUDE_CACHE_TTLS = [
-  { id: "5m", label: "5 min", desc: "Default: cache writes cost 1.25× input" },
-  { id: "1h", label: "1 hour", desc: "Survives long pauses: cache writes cost 2× input" },
+  { id: "5m", label: "5 phút", desc: "Mặc định: ghi cache tốn 1.25× input" },
+  { id: "1h", label: "1 giờ", desc: "Giữ lâu khi tạm nghỉ: ghi cache tốn 2× input" },
 ];

@@ -22,7 +22,7 @@ function CompatibilityBadge({ type }) {
         data-i18n-skip="true"
       >
         <span className="material-symbols-outlined text-[12px]">deployed_code</span>
-        <span>Claude / Anthropic Only</span>
+        <span>Chỉ Claude / Anthropic</span>
       </span>
     );
   }
@@ -32,7 +32,7 @@ function CompatibilityBadge({ type }) {
       data-i18n-skip="true"
     >
       <span className="material-symbols-outlined text-[12px]">rocket_launch</span>
-      <span>Antigravity Ready</span>
+      <span>Tương thích Antigravity</span>
     </span>
   );
 }
@@ -89,7 +89,7 @@ export default function TokenSaverClient() {
   const [showPxpipeModal, setShowPxpipeModal] = useState(false);
   const [pxpipeActionLoading, setPxpipeActionLoading] = useState(false);
   const [pxpipeActionError, setPxpipeActionError] = useState("");
-  const [locale, setLocale] = useState("en");
+  const [locale, setLocale] = useState("vi");
 
   const { copied, copy } = useCopyToClipboard();
   const { motionPaused } = useHudPrefs();
@@ -525,27 +525,27 @@ export default function TokenSaverClient() {
   const headroomCanStart = !!headroomStatus.canStart;
   const headroomManaged = headroomLocalUrl && !!headroomStatus.managedPid;
   const headroomStatusLabel = headroomStatus.loading
-    ? "Checking…"
+    ? "Đang kiểm tra…"
     : headroomRunning
-      ? (headroomManaged ? "Running (managed by 9Router)" : "Running (external)")
+      ? (headroomManaged ? "Đang chạy (9Router quản lý)" : "Đang chạy (bên ngoài)")
       : headroomStatus.localUrl !== false && !headroomStatus.installed
-        ? "Not installed"
+        ? "Chưa cài đặt"
         : headroomStatus.localUrl !== false
-          ? "Stopped"
-          : "External";
+          ? "Đang tắt"
+          : "Bên ngoài";
 
   const pxpipeHealthy = pxpipeHealth?.healthy === true;
   const pxpipeStatusLabel = pxpipeStatus.loading
-    ? "Checking…"
+    ? "Đang kiểm tra…"
     : pxpipeStatus.installing
-      ? "Installing…"
+      ? "Đang cài đặt…"
       : !pxpipeStatus.installed
-        ? "Not installed"
+        ? "Chưa cài đặt"
         : pxpipeHealthy
-          ? "Healthy"
+          ? "Khỏe mạnh"
           : pxpipeStatus.running
-            ? "Running"
-            : "Stopped";
+            ? "Đang chạy"
+            : "Đang tắt";
   const pxpipeChipClass =
     pxpipeHealthy || pxpipeStatus.running
       ? "bg-success/15 text-success"
@@ -575,14 +575,14 @@ export default function TokenSaverClient() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-600 dark:text-cyan-400">
-                  TOKEN SAVER TACTICAL MATRIX
+                  MA TRẬN TIẾT KIỆM TOKEN
                 </span>
                 <span className="inline-flex items-center gap-1 rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-cyan-700 dark:text-cyan-300">
-                  5 ANTIGRAVITY MODULES
+                  5 MÔ-ĐUN ANTIGRAVITY
                 </span>
               </div>
               <h1 className="text-base sm:text-lg font-bold text-text-main tracking-tight">
-                Token Saver
+                Tiết kiệm Token
               </h1>
             </div>
           </div>
@@ -590,7 +590,7 @@ export default function TokenSaverClient() {
           {/* Live Telemetry Readouts */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px]" data-i18n-skip="true">
             <div className="rounded-lg border border-cyan-500/25 bg-white/55 dark:bg-[#070D1B]/75 px-3 py-1.5">
-              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">AG Savers Armed</div>
+              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">Mô-đun đang bật</div>
               <div className="text-sm font-bold text-cyan-700 dark:text-cyan-300 hud-telemetry-num">
                 <NumberTicker value={armedAgSaversCount} /> / 5
               </div>
@@ -607,20 +607,20 @@ export default function TokenSaverClient() {
                   }`}
                 />
                 <span className={headroomRunning ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>
-                  {headroomStatus.loading ? "CHECKING" : headroomRunning ? "LIVE" : "STANDBY"}
+                  {headroomStatus.loading ? "ĐANG KIỂM TRA" : headroomRunning ? "ĐANG CHẠY" : "ĐANG CHỜ"}
                 </span>
               </div>
             </div>
 
             <div className="rounded-lg border border-black/10 dark:border-white/10 bg-white/55 dark:bg-[#070D1B]/75 px-3 py-1.5">
-              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">Output Trim</div>
+              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">Nén đầu ra</div>
               <div className="text-xs font-bold text-text-main truncate">
-                {cavemanEnabled ? `CAVEMAN:${cavemanLevel.toUpperCase()}` : ponytailEnabled ? `PONYTAIL:${ponytailLevel.toUpperCase()}` : "STANDARD"}
+                {cavemanEnabled ? `CAVEMAN:${cavemanLevel.toUpperCase()}` : ponytailEnabled ? `PONYTAIL:${ponytailLevel.toUpperCase()}` : "MẶC ĐỊNH"}
               </div>
             </div>
 
             <div className="rounded-lg border border-amber-500/25 bg-white/55 dark:bg-[#070D1B]/75 px-3 py-1.5">
-              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">Claude Cache</div>
+              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">Bộ nhớ đệm Claude</div>
               <div className="text-xs font-bold text-amber-700 dark:text-amber-300">
                 TTL {claudeCacheTtl.toUpperCase()}
               </div>
@@ -637,7 +637,7 @@ export default function TokenSaverClient() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-semibold text-text-main">
-                  Compress tool output{" "}
+                  Nén kết quả lệnh &amp; công cụ{" "}
                   <a
                     href="https://github.com/rtk-ai/rtk"
                     target="_blank"
@@ -650,7 +650,7 @@ export default function TokenSaverClient() {
                 <CompatibilityBadge type="antigravity" />
               </div>
               <p className="text-sm text-text-muted mt-0.5">
-                git/grep/ls/tree/logs → 60-90% fewer input tokens
+                git/grep/ls/tree/logs → giảm 60-90% token đầu vào
               </p>
             </div>
             <Toggle
@@ -664,7 +664,7 @@ export default function TokenSaverClient() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-semibold text-text-main">
-                  Compress context{" "}
+                  Nén ngữ cảnh hội thoại{" "}
                   <a
                     href="https://github.com/chopratejas/headroom"
                     target="_blank"
@@ -692,11 +692,11 @@ export default function TokenSaverClient() {
                   }}
                   className="font-mono text-xs font-semibold text-primary underline hover:opacity-80 cursor-pointer"
                 >
-                  {headroomRunning ? "Manage" : "Setup"}
+                  {headroomRunning ? "Quản lý" : "Cài đặt"}
                 </button>
               </div>
               <p className="text-sm text-text-muted mt-1">
-                Compress prompts via <code className="font-mono text-xs">/v1/compress</code> before routing to the model
+                Nén prompt qua <code className="font-mono text-xs">/v1/compress</code> trước khi gửi tới model
               </p>
             </div>
             <Toggle
@@ -709,7 +709,7 @@ export default function TokenSaverClient() {
             <div className="mb-2 ml-1 pl-3 pb-4 border-l-2 border-cyan-500/35">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-mono text-xs text-text-muted">
-                  Compression extras
+                  Gói nén mở rộng
                   {headroomExtras.version ? ` · v${headroomExtras.version}` : ""}:
                 </span>
                 {headroomExtras.available.map((extra) => {
@@ -717,8 +717,8 @@ export default function TokenSaverClient() {
                   const pending = pendingExtras.includes(extra);
                   const extraTitle =
                     extra === "code"
-                      ? "tree-sitter AST compression for code responses"
-                      : "Kompress-v2 HF model for prose/agentic traces (~+1GB)";
+                      ? "Nén AST bằng tree-sitter cho phản hồi code"
+                      : "Mô hình Kompress-v2 HF cho văn bản dài/agent (~+1GB)";
 
                   if (installed) {
                     const active = extra === "code" ? codeAware : kompress;
@@ -740,9 +740,9 @@ export default function TokenSaverClient() {
                           onClick={() => handleRemoveExtra(extra)}
                           disabled={removingExtra === extra}
                           className="ml-1 font-mono text-[11px] text-error underline hover:opacity-80 disabled:opacity-50 cursor-pointer"
-                          title={`Uninstall [${extra}]`}
+                          title={`Gỡ cài đặt [${extra}]`}
                         >
-                          {removingExtra === extra ? "Uninstalling…" : "Uninstall"}
+                          {removingExtra === extra ? "Đang gỡ…" : "Gỡ bỏ"}
                         </button>
                       </div>
                     );
@@ -765,7 +765,7 @@ export default function TokenSaverClient() {
                         onChange={() => togglePendingExtra(extra)}
                       />
                       <span className="font-mono font-semibold">[{extra}]</span>
-                      <span className="opacity-70">not installed</span>
+                      <span className="opacity-70">chưa cài</span>
                     </label>
                   );
                 })}
@@ -777,8 +777,8 @@ export default function TokenSaverClient() {
                     className="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-primary text-white hover:opacity-90 disabled:opacity-50 cursor-pointer"
                   >
                     {extrasActionLoading
-                      ? "Installing…"
-                      : `Install [proxy,${pendingExtras.join(",")}]`}
+                      ? "Đang cài…"
+                      : `Cài đặt [proxy,${pendingExtras.join(",")}]`}
                   </button>
                 )}
               </div>
@@ -787,7 +787,7 @@ export default function TokenSaverClient() {
               )}
               {restartingProxy && (
                 <p className="font-mono text-xs text-cyan-600 dark:text-cyan-400 mt-1.5">
-                  Restarting proxy…
+                  Đang khởi động lại proxy…
                 </p>
               )}
               {installLog && (
@@ -795,9 +795,9 @@ export default function TokenSaverClient() {
                   <div className="flex items-center justify-between border-b border-cyan-500/20 bg-[#0A1326] px-3 py-1 font-mono text-[10px] text-cyan-300">
                     <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider">
                       <span className="size-1.5 rounded-full bg-cyan-400" />
-                      HEADROOM // PIPX INSTALL STREAM
+                      HEADROOM // LUỒNG CÀI ĐẶT PIPX
                     </span>
-                    <span className="text-cyan-400/70">LIVE LOG</span>
+                    <span className="text-cyan-400/70">LOG TRỰC TIẾP</span>
                   </div>
                   <pre className="max-h-36 overflow-auto p-2.5 font-mono text-[10.5px] leading-relaxed text-cyan-100/90 whitespace-pre-wrap">
                     {installLog}
@@ -805,13 +805,12 @@ export default function TokenSaverClient() {
                 </div>
               )}
               <p className="text-xs text-text-muted mt-1.5">
-                Installing adds the package; use <code>on</code>/<code>off</code>{" "}
-                to activate it (restarts the proxy). Default install is{" "}
-                <code>[proxy]</code> only (SmartCrusher for JSON). Adding{" "}
-                <code>[code]</code> enables AST compression
-                (Python/JS/TS/Go/Rust/Java/C/C++/Perl). Adding <code>[ml]</code>{" "}
-                enables the Kompress-v2 HF model for prose/agentic traces but
-                adds ~1 GB (torch + huggingface-hub).
+                Cài đặt chỉ tải gói; gạt nút <code>bật</code>/<code>tắt</code>{" "}
+                để kích hoạt (sẽ khởi động lại proxy). Mặc định chỉ cài{" "}
+                <code>[proxy]</code> (SmartCrusher cho JSON). Thêm{" "}
+                <code>[code]</code> để nén AST cho mã nguồn
+                (Python/JS/TS/Go/Rust/Java/C/C++/Perl). Thêm <code>[ml]</code>{" "}
+                bật mô hình Kompress-v2 HF nhưng tốn thêm ~1 GB dung lượng.
               </p>
             </div>
           )}
@@ -821,7 +820,7 @@ export default function TokenSaverClient() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-semibold text-text-main">
-                  Compress LLM output{" "}
+                  Nén phản hồi LLM{" "}
                   <a
                     href="https://github.com/JuliusBrussee/caveman"
                     target="_blank"
@@ -834,7 +833,7 @@ export default function TokenSaverClient() {
                 <CompatibilityBadge type="antigravity" />
               </div>
               <p className="text-sm text-text-muted mt-0.5">
-                Terse-style system prompt → ~65% fewer output tokens (up to 87%)
+                Tiêm chỉ thị trả lời cô đọng → giảm ~65% token đầu ra (tối đa 87%)
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0 flex-wrap">
@@ -877,7 +876,7 @@ export default function TokenSaverClient() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-semibold text-text-main">
-                  Lazy senior dev{" "}
+                  Code tối giản kiểu Senior{" "}
                   <a
                     href="https://github.com/DietrichGebert/ponytail"
                     target="_blank"
@@ -890,8 +889,7 @@ export default function TokenSaverClient() {
                 <CompatibilityBadge type="antigravity" />
               </div>
               <p className="text-sm text-text-muted mt-0.5">
-                Bias the model toward minimal code: YAGNI, reuse stdlib,
-                deletion over addition
+                Định hướng model viết code tối giản: YAGNI, tận dụng stdlib, hạn chế dư thừa
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0 flex-wrap">
@@ -933,12 +931,11 @@ export default function TokenSaverClient() {
           <div className="flex items-center justify-between pt-4 border-t border-cyan-500/15 gap-4 flex-wrap">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-text-main">Custom system prompt</p>
+                <p className="font-semibold text-text-main">System prompt tùy chỉnh</p>
                 <CompatibilityBadge type="antigravity" />
               </div>
               <p className="text-sm text-text-muted mt-0.5">
-                Appends your own instruction to every request, independently of
-                the savers above
+                Tự động chèn chỉ thị riêng của bạn vào mọi yêu cầu, độc lập với các bộ tiết kiệm trên
               </p>
             </div>
             <Toggle
@@ -950,17 +947,16 @@ export default function TokenSaverClient() {
             <div className="pt-1">
               <textarea
                 id="custom-prompt"
-                aria-label="Custom system prompt"
+                aria-label="System prompt tùy chỉnh"
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
                 onBlur={handleCustomPromptBlur}
                 rows={4}
-                placeholder="e.g. Prefer editing existing files over creating new ones."
+                placeholder="Ví dụ: Ưu tiên sửa trực tiếp file hiện có thay vì tạo file mới."
                 className="w-full rounded-lg border border-cyan-500/25 bg-white/60 dark:bg-[#060C19]/80 p-2.5 font-mono text-xs text-text-main focus:outline-none focus:border-cyan-500"
               />
               <p className="text-xs text-text-muted mt-1">
-                Applied to every provider and model. Sent as-is to upstream; an
-                empty prompt injects nothing.
+                Áp dụng cho mọi nhà cung cấp và model. Gửi nguyên văn lên upstream; để trống nếu không muốn chèn thêm.
               </p>
             </div>
           )}
@@ -969,12 +965,11 @@ export default function TokenSaverClient() {
           <div className="flex items-center justify-between pt-4 border-t border-cyan-500/15 gap-4 flex-wrap">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-text-main">Prompt cache TTL (Claude)</p>
+                <p className="font-semibold text-text-main">Thời hạn bộ nhớ đệm (Claude)</p>
                 <CompatibilityBadge type="claude" />
               </div>
               <p className="text-sm text-text-muted mt-0.5">
-                How long conversation cache breakpoints live on Anthropic-format
-                providers. System prompt and tools are always cached for 1 hour
+                Thời gian giữ cache hội thoại trên các provider chuẩn Anthropic. System prompt và tools luôn được lưu 1 giờ
               </p>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
@@ -1052,12 +1047,12 @@ export default function TokenSaverClient() {
 
       <Modal
         isOpen={showHeadroomInstallModal}
-        title={headroomRunning ? "Headroom" : "Setup Headroom"}
+        title={headroomRunning ? "Quản lý Headroom" : "Cài đặt Headroom"}
         onClose={() => setShowHeadroomInstallModal(false)}
       >
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between text-sm">
-            <span>Status</span>
+            <span>Trạng thái</span>
             <span
               className={`font-mono font-semibold ${headroomRunning ? "text-success" : "text-warning"}`}
             >
@@ -1071,11 +1066,11 @@ export default function TokenSaverClient() {
               rel="noreferrer"
               className="w-full rounded border border-border px-4 py-2 text-center text-sm hover:bg-surface-2"
             >
-              Open Headroom Dashboard
+              Mở bảng điều khiển Headroom
             </a>
           )}
           <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">Proxy URL</p>
+            <p className="text-sm font-medium">URL Proxy</p>
             <Input
               value={headroomUrl}
               onChange={(e) => setHeadroomUrl(e.target.value)}
@@ -1084,8 +1079,7 @@ export default function TokenSaverClient() {
               className="font-mono text-sm"
             />
             <p className="text-xs text-text-muted">
-              Use a local proxy for Start/Stop, or an external Docker sidecar
-              like http://headroom:8787.
+              Dùng proxy nội bộ để Bật/Tắt nhanh, hoặc dùng sidecar Docker bên ngoài như http://headroom:8787.
             </p>
           </div>
           <div className="flex flex-col gap-1">
@@ -1112,7 +1106,7 @@ export default function TokenSaverClient() {
             </Button>
           ) : headroomRunning ? (
             <p className="text-sm text-success">
-              Headroom proxy is reachable. You can enable the token saver.
+              Headroom proxy đã kết nối. Bạn có thể bật tính năng tiết kiệm token.
             </p>
           ) : headroomCanStart ? (
             <Button
@@ -1120,20 +1114,19 @@ export default function TokenSaverClient() {
               fullWidth
               disabled={headroomActionLoading}
             >
-              {headroomActionLoading ? "Starting…" : "Start Headroom"}
+              {headroomActionLoading ? "Đang khởi động…" : "Khởi động Headroom"}
             </Button>
           ) : !headroomLocalUrl ? (
             <p className="text-sm text-warning">
-              Start Headroom separately at the configured URL, then recheck.
+              Hãy khởi chạy Headroom riêng tại URL đã cấu hình, sau đó nhấn Kiểm tra lại.
             </p>
           ) : !headroomStatus.python ? (
             <p className="text-sm text-warning">
-              Python ≥ 3.10 required for local managed mode. Install Python
-              first, or use an external proxy URL.
+              Cần Python ≥ 3.10 để chạy chế độ tự quản lý. Hãy cài Python trước hoặc dùng URL proxy bên ngoài.
             </p>
           ) : (
             <div className="flex flex-col gap-1">
-              <p className="text-sm font-medium">Install then click Start:</p>
+              <p className="text-sm font-medium">Cài đặt rồi nhấn Khởi động:</p>
               <div className="flex items-center gap-2">
                 <pre className="flex-1 rounded bg-black/5 dark:bg-white/5 p-2 text-xs font-mono overflow-x-auto">
                   {`pip install "headroom-ai[proxy]"`}
@@ -1145,7 +1138,7 @@ export default function TokenSaverClient() {
                     copy(`pip install "headroom-ai[proxy]"`)
                   }
                 >
-                  {copied ? "Copied" : "Copy"}
+                  {copied ? "Đã chép" : "Chép"}
                 </Button>
               </div>
             </div>
@@ -1159,13 +1152,13 @@ export default function TokenSaverClient() {
               variant="ghost"
               fullWidth
             >
-              Recheck
+              Kiểm tra lại
             </Button>
             <Button
               onClick={() => setShowHeadroomInstallModal(false)}
               fullWidth
             >
-              Done
+              Xong
             </Button>
           </div>
         </div>

@@ -124,7 +124,7 @@ export default function MitmPageClient() {
             <div className="flex flex-col min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-600 dark:text-cyan-400">
-                  MITM INTERCEPT CONSOLE
+                  BẢNG ĐIỀU KHIỂN CHẶN LƯU LƯỢNG MITM
                 </span>
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[10px] font-bold ${
@@ -140,14 +140,14 @@ export default function MitmPageClient() {
                         : "bg-slate-400"
                     }`}
                   />
-                  {isRunning ? ":443 LIVE" : ":443 STANDBY"}
+                  {isRunning ? ":443 ĐANG CHẠY" : ":443 ĐANG CHỜ"}
                 </span>
                 <span
                   className="inline-flex items-center gap-1 rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-cyan-700 dark:text-cyan-300"
                   data-i18n-skip="true"
                 >
                   <span className="material-symbols-outlined text-[12px]">bolt</span>
-                  <span>Smart Transparent Passthrough · Zero IDE Restart</span>
+                  <span>Passthrough thông minh · Không cần khởi động lại IDE</span>
                 </span>
               </div>
             </div>
@@ -157,11 +157,11 @@ export default function MitmPageClient() {
             <div className="flex items-center gap-1.5 rounded-md border border-black/10 dark:border-white/10 bg-white/50 dark:bg-black/25 px-2.5 py-1">
               <span className="text-[10px] uppercase tracking-wider text-text-muted">Root CA</span>
               <span className={`font-bold ${certTrusted ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                {certTrusted ? "TRUSTED" : "PENDING"}
+                {certTrusted ? "ĐÃ TIN CẬY" : "CHƯA TIN CẬY"}
               </span>
             </div>
             <div className="flex items-center gap-1.5 rounded-md border border-black/10 dark:border-white/10 bg-white/50 dark:bg-black/25 px-2.5 py-1">
-              <span className="text-[10px] uppercase tracking-wider text-text-muted">Active DNS</span>
+              <span className="text-[10px] uppercase tracking-wider text-text-muted">DNS đang bật</span>
               <span className="font-bold text-text-main hud-telemetry-num">
                 <NumberTicker value={activeDnsToolsCount} />/{mitmTools.length}
               </span>
@@ -169,7 +169,7 @@ export default function MitmPageClient() {
             <div className="flex items-center gap-1.5 rounded-md border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1">
               <span className="text-[10px] uppercase tracking-wider text-cyan-700 dark:text-cyan-300">Antigravity</span>
               <span className={`font-bold ${antigravityDnsActive && isRunning ? "text-emerald-600 dark:text-emerald-400" : "text-cyan-700 dark:text-cyan-300"}`}>
-                {antigravityDnsActive && isRunning ? "INTERCEPTED" : "PASSTHROUGH"}
+                {antigravityDnsActive && isRunning ? "ĐANG CHẶN" : "CHUYỂN TIẾP THẲNG"}
               </span>
             </div>
           </div>

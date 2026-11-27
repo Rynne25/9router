@@ -101,7 +101,7 @@ export default function QuotaSummaryBar({
                     : "text-text-muted hover:text-text-main hover:bg-cyan-500/10",
                 )}
               >
-                <span>All</span>
+                <span>Tất cả</span>
               </button>
               <button
                 type="button"
@@ -259,7 +259,7 @@ export default function QuotaSummaryBar({
                     : "bg-emerald-500/70",
                 )}
               />
-              <span>{isRevalidating ? "SYNC" : syncTimeLabel}</span>
+              <span>{isRevalidating ? "ĐANG ĐỒNG BỘ" : syncTimeLabel}</span>
             </div>
           )}
         </div>

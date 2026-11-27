@@ -543,7 +543,7 @@ function MitmToolCard({
             }`}
           >
             <span className="material-symbols-outlined text-[13px]">ads_click</span>
-            <span className="hidden sm:inline">Target</span>
+            <span className="hidden sm:inline">Chọn</span>
           </button>
         </div>
       </div>
@@ -592,13 +592,13 @@ function MitmToolCard({
                   data-i18n-skip="true"
                 >
                   <span className="material-symbols-outlined text-[11px]">my_location</span>
-                  <span>PRIORITY TARGET</span>
+                  <span>ƯU TIÊN CHÍNH</span>
                 </span>
               )}
 
               {!serverRunning ? (
                 <span className="inline-flex items-center rounded-full border border-black/10 dark:border-white/10 bg-black/[0.04] dark:bg-white/[0.05] px-2 py-0.5 font-mono text-[10px] font-semibold text-text-muted">
-                  SERVER OFF
+                  SERVER ĐANG TẮT
                 </span>
               ) : dnsActive ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/35 bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
@@ -827,14 +827,14 @@ function MitmToolCard({
       {showPasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm">
           <div className="mx-4 flex w-full max-w-sm flex-col gap-4 rounded-xl border border-cyan-500/30 bg-surface p-5 shadow-xl sm:p-6">
-            <h3 className="font-semibold text-text-main">Sudo Password Required</h3>
+            <h3 className="font-semibold text-text-main">Yêu cầu mật khẩu Sudo</h3>
             <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
               <span className="material-symbols-outlined text-amber-500 text-[20px]">warning</span>
-              <p className="text-xs text-text-muted">Required to modify /etc/hosts and flush DNS cache</p>
+              <p className="text-xs text-text-muted">Cần quyền sudo để cập nhật tệp /etc/hosts và làm mới bộ nhớ đệm DNS</p>
             </div>
             <Input
               type="password"
-              placeholder="Enter sudo password"
+              placeholder="Nhập mật khẩu sudo"
               value={sudoPassword}
               onChange={(e) => setSudoPassword(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !loading) handleConfirmPassword(); }}
@@ -847,10 +847,10 @@ function MitmToolCard({
             )}
             <div className="flex items-center justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => { setShowPasswordModal(false); setSudoPassword(""); setModalError(null); }} disabled={loading}>
-                Cancel
+                Hủy
               </Button>
               <Button variant="primary" size="sm" onClick={handleConfirmPassword} loading={loading}>
-                Confirm
+                Xác nhận
               </Button>
             </div>
           </div>

@@ -247,5 +247,14 @@
   "No connections yet": "Chưa có kết nối nào",
   "Add Connection": "Thêm kết nối",
   "Add API Key": "Thêm Khóa API",
-  "Select All": "Chọn tất cả"
+  "Select All": "Chọn tất cả",
+  "Ready": "Sẵn sàng",
+  "Enable provider": "Bật nhà cung cấp",
+  "Disable provider": "Tắt nhà cung cấp",
+  "5 min": "5 phút",
+  "1 hour": "1 giờ",
+  "Lite": "Nhẹ",
+  "Full": "Đầy đủ",
+  "Ultra": "Tối đa",
+  "Test All": "Kiểm tra tất cả"
 }

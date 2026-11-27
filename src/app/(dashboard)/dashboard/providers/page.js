@@ -56,34 +56,34 @@ export default function ProvidersPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1 rounded border border-cyan-500/40 bg-cyan-500/15 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300">
                   <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                  FLAGSHIP TARGET
+                  ƯU TIÊN CHÍNH
                 </span>
                 <h1 className="text-sm sm:text-base font-bold tracking-tight text-text-main">
-                  Antigravity Orbital Pool
+                  Nhóm tài khoản Antigravity
                 </h1>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] tabular-nums">
                 <span className="inline-flex items-center gap-1 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] px-2 py-0.5 text-text-muted">
-                  TOTAL
+                  TỔNG
                   <NumberTicker value={agStats.total} className="font-bold text-text-main" />
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-emerald-700 dark:text-emerald-300">
                   <span className="size-1.5 rounded-full bg-emerald-500" />
-                  CONNECTED
+                  ĐÃ KẾT NỐI
                   <NumberTicker value={agStats.connected} className="font-bold" />
                 </span>
                 {agStats.error > 0 && (
                   <span className="inline-flex items-center gap-1 rounded-md border border-rose-500/35 bg-rose-500/10 px-2 py-0.5 text-rose-700 dark:text-rose-300">
                     <span className="size-1.5 rounded-full bg-rose-500" />
-                    ERROR
+                    LỖI
                     <NumberTicker value={agStats.error} className="font-bold" />
                     {agStats.errorCode ? `(${agStats.errorCode})` : ""}
                   </span>
                 )}
                 {agStats.allDisabled && (
                   <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-amber-700 dark:text-amber-300">
-                    DISABLED
+                    ĐANG TẮT
                   </span>
                 )}
               </div>
@@ -96,21 +96,21 @@ export default function ProvidersPage() {
               className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-cyan-500/45 bg-cyan-500/15 px-3 font-mono text-xs font-semibold text-cyan-700 dark:text-cyan-200 hover:bg-cyan-500/25 transition-colors"
             >
               <span className="material-symbols-outlined text-[15px]">manage_accounts</span>
-              <span>Manage Accounts</span>
+              <span>Quản lý tài khoản</span>
             </Link>
             <Link
               href="/dashboard/quota?provider=antigravity"
               className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition-colors"
             >
               <span className="material-symbols-outlined text-[15px]">data_usage</span>
-              <span>Quota Deck</span>
+              <span>Bảng Quota</span>
             </Link>
             <Link
               href="/dashboard/mitm"
               className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/15 dark:border-white/15 bg-black/[0.03] dark:bg-white/[0.04] px-3 font-mono text-xs font-semibold text-text-main hover:border-cyan-500/45 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors"
             >
               <span className="material-symbols-outlined text-[15px]">security</span>
-              <span>MITM Proxy</span>
+              <span>Proxy MITM</span>
             </Link>
           </div>
         </div>
@@ -133,7 +133,7 @@ export default function ProvidersPage() {
           value={ov.statusFilter}
           onChange={(e) => ov.setStatusFilter(e.target.value)}
           className="h-8 rounded-lg border border-cyan-500/25 bg-black/[0.02] px-2.5 font-mono text-xs text-text-primary outline-none transition-colors hover:border-cyan-500/50 hover:bg-black/5 dark:bg-white/[0.03] dark:hover:bg-white/10"
-          aria-label="Filter providers by connection status"
+          aria-label="Lọc nhà cung cấp theo trạng thái kết nối"
         >
           {STATUS_FILTER_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -144,7 +144,7 @@ export default function ProvidersPage() {
       {!ov.hasAnyResult && (
         <div className="text-center py-8 border border-dashed border-border rounded-xl">
           <span className="material-symbols-outlined text-[32px] text-text-muted mb-2">search_off</span>
-          <p className="text-text-muted text-sm">No providers match your search or filters</p>
+          <p className="text-text-muted text-sm">Không có nhà cung cấp nào khớp với từ khóa hoặc bộ lọc</p>
         </div>
       )}
 
@@ -152,21 +152,21 @@ export default function ProvidersPage() {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            Custom Providers (OpenAI/Anthropic Compatible){" "}
+            Nhà cung cấp tùy chỉnh (OpenAI / Anthropic Compatible){" "}
           </h2>
           <div className="grid grid-cols-1 gap-2 sm:flex sm:w-auto">
             <Button size="sm" icon="add" onClick={() => ov.setShowAddAnthropicCompatibleModal(true)} className="w-full sm:w-auto">
-              Add Anthropic Compatible
+              Thêm Anthropic Compatible
             </Button>
             <Button size="sm" variant="secondary" icon="add" onClick={() => ov.setShowAddCompatibleModal(true)} className="w-full !bg-white !text-black hover:!bg-gray-100 sm:w-auto">
-              Add OpenAI Compatible
+              Thêm OpenAI Compatible
             </Button>
           </div>
         </div>
         {ov.compatibleProviders.length === 0 && ov.anthropicCompatibleProviders.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-2 border border-dashed border-border rounded-xl text-text-muted text-sm">
             <span className="material-symbols-outlined text-[18px]">extension</span>
-            <span>No custom providers — use buttons above to add OpenAI/Anthropic compatible endpoints</span>
+            <span>Chưa có nhà cung cấp tùy chỉnh — dùng các nút trên để thêm endpoint tương thích OpenAI / Anthropic</span>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
@@ -188,7 +188,7 @@ export default function ProvidersPage() {
       {ov.oauthEntries.length > 0 && (
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">OAuth Providers</h2>
+            <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">Nhà cung cấp OAuth</h2>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               <ModelAvailabilityBadge />
               <BatchTestButton mode="oauth" testingMode={ov.testingMode} onTest={ov.handleBatchTest} label="OAuth" />
@@ -213,7 +213,7 @@ export default function ProvidersPage() {
       {(ov.freeEntries.length > 0 || ov.freeTierEntries.length > 0) && (
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">Free Tier Providers</h2>
+            <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">Nhà cung cấp Miễn phí</h2>
             <BatchTestButton mode="free" testingMode={ov.testingMode} onTest={ov.handleBatchTest} label="Free" />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
@@ -248,7 +248,7 @@ export default function ProvidersPage() {
       {ov.apikeyEntries.length > 0 && (
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">API Key Providers </h2>
+            <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">Nhà cung cấp API Key </h2>
             <BatchTestButton mode="apikey" testingMode={ov.testingMode} onTest={ov.handleBatchTest} label="API Key" />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
@@ -279,7 +279,7 @@ export default function ProvidersPage() {
               className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:border-primary hover:bg-primary/5"
             >
               <span className="material-symbols-outlined text-[16px]">expand_more</span>
-              Show all {ov.apikeyEntries.length} providers
+              Hiển thị toàn bộ {ov.apikeyEntries.length} nhà cung cấp
             </button>
           )}
         </div>

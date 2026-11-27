@@ -226,20 +226,20 @@ export default function AntigravityFlowBeam({
         <div className="flex items-center gap-2">
           <span className="inline-flex size-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
           <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-text-main">
-            Orbital Traffic Matrix
+            LUỒNG ĐỊNH TUYẾN ANTIGRAVITY
           </span>
           <span className="hidden sm:inline-flex items-center rounded border border-cyan-500/25 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-cyan-700 dark:text-cyan-300">
-            ZERO IDE RESTART
+            KHÔNG CẦN KHỞI ĐỘNG LẠI IDE
           </span>
         </div>
 
         <div className="flex items-center gap-2 text-[11px] font-mono text-text-muted">
           <span>
             {ideBeamActive
-              ? "INTERCEPTING IDE -> POOL"
+              ? "ĐANG CHẶN IDE -> POOL"
               : mitmRunning
-                ? "PASSTHROUGH READY"
-                : "DIRECT GATEWAY MODE"}
+                ? "SẴN SÀNG PASSTHROUGH"
+                : "CHẾ ĐỘ GATEWAY TRỰC TIẾP"}
           </span>
         </div>
       </div>
@@ -293,10 +293,10 @@ export default function AntigravityFlowBeam({
               />
               <span className="font-mono text-[10px] font-semibold uppercase tracking-wide text-text-main truncate">
                 {ideBeamActive
-                  ? "DNS Intercepted"
+                  ? "Đang chặn DNS"
                   : dnsActive
-                    ? "DNS Armed (MITM Off)"
-                    : "Smart Passthrough"}
+                    ? "Đã bật DNS (MITM tắt)"
+                    : "Chuyển tiếp thông minh"}
               </span>
             </div>
 
@@ -305,7 +305,7 @@ export default function AntigravityFlowBeam({
               type="button"
               role="switch"
               aria-checked={dnsActive}
-              aria-label="Toggle Antigravity DNS Intercept"
+              aria-label="Bật / Tắt chặn DNS cho Antigravity"
               disabled={dnsBusy || mitmLoading || !mitmRunning}
               onClick={() => {
                 playHudSound("toggle");
@@ -313,10 +313,10 @@ export default function AntigravityFlowBeam({
               }}
               title={
                 !mitmRunning
-                  ? "Start :443 MITM Server first in MITM Console"
+                  ? "Hãy bật MITM Server cổng :443 ở trang Proxy MITM trước"
                   : dnsActive
-                    ? "Disable Antigravity DNS Intercept (switch to Smart Passthrough)"
-                    : "Enable Antigravity DNS Intercept"
+                    ? "Tắt chặn DNS Antigravity (chuyển sang Passthrough thông minh)"
+                    : "Bật chặn DNS Antigravity"
               }
               className={cn(
                 "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors",
@@ -344,7 +344,7 @@ export default function AntigravityFlowBeam({
                 href="/dashboard/mitm"
                 className="text-cyan-600 dark:text-cyan-400 hover:underline truncate"
               >
-                Start :443 server to toggle DNS →
+                Bật máy chủ :443 để gạt DNS →
               </Link>
             ) : dnsError ? (
               <Link
@@ -352,11 +352,11 @@ export default function AntigravityFlowBeam({
                 className="text-rose-600 dark:text-rose-400 hover:underline truncate"
                 title={dnsError}
               >
-                {dnsError} (Open MITM →)
+                {dnsError} (Mở MITM →)
               </Link>
             ) : (
               <span className="text-text-subtle truncate">
-                {dnsActive ? "Routing IDE calls via 9Router" : "Direct Google Cloud passthrough"}
+                {dnsActive ? "Đang định tuyến IDE qua 9Router" : "Đang đi thẳng qua Google Cloud"}
               </span>
             )}
           </div>
@@ -374,7 +374,7 @@ export default function AntigravityFlowBeam({
           accent={ideBeamActive ? "emerald" : "cyan"}
         />
 
-        {/* CENTER NODE: 9Router Orbital Core */}
+        {/* CENTER NODE: 9Router Core */}
         <div
           className={cn(
             "relative flex flex-col justify-between gap-3 rounded-xl border p-3.5 transition-colors",
@@ -397,7 +397,7 @@ export default function AntigravityFlowBeam({
                 <span className="material-symbols-outlined text-[19px]">hub</span>
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-text-main truncate">9Router Orbital Core</p>
+                <p className="text-xs font-bold text-text-main truncate">Lõi định tuyến 9Router</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span
                     className={cn(
@@ -414,7 +414,7 @@ export default function AntigravityFlowBeam({
                         mitmRunning && !motionPaused && "animate-pulse"
                       )}
                     />
-                    {mitmRunning ? ":443 LIVE" : ":443 STOPPED"}
+                    {mitmRunning ? ":443 ĐANG CHẠY" : ":443 ĐANG DỪNG"}
                   </span>
                   {certTrusted && (
                     <span className="font-mono text-[9.5px] font-semibold text-cyan-600 dark:text-cyan-400">
@@ -435,23 +435,23 @@ export default function AntigravityFlowBeam({
               type="button"
               onClick={handleCopyGateway}
               className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 cursor-pointer shrink-0 transition-colors"
-              title="Copy Gateway URL"
+              title="Sao chép URL Gateway"
             >
               <span className="material-symbols-outlined text-[13px]">
                 {copied === "gateway-url" ? "check" : "content_copy"}
               </span>
-              <span>{copied === "gateway-url" ? "Copied" : "Copy"}</span>
+              <span>{copied === "gateway-url" ? "Đã chép" : "Chép"}</span>
             </button>
           </div>
 
           <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
-            <span className="text-text-subtle">H2 Pool · Failover</span>
+            <span className="text-text-subtle">H2 Pool · Tự chuyển mạch</span>
             <Link
               href="/dashboard/mitm"
               onClick={() => playHudSound("click")}
               className="inline-flex items-center gap-0.5 font-semibold text-cyan-600 dark:text-cyan-400 hover:underline"
             >
-              <span>MITM Console</span>
+              <span>Bảng MITM</span>
               <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
             </Link>
           </div>
@@ -485,9 +485,9 @@ export default function AntigravityFlowBeam({
                 <span className="material-symbols-outlined text-[19px]">layers</span>
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-text-main truncate">Antigravity Pool</p>
+                <p className="text-xs font-bold text-text-main truncate">Nhóm Antigravity</p>
                 <p className="font-mono text-[10px] text-text-muted hud-telemetry-num">
-                  {activeAgCount}/{agAccountsCount} active nodes
+                  {activeAgCount}/{agAccountsCount} tài khoản bật
                 </p>
               </div>
             </div>
@@ -509,13 +509,13 @@ export default function AntigravityFlowBeam({
 
           <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
             <div className="flex items-center justify-between rounded-md border border-border-subtle bg-surface/70 px-2 py-1.5">
-              <span className="text-text-muted">Healthy</span>
+              <span className="text-text-muted">Sẵn sàng</span>
               <span className="font-bold text-emerald-600 dark:text-emerald-400 hud-telemetry-num">
                 {healthyCount}
               </span>
             </div>
             <div className="flex items-center justify-between rounded-md border border-border-subtle bg-surface/70 px-2 py-1.5">
-              <span className="text-text-muted">Depleted</span>
+              <span className="text-text-muted">Cạn kiệt</span>
               <span
                 className={cn(
                   "font-bold hud-telemetry-num",
@@ -529,14 +529,14 @@ export default function AntigravityFlowBeam({
 
           <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
             <span className="text-text-subtle">
-              Token Savers: <strong className="text-cyan-600 dark:text-cyan-400">{tokenSaversCount}/4</strong>
+              Tiết kiệm Token: <strong className="text-cyan-600 dark:text-cyan-400">{tokenSaversCount}/4</strong>
             </span>
             <Link
               href="/dashboard/quota?provider=antigravity"
               onClick={() => playHudSound("click")}
               className="inline-flex items-center gap-0.5 font-semibold text-cyan-600 dark:text-cyan-400 hover:underline"
             >
-              <span>Quota Deck</span>
+              <span>Bảng Quota</span>
               <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
             </Link>
           </div>

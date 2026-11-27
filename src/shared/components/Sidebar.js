@@ -25,26 +25,26 @@ const COMBINED_WEB_ITEM = {
 };
 
 const ANTIGRAVITY_NAV_ITEMS = [
-  { href: "/dashboard", label: "Command Center", icon: "rocket_launch" },
+  { href: "/dashboard", label: "Trung tâm điều khiển", icon: "rocket_launch" },
   { href: "/dashboard/mitm", label: "Proxy MITM", icon: "security" },
-  { href: "/dashboard/quota", label: "Quota Deck", icon: "data_usage" },
-  { href: "/dashboard/providers/antigravity", label: "AG Accounts", icon: "manage_accounts" },
-  { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
+  { href: "/dashboard/quota", label: "Bảng Quota", icon: "data_usage" },
+  { href: "/dashboard/providers/antigravity", label: "Tài khoản AG", icon: "manage_accounts" },
+  { href: "/dashboard/token-saver", label: "Tiết kiệm Token", icon: "savings" },
 ];
 
 const GATEWAY_NAV_ITEMS = [
-  { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "api" },
-  { href: "/dashboard/providers", label: "Providers", icon: "dns" },
-  { href: "/dashboard/combos", label: "Combos", icon: "layers" },
-  { href: "/dashboard/console-log", label: "Console Log", icon: "monitor" },
-  { href: "/dashboard/usage", label: "Usage", icon: "bar_chart" },
-  { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal" },
+  { href: "/dashboard/endpoint", label: "Endpoint & Khóa API", icon: "api" },
+  { href: "/dashboard/providers", label: "Nhà cung cấp", icon: "dns" },
+  { href: "/dashboard/combos", label: "Kết hợp Model", icon: "layers" },
+  { href: "/dashboard/console-log", label: "Nhật ký Console", icon: "monitor" },
+  { href: "/dashboard/usage", label: "Thống kê", icon: "bar_chart" },
+  { href: "/dashboard/cli-tools", label: "Công cụ CLI", icon: "terminal" },
 ];
 
 const SYSTEM_NAV_ITEMS = [
-  { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: "lan" },
-  { href: "/dashboard/skills", label: "Skills", icon: "extension" },
-  { href: "/dashboard/translator", label: "Translator", icon: "translate", requiresTranslator: true },
+  { href: "/dashboard/proxy-pools", label: "Proxy Pool", icon: "lan" },
+  { href: "/dashboard/skills", label: "Kỹ năng Agent", icon: "extension" },
+  { href: "/dashboard/translator", label: "Trình dịch", icon: "translate", requiresTranslator: true },
 ];
 
 const SIDEBAR_COLLAPSE_KEY = "9router-sidebar-collapsed";
@@ -347,7 +347,7 @@ function Sidebar({ onClose }) {
           <div className="mx-2.5 mt-2.5 rounded-xl border border-amber-500/35 bg-amber-500/10 p-2.5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-mono font-semibold text-amber-700 dark:text-amber-300 truncate">
-                v{updateInfo.latestVersion} READY
+                v{updateInfo.latestVersion} SẴN SÀNG
               </span>
               <button
                 type="button"
@@ -357,17 +357,17 @@ function Sidebar({ onClose }) {
                 }}
                 className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors shrink-0"
               >
-                Update
+                Cập nhật
               </button>
             </div>
             <button
               type="button"
               onClick={() => copy(INSTALL_CMD)}
-              title="Copy install command"
+              title="Sao chép lệnh cài đặt"
               className="mt-1 w-full text-left hover:opacity-80 transition-opacity"
             >
               <code className="block text-[10px] text-text-muted font-mono truncate">
-                {copied ? "✓ copied!" : INSTALL_CMD}
+                {copied ? "✓ đã chép!" : INSTALL_CMD}
               </code>
             </button>
           </div>
@@ -399,7 +399,7 @@ function Sidebar({ onClose }) {
               <div className="flex items-center gap-1.5 px-2.5 pb-1">
                 <span className="size-1.5 rounded-full bg-slate-400 dark:bg-slate-500" />
                 <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.14em] text-text-subtle">
-                  Gateway
+                  Cổng Gateway
                 </span>
               </div>
             )}
@@ -417,7 +417,7 @@ function Sidebar({ onClose }) {
                 }}
                 className="w-full flex items-center justify-between px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-[0.14em] text-text-subtle hover:text-cyan-600 dark:hover:text-cyan-300 transition-colors"
               >
-                <span className="truncate">System</span>
+                <span className="truncate">Hệ thống</span>
                 <span
                   className="material-symbols-outlined text-[15px] transition-transform duration-150"
                   style={{ transform: systemOpen ? "rotate(180deg)" : "rotate(0deg)" }}
@@ -597,10 +597,10 @@ function Sidebar({ onClose }) {
               <div className="flex items-center justify-center size-16 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-500 mx-auto mb-4">
                 <span className="material-symbols-outlined text-[32px]">power_off</span>
               </div>
-              <h2 className="text-xl font-semibold text-text-main mb-2">Server Disconnected</h2>
-              <p className="text-text-muted mb-6">The proxy server has been stopped.</p>
+              <h2 className="text-xl font-semibold text-text-main mb-2">Mất kết nối máy chủ</h2>
+              <p className="text-text-muted mb-6">Máy chủ proxy đã dừng hoạt động.</p>
               <Button variant="secondary" onClick={() => globalThis.location.reload()}>
-                Reload Page
+                Tải lại trang
               </Button>
             </div>
           )}
@@ -632,36 +632,36 @@ function ManualUpdatePanel({
         </div>
         <div>
           <h2 className="text-lg font-semibold">
-            Update 9Router{latestVersion ? ` to v${latestVersion}` : ""}
+            Cập nhật 9Router{latestVersion ? ` lên v${latestVersion}` : ""}
           </h2>
           <p className="text-xs text-white/60">
             {isDisconnected
-              ? "Server stopped. Paste the command into a terminal to install."
+              ? "Máy chủ đã dừng. Hãy dán lệnh vào terminal để cài đặt."
               : isCountingDown
-                ? `Command copied. Server will stop in ${countdown}s...`
-                : "Click the button below to copy the install command and shutdown."}
+                ? `Đã sao chép lệnh. Máy chủ sẽ tắt sau ${countdown} giây...`
+                : "Nhấn nút bên dưới để chép lệnh cài đặt và tắt máy chủ."}
           </p>
         </div>
       </div>
 
-      <p className="text-sm text-white/80 mb-2">Install command:</p>
+      <p className="text-sm text-white/80 mb-2">Lệnh cài đặt:</p>
       <div className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 mb-4">
         <code className="text-xs font-mono text-amber-400 break-all">{installCmd}</code>
       </div>
 
       <ol className="text-xs text-white/70 space-y-1 list-decimal list-inside mb-4">
         <li>
-          Click <strong>Copy &amp; Shutdown</strong> below.
+          Nhấn <strong>Chép &amp; Tắt</strong> bên dưới.
         </li>
-        <li>Paste the command into your terminal and press Enter.</li>
+        <li>Dán lệnh vào terminal của bạn rồi nhấn Enter.</li>
         <li>
-          Run <code className="px-1 rounded bg-white/10 text-emerald-400">9router</code> again after install.
+          Chạy lại <code className="px-1 rounded bg-white/10 text-emerald-400">9router</code> sau khi cài xong.
         </li>
       </ol>
 
       {isDisconnected ? (
         <Button variant="secondary" fullWidth onClick={() => globalThis.location.reload()}>
-          Reload Page
+          Tải lại trang
         </Button>
       ) : (
         <div className="flex gap-2">
