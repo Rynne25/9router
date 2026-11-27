@@ -2,7 +2,7 @@
 
 import { memo, useState, useEffect, useCallback, useMemo } from "react";
 import { Button, Input, ModelSelectModal } from "@/shared/components";
-import { HudFrame } from "@/shared/components/hud";
+import { HudFrame, MagneticButton } from "@/shared/components/hud";
 import { playHudSound } from "@/shared/utils/hudAudio";
 import { TOOL_HOSTS } from "@/shared/constants/mitmToolHosts";
 import { getCachedData, setCachedData, fetchWithCache, fetchJson } from "@/shared/utils/swrCache";
@@ -134,7 +134,7 @@ function MitmToolCard({
         body: JSON.stringify({ tool: tool.id, action, sudoPassword: password }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to toggle DNS");
+      if (!res.ok) throw new Error(data.error || "Không thể bật/tắt DNS");
 
       // Smart Passthrough active: no application restart required
       playHudSound("toggle");
@@ -144,9 +144,9 @@ function MitmToolCard({
     } catch (err) {
       playHudSound("alert");
       if (showPasswordModal) {
-        setModalError(err.message || "Failed to toggle DNS");
+        setModalError(err.message || "Không thể bật/tắt DNS");
       } else {
-        setWarning(err.message || "Failed to toggle DNS");
+        setWarning(err.message || "Không thể bật/tắt DNS");
       }
     } finally {
       setLoading(false);
@@ -170,7 +170,7 @@ function MitmToolCard({
 
   const handleConfirmPassword = () => {
     if (!sudoPassword.trim()) {
-      setModalError("Sudo password is required");
+      setModalError("Vui lòng nhập mật khẩu sudo");
       return;
     }
     doDnsAction(pendingDnsAction, sudoPassword);
@@ -555,8 +555,10 @@ function MitmToolCard({
       <HudFrame
         chamfer="md"
         accent={isAntigravity ? "cyan" : dnsActive ? "emerald" : "cyan"}
+        borderBeam={isAntigravity}
+        spotlight={true}
         padding="none"
-        className="overflow-hidden"
+        className={isAntigravity ? "hud-glow-cyan" : ""}
       >
         {/* Tool Header Bar — Orbital Target Strip */}
         <div
@@ -641,29 +643,33 @@ function MitmToolCard({
 
           {/* Right Header Controls: Direct DNS Toggle + Expand Chevron */}
           <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={handleDnsToggle}
-              disabled={!serverRunning || loading}
-              title={!serverRunning ? "Khởi động MITM Server ở trên trước khi bật DNS" : undefined}
-              className={`inline-flex h-7 items-center gap-1 rounded-lg border px-2.5 text-[11px] font-bold transition-all ${
-                !serverRunning
-                  ? "opacity-45 cursor-not-allowed border-black/10 dark:border-white/10 text-text-muted bg-black/[0.02] dark:bg-white/[0.02]"
-                  : dnsActive
-                    ? "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300 hover:bg-rose-500/25 cursor-pointer"
-                    : "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 cursor-pointer"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[14px]">
-                {dnsActive ? "link_off" : "add_link"}
-              </span>
-              <span>{dnsActive ? "Tắt DNS" : "Bật DNS"}</span>
-            </button>
+            <MagneticButton strength={!serverRunning || loading ? 0 : 4}>
+              <button
+                type="button"
+                data-cursor-target="true"
+                onClick={handleDnsToggle}
+                disabled={!serverRunning || loading}
+                title={!serverRunning ? "Khởi động MITM Server ở trên trước khi bật DNS" : undefined}
+                className={`inline-flex h-7 items-center gap-1 rounded-lg border px-2.5 text-[11px] font-bold transition-all ${
+                  !serverRunning
+                    ? "opacity-45 cursor-not-allowed border-black/10 dark:border-white/10 text-text-muted bg-black/[0.02] dark:bg-white/[0.02]"
+                    : dnsActive
+                      ? "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300 hover:bg-rose-500/25 cursor-pointer"
+                      : "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 cursor-pointer"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[14px]">
+                  {dnsActive ? "link_off" : "add_link"}
+                </span>
+                <span>{dnsActive ? "Tắt DNS" : "Bật DNS"}</span>
+              </button>
+            </MagneticButton>
 
             <button
               type="button"
+              data-cursor-target="true"
               onClick={onToggle}
-              aria-label="Toggle tool details"
+              aria-label="Thu gọn hoặc mở rộng chi tiết công cụ"
               className="flex size-7 items-center justify-center rounded-lg border border-cyan-500/20 bg-white/50 dark:bg-white/[0.04] text-text-muted hover:text-text-main hover:border-cyan-500/40 transition-colors cursor-pointer"
             >
               <span className={`material-symbols-outlined text-[17px] transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}>
@@ -684,7 +690,7 @@ function MitmToolCard({
             )}
 
             {/* Tactical Batch Assign & Search Toolbar */}
-            <div className="rounded-lg border border-cyan-500/20 bg-white/50 dark:bg-[#070D1B]/70 px-2.5 py-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="rounded-xl border border-cyan-500/25 bg-white/60 dark:bg-[#070D1B]/75 backdrop-blur-md px-3 py-2 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
               {/* Search Filter */}
               <div className="relative flex-1 min-w-[180px] max-w-sm">
                 <span className="material-symbols-outlined text-[14px] text-cyan-600 dark:text-cyan-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -695,12 +701,13 @@ function MitmToolCard({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={`Tìm nhanh trong ${totalModelsCount} model...`}
-                  className="w-full h-7 pl-7 pr-6 rounded-md border border-black/10 dark:border-cyan-500/20 bg-white/80 dark:bg-black/35 text-[11px] font-mono text-text-main placeholder:text-text-muted/60 focus:outline-none focus:border-cyan-500"
+                  className="w-full h-7 pl-7 pr-6 rounded-lg border border-black/10 dark:border-cyan-500/25 bg-white/85 dark:bg-black/40 text-[11px] font-mono text-text-main placeholder:text-text-muted/60 focus:outline-none focus:ring-1 focus:ring-cyan-500/45 focus:border-cyan-500 transition-all"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery("")}
+                    aria-label="Xóa từ khóa tìm kiếm"
                     className="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[13px]">close</span>
@@ -714,9 +721,10 @@ function MitmToolCard({
                   <button
                     key={combo.id || combo.name}
                     type="button"
+                    data-cursor-target="true"
                     onClick={() => assignModelsToTarget(combo.name, filteredModels)}
                     title={`Gán toàn bộ model đang hiển thị vào Combo "${combo.name}"`}
-                    className="inline-flex h-7 items-center gap-1 rounded-md border border-purple-500/35 bg-purple-500/15 px-2.5 text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-500/25 transition-all cursor-pointer"
+                    className="inline-flex h-7 items-center gap-1 rounded-lg border border-purple-500/35 bg-purple-500/15 px-2.5 text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-500/25 transition-all cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[13px]">layers</span>
                     <span>Gán tất cả ➔ {combo.name}</span>
@@ -725,19 +733,21 @@ function MitmToolCard({
 
                 <button
                   type="button"
+                  data-cursor-target="true"
                   onClick={() => fillModelsDefault(filteredModels)}
-                  className="inline-flex h-7 items-center gap-1 rounded-md border border-cyan-500/40 bg-cyan-500/15 px-2.5 text-[11px] font-bold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/25 transition-all cursor-pointer"
+                  className="inline-flex h-7 items-center gap-1 rounded-lg border border-cyan-500/40 bg-cyan-500/15 px-2.5 text-[11px] font-bold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/25 transition-all cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[13px]">auto_fix_high</span>
-                  <span>Gán mặc định (ag/*)</span>
+                  <span>Gán mặc định ({tool.id === "kiro" ? "kiro/*" : "ag/*"})</span>
                 </button>
 
                 {mitmHosts.length > 0 && (
                   <button
                     type="button"
+                    data-cursor-target="true"
                     onClick={handleCopyHosts}
                     title={mitmHosts.map((h) => `127.0.0.1 ${h}`).join("\n")}
-                    className="inline-flex h-7 items-center gap-1 rounded-md border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.04] px-2 font-mono text-[11px] font-medium text-text-muted hover:text-text-main transition-all cursor-pointer"
+                    className="inline-flex h-7 items-center gap-1 rounded-lg border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.04] px-2 font-mono text-[11px] font-medium text-text-muted hover:text-text-main hover:border-cyan-500/35 transition-all cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[13px]">
                       {copiedHosts ? "check" : "content_copy"}
@@ -748,8 +758,9 @@ function MitmToolCard({
 
                 <button
                   type="button"
+                  data-cursor-target="true"
                   onClick={() => clearModelsMappings(filteredModels)}
-                  className="inline-flex h-7 items-center gap-1 rounded-md border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.04] px-2 text-[11px] font-medium text-text-muted hover:text-rose-500 hover:border-rose-500/35 hover:bg-rose-500/10 transition-all cursor-pointer"
+                  className="inline-flex h-7 items-center gap-1 rounded-lg border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.04] px-2 text-[11px] font-medium text-text-muted hover:text-rose-500 hover:border-rose-500/35 hover:bg-rose-500/10 transition-all cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[13px]">delete_sweep</span>
                   <span>Xóa hết</span>
@@ -766,38 +777,39 @@ function MitmToolCard({
                     <details
                       key={grp.key}
                       open
-                      className="group rounded-xl border border-black/[0.08] dark:border-cyan-500/15 bg-white/30 dark:bg-white/[0.015] overflow-hidden"
+                      className="group rounded-xl border border-black/[0.08] dark:border-cyan-500/20 bg-white/40 dark:bg-[#070D1B]/50 backdrop-blur-xs overflow-hidden transition-colors open:border-cyan-500/30"
                     >
                       <summary
-                        className={`flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 cursor-pointer select-none bg-white/60 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.05] transition-colors ${grp.accentBorder}`}
+                        className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 cursor-pointer select-none bg-white/70 dark:bg-white/[0.03] hover:bg-cyan-500/[0.06] transition-colors ${grp.accentBorder}`}
                       >
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span className={`material-symbols-outlined text-[16px] ${grp.iconColor}`}>
                             {grp.icon}
                           </span>
-                          <span className="text-xs font-bold text-text-main">
+                          <span className="text-xs font-bold text-text-main tracking-tight">
                             {grp.label}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
+                            data-cursor-target="true"
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
                               fillModelsDefault(grp.models);
                             }}
-                            className="rounded border border-cyan-500/30 bg-cyan-500/12 px-1.5 py-0.5 text-[9.5px] font-semibold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 transition-colors cursor-pointer"
+                            className="rounded-md border border-cyan-500/35 bg-cyan-500/12 px-2 py-0.5 font-mono text-[9.5px] font-semibold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/22 transition-colors cursor-pointer"
                           >
                             Gán nhóm
                           </button>
                           <span
-                            className={`px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold hud-telemetry-num ${
+                            className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold hud-telemetry-num border ${
                               mappedCount === grp.models.length
-                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                                ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                                 : mappedCount > 0
-                                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                                  : "bg-black/5 dark:bg-white/5 text-text-muted"
+                                  ? "border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                                  : "border-transparent bg-black/5 dark:bg-white/5 text-text-muted"
                             }`}
                           >
                             {mappedCount}/{grp.models.length}
@@ -807,7 +819,7 @@ function MitmToolCard({
                           </span>
                         </div>
                       </summary>
-                      <div className="p-2 grid grid-cols-1 xl:grid-cols-2 gap-1.5 border-t border-black/[0.05] dark:border-white/[0.06]">
+                      <div className="p-2.5 grid grid-cols-1 xl:grid-cols-2 gap-2 border-t border-cyan-500/12 bg-black/[0.015] dark:bg-black/20">
                         {grp.models.map(renderModelRow)}
                       </div>
                     </details>

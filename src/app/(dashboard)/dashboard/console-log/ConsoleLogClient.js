@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { HudFrame, NumberTicker } from "@/shared/components/hud";
+import { HudFrame, MagneticButton, NumberTicker } from "@/shared/components/hud";
 import { CONSOLE_LOG_CONFIG } from "@/shared/constants/config";
 import {
   parseLogLine,
@@ -334,6 +334,7 @@ export default function ConsoleLogClient() {
         accent="cyan"
         padding="none"
         spotlight={false}
+        borderBeam={connected && autoScroll}
         className="shrink-0 border-cyan-500/30 dark:border-cyan-400/25 bg-gradient-to-r from-cyan-500/[0.08] via-sky-500/[0.03] to-transparent"
       >
         <div className="px-3 py-2 flex flex-col gap-2">
@@ -354,7 +355,7 @@ export default function ConsoleLogClient() {
                   />
                 </span>
                 <span className="hidden sm:inline-flex rounded border border-cyan-500/35 bg-cyan-500/12 px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300">
-                  TELEMETRY
+                  GIÁM SÁT
                 </span>
                 <h2 className="text-xs sm:text-sm font-bold text-text-main tracking-tight">
                   Nhật ký Console
@@ -368,7 +369,7 @@ export default function ConsoleLogClient() {
                     : "border-red-500/35 bg-red-500/10 text-red-700 dark:text-red-300"
                 }`}
               >
-                {connected ? "LIVE SSE" : "OFFLINE"}
+                {connected ? "LIVE SSE" : "MẤT KẾT NỐI"}
               </span>
 
               {/* Level Summary Counters */}
@@ -394,79 +395,94 @@ export default function ConsoleLogClient() {
 
             {/* Action Controls */}
             <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setWrapLines((v) => !v)}
-                aria-pressed={wrapLines}
-                aria-label="Ngắt dòng tự động"
-                title={wrapLines ? "Đang xuống dòng tự động" : "Đang hiển thị gọn 1 dòng"}
-                className={`inline-flex h-7 items-center gap-1 rounded-lg border px-2 font-mono text-[11px] font-semibold transition-all cursor-pointer ${
-                  wrapLines
-                    ? "border-cyan-500/45 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300"
-                    : "border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] text-text-muted hover:text-text-main hover:border-cyan-500/30"
-                }`}
-              >
-                <span className="material-symbols-outlined text-[13px]">wrap_text</span>
-                <span className="hidden sm:inline">Ngắt dòng</span>
-              </button>
+              <MagneticButton strength={4}>
+                <button
+                  type="button"
+                  data-cursor-target="true"
+                  onClick={() => setWrapLines((v) => !v)}
+                  aria-pressed={wrapLines}
+                  aria-label="Ngắt dòng tự động"
+                  title={wrapLines ? "Đang xuống dòng tự động" : "Đang hiển thị gọn 1 dòng"}
+                  className={`inline-flex h-7 items-center gap-1 rounded-lg border px-2 font-mono text-[11px] font-semibold transition-all cursor-pointer ${
+                    wrapLines
+                      ? "border-cyan-500/45 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300"
+                      : "border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] text-text-muted hover:text-text-main hover:border-cyan-500/30"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[13px]">wrap_text</span>
+                  <span className="hidden sm:inline">Ngắt dòng</span>
+                </button>
+              </MagneticButton>
 
-              <button
-                type="button"
-                onClick={() => setGroupDuplicates((v) => !v)}
-                aria-pressed={groupDuplicates}
-                aria-label="Gộp các dòng log trùng"
-                title="Tự động gộp các dòng log trùng nhau liên tiếp thành ×N"
-                className={`inline-flex h-7 items-center gap-1 rounded-lg border px-2 font-mono text-[11px] font-semibold transition-all cursor-pointer ${
-                  groupDuplicates
-                    ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                    : "border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] text-text-muted hover:text-text-main hover:border-cyan-500/30"
-                }`}
-              >
-                <span className="material-symbols-outlined text-[13px]">filter_none</span>
-                <span className="hidden sm:inline">Gộp trùng</span>
-              </button>
+              <MagneticButton strength={4}>
+                <button
+                  type="button"
+                  data-cursor-target="true"
+                  onClick={() => setGroupDuplicates((v) => !v)}
+                  aria-pressed={groupDuplicates}
+                  aria-label="Gộp các dòng log trùng"
+                  title="Tự động gộp các dòng log trùng nhau liên tiếp thành ×N"
+                  className={`inline-flex h-7 items-center gap-1 rounded-lg border px-2 font-mono text-[11px] font-semibold transition-all cursor-pointer ${
+                    groupDuplicates
+                      ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                      : "border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] text-text-muted hover:text-text-main hover:border-cyan-500/30"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[13px]">filter_none</span>
+                  <span className="hidden sm:inline">Gộp trùng</span>
+                </button>
+              </MagneticButton>
 
-              <button
-                type="button"
-                onClick={() => setAutoScroll((v) => !v)}
-                aria-pressed={autoScroll}
-                aria-label={autoScroll ? "Tạm dừng tự cuộn" : "Bật tự cuộn"}
-                title={autoScroll ? "Đang tự cuộn xuống dòng mới nhất" : "Đã tạm dừng tự cuộn"}
-                className={`inline-flex h-7 items-center gap-1 rounded-lg border px-2 font-mono text-[11px] font-semibold transition-all cursor-pointer ${
-                  autoScroll
-                    ? "border-cyan-500/45 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300"
-                    : "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                }`}
-              >
-                <span className="material-symbols-outlined text-[13px]">
-                  {autoScroll ? "vertical_align_bottom" : "pause"}
-                </span>
-                <span className="hidden sm:inline">{autoScroll ? "Tự cuộn" : "Tạm dừng"}</span>
-              </button>
+              <MagneticButton strength={5}>
+                <button
+                  type="button"
+                  data-cursor-target="true"
+                  onClick={() => setAutoScroll((v) => !v)}
+                  aria-pressed={autoScroll}
+                  aria-label={autoScroll ? "Tạm dừng tự cuộn" : "Bật tự cuộn"}
+                  title={autoScroll ? "Đang tự cuộn xuống dòng mới nhất" : "Đã tạm dừng tự cuộn"}
+                  className={`inline-flex h-7 items-center gap-1 rounded-lg border px-2 font-mono text-[11px] font-semibold transition-all cursor-pointer ${
+                    autoScroll
+                      ? "border-cyan-500/45 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300"
+                      : "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[13px]">
+                    {autoScroll ? "vertical_align_bottom" : "pause"}
+                  </span>
+                  <span className="hidden sm:inline">{autoScroll ? "Tự cuộn" : "Tạm dừng"}</span>
+                </button>
+              </MagneticButton>
 
-              <button
-                type="button"
-                onClick={handleCopyAll}
-                aria-label="Sao chép toàn bộ log đang hiển thị"
-                className="inline-flex h-7 items-center gap-1 rounded-lg border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] px-2 font-mono text-[11px] font-medium text-text-muted hover:text-text-main hover:border-cyan-500/30 transition-all cursor-pointer"
-                title="Sao chép toàn bộ log đang hiển thị"
-              >
-                <span className="material-symbols-outlined text-[13px]">
-                  {copiedAll ? "check" : "content_copy"}
-                </span>
-                <span className="hidden sm:inline">{copiedAll ? "Đã chép" : "Chép"}</span>
-              </button>
+              <MagneticButton strength={5}>
+                <button
+                  type="button"
+                  data-cursor-target="true"
+                  onClick={handleCopyAll}
+                  aria-label="Sao chép toàn bộ log đang hiển thị"
+                  className="inline-flex h-7 items-center gap-1 rounded-lg border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] px-2 font-mono text-[11px] font-medium text-text-muted hover:text-text-main hover:border-cyan-500/30 transition-all cursor-pointer"
+                  title="Sao chép toàn bộ log đang hiển thị"
+                >
+                  <span className="material-symbols-outlined text-[13px]">
+                    {copiedAll ? "check" : "content_copy"}
+                  </span>
+                  <span className="hidden sm:inline">{copiedAll ? "Đã chép" : "Chép"}</span>
+                </button>
+              </MagneticButton>
 
-              <button
-                type="button"
-                onClick={handleClear}
-                aria-label="Xóa toàn bộ nhật ký"
-                className="inline-flex h-7 items-center gap-1 rounded-lg border border-red-500/35 bg-red-500/10 px-2.5 font-mono text-[11px] font-semibold text-red-700 dark:text-red-300 hover:bg-red-500/20 transition-all cursor-pointer"
-                title="Xóa toàn bộ nhật ký"
-              >
-                <span className="material-symbols-outlined text-[13px]">delete</span>
-                <span>Xóa</span>
-              </button>
+              <MagneticButton strength={5}>
+                <button
+                  type="button"
+                  data-cursor-target="true"
+                  onClick={handleClear}
+                  aria-label="Xóa toàn bộ nhật ký"
+                  className="inline-flex h-7 items-center gap-1 rounded-lg border border-red-500/35 bg-red-500/10 px-2.5 font-mono text-[11px] font-semibold text-red-700 dark:text-red-300 hover:bg-red-500/20 transition-all cursor-pointer"
+                  title="Xóa toàn bộ nhật ký"
+                >
+                  <span className="material-symbols-outlined text-[13px]">delete</span>
+                  <span>Xóa</span>
+                </button>
+              </MagneticButton>
             </div>
           </div>
 
@@ -478,33 +494,35 @@ export default function ConsoleLogClient() {
                 const count = f.id === "error" ? counts.errorAndWarn : (counts[f.id] ?? 0);
                 const isErrorTab = f.id === "error" && count > 0;
                 return (
-                  <button
-                    key={f.id}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setCategoryFilter(f.id)}
-                    className={`inline-flex h-7 items-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold transition-all cursor-pointer ${
-                      active
-                        ? isErrorTab
-                          ? "border-red-500/50 bg-red-500/15 text-red-700 dark:text-red-300 shadow-[0_0_10px_rgba(239,68,68,0.18)]"
-                          : "border-cyan-500/50 bg-cyan-500/15 text-cyan-800 dark:text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.18)]"
-                        : "border-black/10 dark:border-white/10 bg-white/55 dark:bg-white/[0.03] text-text-muted hover:text-text-main hover:border-cyan-500/30"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[13px]">{f.icon}</span>
-                    <span>{f.label}</span>
-                    <span
-                      className={`rounded-full px-1.5 font-mono text-[9.5px] tabular-nums ${
+                  <MagneticButton key={f.id} strength={4}>
+                    <button
+                      type="button"
+                      data-cursor-target="true"
+                      aria-pressed={active}
+                      onClick={() => setCategoryFilter(f.id)}
+                      className={`inline-flex h-7 items-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold transition-all cursor-pointer ${
                         active
-                          ? "bg-black/10 dark:bg-white/15 text-current"
-                          : isErrorTab
-                            ? "bg-red-500/20 text-red-700 dark:text-red-300"
-                            : "bg-black/5 dark:bg-white/5 text-text-muted"
+                          ? isErrorTab
+                            ? "border-red-500/50 bg-red-500/15 text-red-700 dark:text-red-300 shadow-[0_0_10px_rgba(239,68,68,0.18)]"
+                            : "border-cyan-500/50 bg-cyan-500/15 text-cyan-800 dark:text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.18)]"
+                          : "border-black/10 dark:border-white/10 bg-white/55 dark:bg-white/[0.03] text-text-muted hover:text-text-main hover:border-cyan-500/30"
                       }`}
                     >
-                      {count}
-                    </span>
-                  </button>
+                      <span className="material-symbols-outlined text-[13px]">{f.icon}</span>
+                      <span>{f.label}</span>
+                      <span
+                        className={`rounded-full px-1.5 font-mono text-[9.5px] tabular-nums ${
+                          active
+                            ? "bg-black/10 dark:bg-white/15 text-current"
+                            : isErrorTab
+                              ? "bg-red-500/20 text-red-700 dark:text-red-300"
+                              : "bg-black/5 dark:bg-white/5 text-text-muted"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  </MagneticButton>
                 );
               })}
             </div>
@@ -545,13 +563,25 @@ export default function ConsoleLogClient() {
         className="flex-1 min-h-0 flex flex-col overflow-hidden shadow-sm [&>.hud-frame]:border-cyan-500/30 dark:[&>.hud-frame]:border-cyan-400/25 [&>div:last-child]:flex-1 [&>div:last-child]:min-h-0 [&>div:last-child]:flex [&>div:last-child]:flex-col"
       >
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          {/* Top Glow Accent Bar & Subtle Scanline Header Strip */}
+          <div aria-hidden="true" className="relative h-[2px] w-full shrink-0 overflow-hidden bg-cyan-500/15">
+            <div
+              className={`h-full w-full ${
+                connected && autoScroll
+                  ? "hud-beam-flow"
+                  : "bg-gradient-to-r from-transparent via-cyan-400/55 to-transparent"
+              }`}
+            />
+          </div>
+
           {/* Table Column Header */}
-          <div className="hidden md:grid md:grid-cols-[74px_58px_130px_1fr_auto] items-center gap-2 px-3 py-1.5 bg-cyan-50/90 dark:bg-[#081120] border-b border-cyan-500/20 font-mono text-[9.5px] font-bold uppercase tracking-wider text-cyan-800 dark:text-cyan-300/80 shrink-0 select-none">
-            <span>Thời gian</span>
-            <span className="text-center">Mức độ</span>
-            <span>Nguồn / Tag</span>
-            <span>Nội dung chi tiết</span>
-            <span className="text-right pr-6">Thông số</span>
+          <div className="relative hidden md:grid md:grid-cols-[74px_58px_130px_1fr_auto] items-center gap-2 px-3 py-1.5 bg-cyan-50/90 dark:bg-[#081120] border-b border-cyan-500/20 font-mono text-[9.5px] font-bold uppercase tracking-wider text-cyan-800 dark:text-cyan-300/80 shrink-0 select-none">
+            <span aria-hidden="true" className="pointer-events-none absolute inset-0 hud-scanline-subtle opacity-60" />
+            <span className="relative">Thời gian</span>
+            <span className="relative text-center">Mức độ</span>
+            <span className="relative">Nguồn / Tag</span>
+            <span className="relative">Nội dung chi tiết</span>
+            <span className="relative text-right pr-6">Thông số</span>
           </div>
 
           {/* Log Stream Body — crisp light & dark readable monospace well */}
@@ -586,7 +616,11 @@ export default function ConsoleLogClient() {
                   : "";
 
                 return (
-                  <div key={entry.rowKey} className={`group transition-colors ${lvl.row}`}>
+                  <div
+                    key={entry.rowKey}
+                    className={`group transition-colors ${lvl.row}`}
+                    style={{ contentVisibility: "auto", containIntrinsicSize: "auto 36px" }}
+                  >
                     <div
                       role="button"
                       tabIndex={0}
@@ -773,7 +807,7 @@ export default function ConsoleLogClient() {
                             </span>
                             {entry.subTags.length > 0 && (
                               <span>
-                                Sub-tags:{" "}
+                                Nhãn phụ:{" "}
                                 <code className="text-cyan-700 dark:text-cyan-300">
                                   {entry.subTags.join(" / ")}
                                 </code>
@@ -788,13 +822,14 @@ export default function ConsoleLogClient() {
                           </div>
                           <button
                             type="button"
+                            data-cursor-target="true"
                             onClick={(e) => handleCopySingle(e, entry)}
                             className="inline-flex items-center gap-1 rounded border border-cyan-500/30 bg-white/80 dark:bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] text-slate-800 dark:text-slate-200 hover:bg-cyan-500/10 cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-[12px]">
                               {copiedId === entry.rowKey ? "check" : "content_copy"}
                             </span>
-                            <span>{copiedId === entry.rowKey ? "Đã sao chép" : "Chép Raw"}</span>
+                            <span>{copiedId === entry.rowKey ? "Đã sao chép" : "Chép log gốc"}</span>
                           </button>
                         </div>
 
@@ -846,14 +881,17 @@ export default function ConsoleLogClient() {
                 Nhấn vào dòng để xem chi tiết
               </span>
               {!autoScroll && (
-                <button
-                  type="button"
-                  onClick={scrollToBottom}
-                  className="inline-flex items-center gap-1 rounded-md border border-cyan-500/40 bg-cyan-500/15 px-2 py-0.5 text-[10px] font-semibold text-cyan-800 dark:text-cyan-300 hover:bg-cyan-500/25 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
-                  <span>Cuộn xuống cuối</span>
-                </button>
+                <MagneticButton strength={4}>
+                  <button
+                    type="button"
+                    data-cursor-target="true"
+                    onClick={scrollToBottom}
+                    className="inline-flex items-center gap-1 rounded-md border border-cyan-500/40 bg-cyan-500/15 px-2 py-0.5 text-[10px] font-semibold text-cyan-800 dark:text-cyan-300 hover:bg-cyan-500/25 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
+                    <span>Cuộn xuống cuối</span>
+                  </button>
+                </MagneticButton>
               )}
             </div>
           </div>

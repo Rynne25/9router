@@ -2,17 +2,77 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Button, Input, Modal, Toggle, ConfirmModal } from "@/shared/components";
-import { HudFrame, NumberTicker } from "@/shared/components/hud";
+import { HudFrame, NumberTicker, MagneticButton } from "@/shared/components/hud";
 import { useHudPrefs } from "@/shared/hooks/useHudPrefs";
 import { playHudSound } from "@/shared/utils/hudAudio";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { getCachedData, setCachedData } from "@/shared/utils/swrCache";
 import { getCurrentLocale, onLocaleChange } from "@/i18n/runtime";
+import TokenSaverFlowCircuit from "./TokenSaverFlowCircuit";
 import {
   WENYAN_LOCALES,
   CAVEMAN_LEVELS,
   PONYTAIL_LEVELS,
   CLAUDE_CACHE_TTLS,
 } from "../endpoint/endpointConstants";
+
+const MODULE_META = {
+  rtk: {
+    id: "rtk",
+    title: "Nén kết quả lệnh & công cụ",
+    shortName: "RTK",
+    href: "https://github.com/rtk-ai/rtk",
+    icon: "terminal",
+    savingsLabel: "-60–90% input",
+    description: "Nén đầu ra git/grep/ls/tree/logs trước khi nạp vào ngữ cảnh",
+    compatibility: "antigravity",
+  },
+  headroom: {
+    id: "headroom",
+    title: "Nén ngữ cảnh hội thoại",
+    shortName: "Headroom",
+    href: "https://github.com/chopratejas/headroom",
+    icon: "compress",
+    savingsLabel: "Nén ngữ cảnh",
+    description: "Nén prompt qua /v1/compress trước khi gửi tới model",
+    compatibility: "antigravity",
+  },
+  caveman: {
+    id: "caveman",
+    title: "Nén phản hồi LLM",
+    shortName: "Caveman",
+    href: "https://github.com/JuliusBrussee/caveman",
+    icon: "psychology_alt",
+    savingsLabel: "-65% output",
+    description:
+      "Tiêm chỉ thị trả lời cô đọng, cắt từ thừa → giảm ~65% token đầu ra (tối đa 87%)",
+    compatibility: "antigravity",
+  },
+  ponytail: {
+    id: "ponytail",
+    title: "Code tối giản kiểu Senior",
+    shortName: "Ponytail",
+    href: "https://github.com/DietrichGebert/ponytail",
+    icon: "code_blocks",
+    savingsLabel: "Code tối giản",
+    description:
+      "Định hướng model viết code tối giản: YAGNI, tận dụng stdlib, hạn chế dư thừa",
+    compatibility: "antigravity",
+  },
+  customPrompt: {
+    id: "customPrompt",
+    title: "System prompt tùy chỉnh",
+    shortName: "Tùy chỉnh",
+    href: null,
+    icon: "edit_note",
+    savingsLabel: "Prompt tùy chỉnh",
+    description:
+      "Tự động chèn chỉ thị riêng của bạn vào mọi yêu cầu, độc lập với các bộ tiết kiệm khác",
+    compatibility: "antigravity",
+  },
+};
+
+const MODULE_ORDER = ["rtk", "headroom", "caveman", "ponytail", "customPrompt"];
 
 function CompatibilityBadge({ type }) {
   if (type === "claude") {
@@ -37,11 +97,102 @@ function CompatibilityBadge({ type }) {
   );
 }
 
-export default function TokenSaverClient() {
-  const [rtkEnabled, setRtkEnabledState] = useState(true);
-  const [headroomEnabled, setHeadroomEnabled] = useState(false);
-  const [headroomUrl, setHeadroomUrl] = useState("http://localhost:8787");
-  const [headroomTimeoutMs, setHeadroomTimeoutMs] = useState(3000);
+function SavingsBadge({ label, active, emerald = false }) {
+  const toneClass = active
+    ? emerald
+      ? "border-emerald-500/45 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+      : "border-cyan-500/45 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300"
+    : "border-black/10 dark:border-white/15 bg-black/[0.03] dark:bg-white/[0.04] text-text-muted";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider ${toneClass}`}
+      data-i18n-skip="true"
+    >
+      {label}
+    </span>
+  );
+}
+
+function LevelSelectorPills({ levels, value, onChange, compact = false }) {
+  const activeDesc = levels.find((lvl) => lvl.id === value)?.desc;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="inline-flex flex-wrap items-center rounded-lg border border-cyan-500/25 bg-black/[0.03] dark:bg-black/35 p-0.5 gap-0.5">
+        {levels.map((lvl) => (
+          <button
+            key={lvl.id}
+            type="button"
+            data-cursor-target="true"
+            onClick={() => onChange(lvl.id)}
+            className={`${compact ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs"} rounded-md font-mono font-bold transition-all cursor-pointer ${
+              value === lvl.id
+                ? "bg-primary text-white shadow-2xs"
+                : "text-text-muted hover:text-text-main hover:bg-white/40 dark:hover:bg-white/[0.06]"
+            }`}
+            title={lvl.desc}
+          >
+            {lvl.label}
+          </button>
+        ))}
+      </div>
+      {activeDesc && (
+        <p className="text-xs text-cyan-700 dark:text-cyan-300 leading-snug">
+          {activeDesc}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function TokenSaverClient({ initialSettings = null }) {
+  const seedSettings = initialSettings ?? getCachedData("/api/settings") ?? null;
+
+  const [rtkEnabled, setRtkEnabledState] = useState(() =>
+    seedSettings ? seedSettings.rtkEnabled !== false : true
+  );
+  const [headroomEnabled, setHeadroomEnabled] = useState(() =>
+    Boolean(seedSettings?.headroomEnabled)
+  );
+  const [headroomUrl, setHeadroomUrl] = useState(
+    () => seedSettings?.headroomUrl || "http://localhost:8787"
+  );
+  const [headroomTimeoutMs, setHeadroomTimeoutMs] = useState(() =>
+    typeof seedSettings?.headroomTimeoutMs === "number"
+      ? seedSettings.headroomTimeoutMs
+      : 3000
+  );
+  const [codeAware, setCodeAware] = useState(
+    () => seedSettings?.headroomCodeAware === true
+  );
+  const [kompress, setKompress] = useState(() =>
+    seedSettings ? seedSettings.headroomKompress !== false : true
+  );
+  const [cavemanEnabled, setCavemanEnabled] = useState(() =>
+    Boolean(seedSettings?.cavemanEnabled)
+  );
+  const [cavemanLevel, setCavemanLevel] = useState(
+    () => seedSettings?.cavemanLevel || "full"
+  );
+  const [ponytailEnabled, setPonytailEnabled] = useState(() =>
+    Boolean(seedSettings?.ponytailEnabled)
+  );
+  const [ponytailLevel, setPonytailLevel] = useState(
+    () => seedSettings?.ponytailLevel || "full"
+  );
+  const [customPromptEnabled, setCustomPromptEnabled] = useState(() =>
+    Boolean(seedSettings?.customPromptEnabled)
+  );
+  const [customPrompt, setCustomPrompt] = useState(() =>
+    typeof seedSettings?.customPrompt === "string"
+      ? seedSettings.customPrompt
+      : ""
+  );
+  const [claudeCacheTtl, setClaudeCacheTtl] = useState(() =>
+    seedSettings?.claudeCacheTtl === "1h" ? "1h" : "5m"
+  );
+
   const [headroomStatus, setHeadroomStatus] = useState({
     installed: false,
     running: false,
@@ -64,38 +215,26 @@ export default function TokenSaverClient() {
   const [removingExtra, setRemovingExtra] = useState(null);
   const [installLog, setInstallLog] = useState("");
   const [extrasConfirm, setExtrasConfirm] = useState(null);
-  const [codeAware, setCodeAware] = useState(false);
-  const [kompress, setKompress] = useState(true);
   const [restartingProxy, setRestartingProxy] = useState(false);
+  const [promptSavedHint, setPromptSavedHint] = useState(false);
+
   const logPollRef = useRef(null);
   const logRequestRef = useRef(0);
-  const [cavemanEnabled, setCavemanEnabled] = useState(false);
-  const [cavemanLevel, setCavemanLevel] = useState("full");
-  const [ponytailEnabled, setPonytailEnabled] = useState(false);
-  const [ponytailLevel, setPonytailLevel] = useState("full");
-  const [customPromptEnabled, setCustomPromptEnabled] = useState(false);
-  const [customPrompt, setCustomPrompt] = useState("");
-  const [pxpipeEnabled, setPxpipeEnabled] = useState(false);
-  const [pxpipeMinChars, setPxpipeMinChars] = useState(25000);
-  const [claudeCacheTtl, setClaudeCacheTtl] = useState("5m");
-  const [pxpipeStatus, setPxpipeStatus] = useState({
-    installed: false,
-    installing: false,
-    running: false,
-    version: null,
-    loading: true,
-  });
-  const [pxpipeHealth, setPxpipeHealth] = useState(null);
-  const [showPxpipeModal, setShowPxpipeModal] = useState(false);
-  const [pxpipeActionLoading, setPxpipeActionLoading] = useState(false);
-  const [pxpipeActionError, setPxpipeActionError] = useState("");
   const [locale, setLocale] = useState("vi");
 
   const { copied, copy } = useCopyToClipboard();
   const { motionPaused } = useHudPrefs();
 
   useEffect(() => {
-    return onLocaleChange(() => setLocale(getCurrentLocale()));
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setLocale(getCurrentLocale());
+    });
+    const unsubscribe = onLocaleChange(() => setLocale(getCurrentLocale()));
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const isWenyanLocale = WENYAN_LOCALES.includes(locale);
@@ -103,17 +242,35 @@ export default function TokenSaverClient() {
     ? CAVEMAN_LEVELS
     : CAVEMAN_LEVELS.filter((lvl) => !lvl.wenyan);
 
-  const patchSetting = async (patch) => {
-    try {
-      await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
-      });
-    } catch (error) {
-      console.log("Error updating setting:", error);
-    }
-  };
+  const patchSetting = useCallback(
+    async (patch) => {
+      const existing = getCachedData("/api/settings");
+      const base =
+        existing && typeof existing === "object" ? existing : initialSettings;
+      if (base && typeof base === "object") {
+        setCachedData("/api/settings", { ...base, ...patch });
+      }
+      try {
+        const res = await fetch("/api/settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+        if (res.ok) {
+          const updated = await res.json().catch(() => null);
+          if (updated && typeof updated === "object") {
+            setCachedData("/api/settings", updated);
+          }
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.log("Error updating setting:", error);
+        return false;
+      }
+    },
+    [initialSettings]
+  );
 
   useEffect(() => {
     const current = CAVEMAN_LEVELS.find((lvl) => lvl.id === cavemanLevel);
@@ -123,38 +280,38 @@ export default function TokenSaverClient() {
         patchSetting({ cavemanLevel: "ultra" });
       });
     }
-  }, [isWenyanLocale, cavemanLevel]);
+  }, [isWenyanLocale, cavemanLevel, patchSetting]);
 
   const handleRtkEnabled = async (value) => {
-    playHudSound("toggle");
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rtkEnabled: value }),
-      });
-      if (res.ok) setRtkEnabledState(value);
-    } catch (error) {
-      console.log("Error updating rtkEnabled:", error);
+    const prev = rtkEnabled;
+    setRtkEnabledState(value);
+    const ok = await patchSetting({ rtkEnabled: value });
+    if (!ok) {
+      setRtkEnabledState(prev);
     }
   };
 
   const handleCavemanEnabled = (value) => {
-    playHudSound("toggle");
     setCavemanEnabled(value);
     patchSetting({ cavemanEnabled: value });
   };
 
   const handleHeadroomEnabled = (value) => {
-    playHudSound("toggle");
     const nextUrl = headroomUrl.trim() || "http://localhost:8787";
     setHeadroomUrl(nextUrl);
     setHeadroomEnabled(value);
     patchSetting({ headroomEnabled: value, headroomUrl: nextUrl });
   };
 
+  const handleEnableRecommended = () => {
+    playHudSound("confirm");
+    setRtkEnabledState(true);
+    setCavemanEnabled(true);
+    patchSetting({ rtkEnabled: true, cavemanEnabled: true });
+  };
+
   const refreshHeadroomStatus = useCallback(async () => {
-    setHeadroomStatus((s) => ({ ...s, loading: true }));
+    setHeadroomStatus((s) => (s.loading ? s : { ...s, loading: true }));
     try {
       const res = await fetch("/api/headroom/status", {
         headers: { "Cache-Control": "no-store" },
@@ -224,7 +381,7 @@ export default function TokenSaverClient() {
     try {
       const res = await fetch("/api/headroom/start", { method: "POST" });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to start proxy");
+      if (!res.ok) throw new Error(data.error || "Không thể khởi động proxy");
       playHudSound("confirm");
       await refreshHeadroomStatus();
     } catch (e) {
@@ -260,8 +417,12 @@ export default function TokenSaverClient() {
         headers: { "Cache-Control": "no-store" },
       });
       const d = await r.json().catch(() => ({}));
-      if (requestId === logRequestRef.current && typeof d.log === "string") setInstallLog(d.log);
-    } catch { /* ignore transient poll errors */ }
+      if (requestId === logRequestRef.current && typeof d.log === "string") {
+        setInstallLog(d.log);
+      }
+    } catch {
+      /* ignore transient poll errors */
+    }
   }, []);
 
   // Poll while running, and retain the final log after the action completes.
@@ -297,7 +458,7 @@ export default function TokenSaverClient() {
       });
       const data = await res.json().catch(() => ({}));
       readFinalLog = res.ok || data.code === "INSTALL_FAILED";
-      if (!res.ok) throw new Error(data.error || "Install failed");
+      if (!res.ok) throw new Error(data.error || "Cài đặt thất bại");
       setHeadroomExtras((s) => ({
         ...s,
         version: data.version ?? s.version,
@@ -316,45 +477,49 @@ export default function TokenSaverClient() {
     }
   }, [pendingExtras, startLogPolling, stopLogPolling, refreshInstallLog]);
 
-  const removeExtraConfirmed = useCallback(async (extra) => {
-    setRemovingExtra(extra);
-    setExtrasActionError("");
-    startLogPolling();
-    let readFinalLog = false;
-    try {
-      const res = await fetch("/api/headroom/extras", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ extras: [extra] }),
-      });
-      const data = await res.json().catch(() => ({}));
-      readFinalLog = res.ok || data.code === "UNINSTALL_FAILED";
-      if (!res.ok) throw new Error(data.error || "Remove failed");
-      setHeadroomExtras((s) => ({
-        ...s,
-        version: data.version ?? s.version,
-        extras: data.extras || s.extras,
-      }));
-      playHudSound("confirm");
-    } catch (e) {
-      playHudSound("alert");
-      setExtrasActionError(e.message);
-    } finally {
-      stopLogPolling();
-      setRemovingExtra(null);
-      if (readFinalLog) await refreshInstallLog();
-      else setInstallLog("");
-    }
-  }, [startLogPolling, stopLogPolling, refreshInstallLog]);
+  const removeExtraConfirmed = useCallback(
+    async (extra) => {
+      setRemovingExtra(extra);
+      setExtrasActionError("");
+      startLogPolling();
+      let readFinalLog = false;
+      try {
+        const res = await fetch("/api/headroom/extras", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ extras: [extra] }),
+        });
+        const data = await res.json().catch(() => ({}));
+        readFinalLog = res.ok || data.code === "UNINSTALL_FAILED";
+        if (!res.ok) throw new Error(data.error || "Gỡ cài đặt thất bại");
+        setHeadroomExtras((s) => ({
+          ...s,
+          version: data.version ?? s.version,
+          extras: data.extras || s.extras,
+        }));
+        playHudSound("confirm");
+      } catch (e) {
+        playHudSound("alert");
+        setExtrasActionError(e.message);
+      } finally {
+        stopLogPolling();
+        setRemovingExtra(null);
+        if (readFinalLog) await refreshInstallLog();
+        else setInstallLog("");
+      }
+    },
+    [startLogPolling, stopLogPolling, refreshInstallLog]
+  );
 
   const handleInstallExtras = useCallback(() => {
     if (pendingExtras.length === 0) return;
     // Warn about the heavy ~1GB torch download before installing [ml].
     if (pendingExtras.includes("ml")) {
       setExtrasConfirm({
-        title: "Install [ml]",
-        message: "[ml] downloads ~1 GB (torch + huggingface-hub). Continue?",
-        confirmText: "Install",
+        title: "Cài đặt [ml]",
+        message:
+          "Gói [ml] cần tải khoảng ~1 GB (torch + huggingface-hub). Tiếp tục cài đặt?",
+        confirmText: "Cài đặt",
         variant: "primary",
         onConfirm: installExtrasConfirmed,
       });
@@ -363,38 +528,55 @@ export default function TokenSaverClient() {
     installExtrasConfirmed();
   }, [pendingExtras, installExtrasConfirmed]);
 
-  const handleRemoveExtra = useCallback((extra) => {
-    setExtrasConfirm({
-      title: `Remove [${extra}]`,
-      message: `Remove [${extra}] and its packages?`,
-      confirmText: "Remove",
-      variant: "danger",
-      onConfirm: () => removeExtraConfirmed(extra),
-    });
-  }, [removeExtraConfirmed]);
+  const handleRemoveExtra = useCallback(
+    (extra) => {
+      setExtrasConfirm({
+        title: `Gỡ cài đặt [${extra}]`,
+        message: `Gỡ bỏ gói [${extra}] và các thư viện đi kèm?`,
+        confirmText: "Gỡ bỏ",
+        variant: "danger",
+        onConfirm: () => removeExtraConfirmed(extra),
+      });
+    },
+    [removeExtraConfirmed]
+  );
 
   // Toggle an extra's active state (persist setting), then restart the proxy so
   // the new --code-aware / --disable-kompress flags take effect.
-  const toggleExtraActive = useCallback(async (extra, value) => {
-    playHudSound("toggle");
-    setExtrasActionError("");
-    if (extra === "code") setCodeAware(value);
-    if (extra === "ml") setKompress(value);
-    const key = extra === "code" ? "headroomCodeAware" : "headroomKompress";
-    await patchSetting({ [key]: value });
-    if (!headroomStatus.running || !headroomStatus.managedPid || headroomStatus.localUrl === false) return;
-    setRestartingProxy(true);
-    try {
-      const res = await fetch("/api/headroom/restart", { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Restart failed");
-      await refreshHeadroomStatus();
-    } catch (e) {
-      setExtrasActionError(e.message);
-    } finally {
-      setRestartingProxy(false);
-    }
-  }, [headroomStatus.running, headroomStatus.managedPid, headroomStatus.localUrl, refreshHeadroomStatus]);
+  const toggleExtraActive = useCallback(
+    async (extra, value) => {
+      setExtrasActionError("");
+      if (extra === "code") setCodeAware(value);
+      if (extra === "ml") setKompress(value);
+      const key = extra === "code" ? "headroomCodeAware" : "headroomKompress";
+      await patchSetting({ [key]: value });
+      if (
+        !headroomStatus.running ||
+        !headroomStatus.managedPid ||
+        headroomStatus.localUrl === false
+      ) {
+        return;
+      }
+      setRestartingProxy(true);
+      try {
+        const res = await fetch("/api/headroom/restart", { method: "POST" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Khởi động lại thất bại");
+        await refreshHeadroomStatus();
+      } catch (e) {
+        setExtrasActionError(e.message);
+      } finally {
+        setRestartingProxy(false);
+      }
+    },
+    [
+      headroomStatus.running,
+      headroomStatus.managedPid,
+      headroomStatus.localUrl,
+      patchSetting,
+      refreshHeadroomStatus,
+    ]
+  );
 
   const handleCavemanLevel = (level) => {
     playHudSound("click");
@@ -403,7 +585,6 @@ export default function TokenSaverClient() {
   };
 
   const handlePonytailEnabled = (value) => {
-    playHudSound("toggle");
     setPonytailEnabled(value);
     patchSetting({ ponytailEnabled: value });
   };
@@ -421,66 +602,16 @@ export default function TokenSaverClient() {
   };
 
   const handleCustomPromptEnabled = (value) => {
-    playHudSound("toggle");
     setCustomPromptEnabled(value);
     patchSetting({ customPromptEnabled: value });
   };
 
-  const handleCustomPromptBlur = () => {
-    patchSetting({ customPrompt });
-  };
-
-  const refreshPxpipeStatus = useCallback(async () => {
-    setPxpipeStatus((s) => ({ ...s, loading: true }));
-    try {
-      const res = await fetch("/api/pxpipe/status", {
-        headers: { "Cache-Control": "no-store" },
-      });
-      const data = await res.json();
-      setPxpipeStatus({ ...data, loading: false });
-      if (typeof data.minChars === "number") setPxpipeMinChars(data.minChars);
-    } catch {
-      setPxpipeStatus({ installed: false, installing: false, running: false, version: null, loading: false });
+  const handleCustomPromptSave = async () => {
+    const ok = await patchSetting({ customPrompt });
+    if (ok) {
+      setPromptSavedHint(true);
+      setTimeout(() => setPromptSavedHint(false), 1800);
     }
-  }, []);
-
-  const runPxpipeHealth = useCallback(async () => {
-    try {
-      const res = await fetch("/api/pxpipe/health", { method: "POST" });
-      setPxpipeHealth(await res.json());
-    } catch (e) {
-      setPxpipeHealth({ healthy: false, checks: [], error: e.message });
-    }
-  }, []);
-
-  const pxpipeAction = useCallback(
-    async (endpoint) => {
-      setPxpipeActionError("");
-      setPxpipeActionLoading(true);
-      try {
-        const res = await fetch(`/api/pxpipe/${endpoint}`, { method: "POST" });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || `PXPIPE ${endpoint} failed`);
-        await refreshPxpipeStatus();
-        await runPxpipeHealth();
-      } catch (e) {
-        setPxpipeActionError(e.message);
-      } finally {
-        setPxpipeActionLoading(false);
-      }
-    },
-    [refreshPxpipeStatus, runPxpipeHealth]
-  );
-
-  const handlePxpipeEnabled = (value) => {
-    setPxpipeEnabled(value);
-    patchSetting({ pxpipeEnabled: value });
-  };
-
-  const handlePxpipeMinCharsBlur = () => {
-    const next = Math.max(0, Number(pxpipeMinChars) || 25000);
-    setPxpipeMinChars(next);
-    patchSetting({ pxpipeMinChars: next });
   };
 
   const handleHeadroomTimeoutBlur = () => {
@@ -490,78 +621,427 @@ export default function TokenSaverClient() {
     patchSetting({ headroomTimeoutMs: next });
   };
 
+  // Non-blocking mount: Headroom status + silent background /api/settings refresh
   useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) refreshHeadroomStatus();
+    });
+
     const loadSettings = async () => {
       try {
-        const res = await fetch("/api/settings");
-        if (res.ok) {
-          const data = await res.json();
-          setRtkEnabledState(data.rtkEnabled !== false);
-          setHeadroomEnabled(!!data.headroomEnabled);
-          setHeadroomUrl(data.headroomUrl || "http://localhost:8787");
-          if (typeof data.headroomTimeoutMs === "number") setHeadroomTimeoutMs(data.headroomTimeoutMs);
-          setCodeAware(data.headroomCodeAware === true);
-          setKompress(data.headroomKompress !== false);
-          setCavemanEnabled(!!data.cavemanEnabled);
-          setCavemanLevel(data.cavemanLevel || "full");
-          setPonytailEnabled(!!data.ponytailEnabled);
-          setPonytailLevel(data.ponytailLevel || "full");
-          setCustomPromptEnabled(!!data.customPromptEnabled);
-          setCustomPrompt(data.customPrompt || "");
-          setPxpipeEnabled(!!data.pxpipeEnabled);
-          if (typeof data.pxpipeMinChars === "number") setPxpipeMinChars(data.pxpipeMinChars);
-          setClaudeCacheTtl(data.claudeCacheTtl === "1h" ? "1h" : "5m");
-          refreshHeadroomStatus();
-          // PRD: run the PXPIPE health check automatically when the page opens
-          refreshPxpipeStatus().then(runPxpipeHealth);
+        const res = await fetch("/api/settings", {
+          headers: { "Cache-Control": "no-store" },
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled || !data || typeof data !== "object") return;
+        setCachedData("/api/settings", data);
+        setRtkEnabledState(data.rtkEnabled !== false);
+        setHeadroomEnabled(Boolean(data.headroomEnabled));
+        setHeadroomUrl(data.headroomUrl || "http://localhost:8787");
+        if (typeof data.headroomTimeoutMs === "number") {
+          setHeadroomTimeoutMs(data.headroomTimeoutMs);
         }
-      } catch {}
+        setCodeAware(data.headroomCodeAware === true);
+        setKompress(data.headroomKompress !== false);
+        setCavemanEnabled(Boolean(data.cavemanEnabled));
+        setCavemanLevel(data.cavemanLevel || "full");
+        setPonytailEnabled(Boolean(data.ponytailEnabled));
+        setPonytailLevel(data.ponytailLevel || "full");
+        setCustomPromptEnabled(Boolean(data.customPromptEnabled));
+        setCustomPrompt(
+          typeof data.customPrompt === "string" ? data.customPrompt : ""
+        );
+        setClaudeCacheTtl(data.claudeCacheTtl === "1h" ? "1h" : "5m");
+      } catch {
+        // Keep initial SSR/cached values intact on transient network failure
+      }
     };
-    loadSettings();
-  }, [refreshHeadroomStatus, refreshPxpipeStatus, runPxpipeHealth]);
 
-  const headroomRunning = !!headroomStatus.running;
+    loadSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshHeadroomStatus]);
+
+  const headroomRunning = Boolean(headroomStatus.running);
   const headroomLocalUrl = headroomStatus.localUrl !== false;
-  const headroomCanStart = !!headroomStatus.canStart;
-  const headroomManaged = headroomLocalUrl && !!headroomStatus.managedPid;
+  const headroomCanStart = Boolean(headroomStatus.canStart);
+  const headroomManaged = headroomLocalUrl && Boolean(headroomStatus.managedPid);
   const headroomStatusLabel = headroomStatus.loading
     ? "Đang kiểm tra…"
     : headroomRunning
-      ? (headroomManaged ? "Đang chạy (9Router quản lý)" : "Đang chạy (bên ngoài)")
-      : headroomStatus.localUrl !== false && !headroomStatus.installed
+      ? headroomManaged
+        ? "Đang chạy (9Router quản lý)"
+        : "Đang chạy (bên ngoài)"
+      : headroomLocalUrl && !headroomStatus.installed
         ? "Chưa cài đặt"
-        : headroomStatus.localUrl !== false
+        : headroomLocalUrl
           ? "Đang tắt"
           : "Bên ngoài";
 
-  const pxpipeHealthy = pxpipeHealth?.healthy === true;
-  const pxpipeStatusLabel = pxpipeStatus.loading
-    ? "Đang kiểm tra…"
-    : pxpipeStatus.installing
-      ? "Đang cài đặt…"
-      : !pxpipeStatus.installed
-        ? "Chưa cài đặt"
-        : pxpipeHealthy
-          ? "Khỏe mạnh"
-          : pxpipeStatus.running
-            ? "Đang chạy"
-            : "Đang tắt";
-  const pxpipeChipClass =
-    pxpipeHealthy || pxpipeStatus.running
-      ? "bg-success/15 text-success"
-      : "bg-warning/15 text-warning";
+  const moduleStateMap = {
+    rtk: { enabled: rtkEnabled, onToggle: handleRtkEnabled },
+    headroom: { enabled: headroomEnabled, onToggle: handleHeadroomEnabled },
+    caveman: { enabled: cavemanEnabled, onToggle: handleCavemanEnabled },
+    ponytail: { enabled: ponytailEnabled, onToggle: handlePonytailEnabled },
+    customPrompt: {
+      enabled: customPromptEnabled,
+      onToggle: handleCustomPromptEnabled,
+    },
+  };
 
-  const armedAgSaversCount = [
-    rtkEnabled,
-    headroomEnabled,
-    cavemanEnabled,
-    ponytailEnabled,
-    customPromptEnabled,
-  ].filter(Boolean).length;
+  const activeModules = MODULE_ORDER.filter((id) => moduleStateMap[id].enabled);
+  const inactiveModules = MODULE_ORDER.filter(
+    (id) => !moduleStateMap[id].enabled
+  );
+  const armedAgSaversCount = activeModules.length;
+
+  const outputCompressionLabel =
+    cavemanEnabled && ponytailEnabled
+      ? `CAVEMAN + PONYTAIL`
+      : cavemanEnabled
+        ? `CAVEMAN:${cavemanLevel.toUpperCase()}`
+        : ponytailEnabled
+          ? `PONYTAIL:${ponytailLevel.toUpperCase()}`
+          : "MẶC ĐỊNH";
+
+  const renderHeadroomExtras = () => {
+    if (!headroomStatus.installed) return null;
+
+    return (
+      <div className="mt-3 pt-3 border-t border-cyan-500/15 space-y-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-[11px] font-semibold text-text-muted">
+            Gói nén mở rộng
+            {headroomExtras.version ? ` · v${headroomExtras.version}` : ""}:
+          </span>
+          {headroomExtras.available.map((extra) => {
+            const installed = Boolean(headroomExtras.extras[extra]);
+            const pending = pendingExtras.includes(extra);
+            const extraTitle =
+              extra === "code"
+                ? "Nén AST bằng tree-sitter cho phản hồi code"
+                : "Mô hình Kompress-v2 HF cho văn bản dài/agent (~+1GB)";
+
+            if (installed) {
+              const active = extra === "code" ? codeAware : kompress;
+              return (
+                <div
+                  key={extra}
+                  className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-text-main"
+                  title={extraTitle}
+                >
+                  <Toggle
+                    size="sm"
+                    checked={active}
+                    disabled={restartingProxy}
+                    onChange={() => toggleExtraActive(extra, !active)}
+                  />
+                  <span className="font-mono font-semibold">[{extra}]</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveExtra(extra)}
+                    disabled={removingExtra === extra}
+                    className="ml-1 font-mono text-[11px] text-rose-600 dark:text-rose-400 underline hover:opacity-80 disabled:opacity-50 cursor-pointer"
+                    title={`Gỡ cài đặt [${extra}]`}
+                  >
+                    {removingExtra === extra ? "Đang gỡ…" : "Gỡ bỏ"}
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <label
+                key={extra}
+                className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border cursor-pointer transition-colors ${
+                  pending
+                    ? "border-cyan-500 bg-cyan-500/12 text-cyan-700 dark:text-cyan-300"
+                    : "border-border text-text-muted hover:bg-surface-2"
+                }`}
+                title={extraTitle}
+              >
+                <input
+                  type="checkbox"
+                  className="w-3 h-3"
+                  checked={pending}
+                  onChange={() => togglePendingExtra(extra)}
+                />
+                <span className="font-mono font-semibold">[{extra}]</span>
+                <span className="opacity-70">chưa cài</span>
+              </label>
+            );
+          })}
+          {pendingExtras.length > 0 && (
+            <MagneticButton data-cursor-target="true">
+              <button
+                type="button"
+                onClick={handleInstallExtras}
+                disabled={extrasActionLoading}
+                className="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-primary text-white hover:opacity-90 disabled:opacity-50 cursor-pointer"
+              >
+                {extrasActionLoading
+                  ? "Đang cài…"
+                  : `Cài đặt [proxy,${pendingExtras.join(",")}]`}
+              </button>
+            </MagneticButton>
+          )}
+        </div>
+
+        {extrasActionError && (
+          <p className="text-xs text-rose-600 dark:text-rose-400">
+            {extrasActionError}
+          </p>
+        )}
+        {restartingProxy && (
+          <p className="font-mono text-xs text-cyan-600 dark:text-cyan-400">
+            Đang khởi động lại proxy…
+          </p>
+        )}
+        {installLog && (
+          <div className="overflow-hidden rounded-lg border border-cyan-500/30 bg-[#050A15] shadow-inner">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 bg-[#0A1326] px-3 py-1 font-mono text-[10px] text-cyan-300">
+              <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider">
+                <span className="size-1.5 rounded-full bg-cyan-400" />
+                HEADROOM // LUỒNG CÀI ĐẶT PIPX
+              </span>
+              <span className="text-cyan-400/70">LOG TRỰC TIẾP</span>
+            </div>
+            <pre className="max-h-36 overflow-auto p-2.5 font-mono text-[10.5px] leading-relaxed text-cyan-100/90 whitespace-pre-wrap">
+              {installLog}
+            </pre>
+          </div>
+        )}
+        <p className="text-[11.5px] text-text-muted leading-relaxed">
+          Cài đặt chỉ tải gói; gạt nút <code>bật</code>/<code>tắt</code> để
+          kích hoạt (tự khởi động lại proxy). Mặc định chỉ có{" "}
+          <code>[proxy]</code> (SmartCrusher JSON); thêm <code>[code]</code> để
+          nén AST mã nguồn và <code>[ml]</code> cho mô hình Kompress-v2 (~1 GB).
+        </p>
+      </div>
+    );
+  };
+
+  const renderModuleCard = (moduleId, isActive) => {
+    const meta = MODULE_META[moduleId];
+    const { enabled, onToggle } = moduleStateMap[moduleId];
+    const isEmerald = isActive && moduleId === "headroom" && headroomRunning;
+    const accent = isEmerald ? "emerald" : "cyan";
+
+    const spanClass =
+      moduleId === "customPrompt" && isActive
+        ? "md:col-span-2 xl:col-span-3"
+        : moduleId === "headroom" && isActive && headroomStatus.installed
+          ? "md:col-span-2"
+          : "";
+
+    const activeGlowClass = isActive
+      ? isEmerald
+        ? "hud-glow-emerald"
+        : "hud-glow-cyan"
+      : "";
+
+    return (
+      <HudFrame
+        key={moduleId}
+        id={moduleId === "rtk" ? "rtk" : undefined}
+        chamfer="sm"
+        accent={accent}
+        padding="md"
+        borderBeam={isActive}
+        tilt={isActive}
+        data-cursor-target={isActive ? "true" : undefined}
+        className={`h-full ${spanClass} ${activeGlowClass}`}
+      >
+        <div className="flex h-full flex-col justify-between gap-3">
+          <div className="space-y-3">
+            {/* Header row */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                <div
+                  className={`size-9 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 ${
+                    isActive
+                      ? isEmerald
+                        ? "border-emerald-500/40 bg-emerald-500/12 text-emerald-600 dark:text-emerald-300"
+                        : "border-cyan-500/40 bg-cyan-500/12 text-cyan-600 dark:text-cyan-300"
+                      : "border-border bg-surface-2 text-text-muted"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[19px]">
+                    {meta.icon}
+                  </span>
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-sm sm:text-[15px] text-text-main leading-snug">
+                      {meta.title}{" "}
+                      {meta.href ? (
+                        <a
+                          href={meta.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-mono font-normal text-primary underline hover:opacity-80"
+                        >
+                          ({meta.shortName})
+                        </a>
+                      ) : null}
+                    </h3>
+                  </div>
+
+                  <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                    <SavingsBadge
+                      label={meta.savingsLabel}
+                      active={isActive}
+                      emerald={isEmerald}
+                    />
+                    <CompatibilityBadge type={meta.compatibility} />
+                    {isActive && (
+                      <span
+                        className={`inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                          isEmerald
+                            ? "text-emerald-700 dark:text-emerald-300 bg-emerald-500/10"
+                            : "text-cyan-700 dark:text-cyan-300 bg-cyan-500/10"
+                        }`}
+                      >
+                        <span
+                          className={`size-1.5 rounded-full ${
+                            isEmerald ? "bg-emerald-500" : "bg-cyan-500"
+                          } ${motionPaused ? "" : "animate-pulse"}`}
+                        />
+                        ĐANG BẬT
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="shrink-0 pt-0.5" data-cursor-target="true">
+                <Toggle
+                  checked={enabled}
+                  onChange={(nextVal) => onToggle(nextVal)}
+                />
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-[13px] text-text-muted leading-relaxed">
+              {meta.description}
+            </p>
+
+            {/* Module-specific inline controls */}
+            {moduleId === "headroom" && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className={`font-mono text-[11px] font-semibold px-2 py-0.5 rounded border ${
+                      headroomStatus.loading
+                        ? "border-cyan-500/35 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
+                        : headroomRunning
+                          ? "border-emerald-500/35 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+                          : "border-amber-500/35 bg-amber-500/12 text-amber-700 dark:text-amber-300"
+                    }`}
+                  >
+                    {headroomStatusLabel}
+                  </span>
+                  <MagneticButton data-cursor-target="true">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playHudSound("click");
+                        setShowHeadroomInstallModal(true);
+                      }}
+                      className="font-mono text-xs font-semibold text-primary underline hover:opacity-80 cursor-pointer"
+                    >
+                      {headroomRunning ? "Quản lý proxy" : "Cài đặt / Cấu hình"}
+                    </button>
+                  </MagneticButton>
+                </div>
+                {renderHeadroomExtras()}
+              </div>
+            )}
+
+            {moduleId === "caveman" && (
+              <div className="pt-1">
+                <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                  Mức độ nén đầu ra
+                </div>
+                <LevelSelectorPills
+                  levels={visibleCavemanLevels}
+                  value={cavemanLevel}
+                  onChange={handleCavemanLevel}
+                  compact={!isActive}
+                />
+              </div>
+            )}
+
+            {moduleId === "ponytail" && (
+              <div className="pt-1">
+                <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                  Mức độ tối giản code
+                </div>
+                <LevelSelectorPills
+                  levels={PONYTAIL_LEVELS}
+                  value={ponytailLevel}
+                  onChange={handlePonytailLevel}
+                  compact={!isActive}
+                />
+              </div>
+            )}
+
+            {moduleId === "customPrompt" && (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between gap-2">
+                  <label
+                    htmlFor={`custom-prompt-${isActive ? "active" : "idle"}`}
+                    className="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted"
+                  >
+                    Nội dung chỉ thị hệ thống
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {promptSavedHint && (
+                      <span className="font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                        Đã lưu
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playHudSound("confirm");
+                        handleCustomPromptSave();
+                      }}
+                      className="font-mono text-[11px] font-semibold text-primary underline hover:opacity-80 cursor-pointer"
+                    >
+                      Lưu nhanh
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  id={`custom-prompt-${isActive ? "active" : "idle"}`}
+                  aria-label="System prompt tùy chỉnh"
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  onBlur={handleCustomPromptSave}
+                  rows={isActive ? 4 : 3}
+                  placeholder="Ví dụ: Ưu tiên sửa trực tiếp file hiện có thay vì tạo file mới."
+                  className="w-full rounded-lg border border-cyan-500/25 bg-white/60 dark:bg-[#060C19]/80 p-2.5 font-mono text-xs text-text-main focus:outline-none focus:border-cyan-500"
+                />
+                <p className="text-[11.5px] text-text-muted">
+                  Áp dụng cho mọi nhà cung cấp và model. Tự động lưu khi rời ô
+                  hoặc nhấn Lưu nhanh.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </HudFrame>
+    );
+  };
 
   return (
-    <div className="space-y-4 p-4 sm:p-6">
-      {/* HUD Telemetry Summary Strip */}
+    <div className="space-y-6 p-4 sm:p-6">
+      {/* Top Telemetry Hero Strip */}
       <HudFrame
         chamfer="md"
         accent={headroomRunning ? "emerald" : "cyan"}
@@ -588,39 +1068,64 @@ export default function TokenSaverClient() {
           </div>
 
           {/* Live Telemetry Readouts */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px]" data-i18n-skip="true">
+          <div
+            className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px]"
+            data-i18n-skip="true"
+          >
             <div className="rounded-lg border border-cyan-500/25 bg-white/55 dark:bg-[#070D1B]/75 px-3 py-1.5">
-              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">Mô-đun đang bật</div>
+              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">
+                Mô-đun đang bật
+              </div>
               <div className="text-sm font-bold text-cyan-700 dark:text-cyan-300 hud-telemetry-num">
                 <NumberTicker value={armedAgSaversCount} /> / 5
               </div>
             </div>
 
             <div className="rounded-lg border border-black/10 dark:border-white/10 bg-white/55 dark:bg-[#070D1B]/75 px-3 py-1.5">
-              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">Headroom Proxy</div>
+              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">
+                Headroom Proxy
+              </div>
               <div className="flex items-center gap-1.5 text-xs font-bold">
                 <span
                   className={`size-1.5 rounded-full shrink-0 ${
-                    headroomRunning
-                      ? `bg-emerald-500 ${motionPaused ? "" : "animate-pulse"}`
-                      : "bg-amber-500"
+                    headroomStatus.loading
+                      ? "bg-cyan-500 animate-pulse"
+                      : headroomRunning
+                        ? `bg-emerald-500 ${motionPaused ? "" : "animate-pulse"}`
+                        : "bg-amber-500"
                   }`}
                 />
-                <span className={headroomRunning ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>
-                  {headroomStatus.loading ? "ĐANG KIỂM TRA" : headroomRunning ? "ĐANG CHẠY" : "ĐANG CHỜ"}
+                <span
+                  className={
+                    headroomStatus.loading
+                      ? "text-cyan-600 dark:text-cyan-400"
+                      : headroomRunning
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-amber-600 dark:text-amber-400"
+                  }
+                >
+                  {headroomStatus.loading
+                    ? "ĐANG KIỂM TRA…"
+                    : headroomRunning
+                      ? "ĐANG CHẠY"
+                      : "ĐANG TẮT"}
                 </span>
               </div>
             </div>
 
             <div className="rounded-lg border border-black/10 dark:border-white/10 bg-white/55 dark:bg-[#070D1B]/75 px-3 py-1.5">
-              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">Nén đầu ra</div>
+              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">
+                Nén đầu ra
+              </div>
               <div className="text-xs font-bold text-text-main truncate">
-                {cavemanEnabled ? `CAVEMAN:${cavemanLevel.toUpperCase()}` : ponytailEnabled ? `PONYTAIL:${ponytailLevel.toUpperCase()}` : "MẶC ĐỊNH"}
+                {outputCompressionLabel}
               </div>
             </div>
 
             <div className="rounded-lg border border-amber-500/25 bg-white/55 dark:bg-[#070D1B]/75 px-3 py-1.5">
-              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">Bộ nhớ đệm Claude</div>
+              <div className="text-[9.5px] uppercase tracking-wider text-text-muted">
+                Bộ nhớ đệm Claude
+              </div>
               <div className="text-xs font-bold text-amber-700 dark:text-amber-300">
                 TTL {claudeCacheTtl.toUpperCase()}
               </div>
@@ -629,422 +1134,165 @@ export default function TokenSaverClient() {
         </div>
       </HudFrame>
 
-      {/* Main Tactical Orbital HUD Matrix Card */}
-      <HudFrame id="rtk" chamfer="md" accent="cyan" padding="md">
-        <div className="space-y-4">
-          {/* 1. RTK — Antigravity Ready */}
-          <div className="flex items-center justify-between pb-4 border-b border-cyan-500/15 gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-text-main">
-                  Nén kết quả lệnh &amp; công cụ{" "}
-                  <a
-                    href="https://github.com/rtk-ai/rtk"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-mono font-normal text-primary underline hover:opacity-80"
-                  >
-                    (RTK)
-                  </a>
-                </p>
-                <CompatibilityBadge type="antigravity" />
-              </div>
-              <p className="text-sm text-text-muted mt-0.5">
-                git/grep/ls/tree/logs → giảm 60-90% token đầu vào
-              </p>
-            </div>
-            <Toggle
-              checked={rtkEnabled}
-              onChange={() => handleRtkEnabled(!rtkEnabled)}
+      {/* Live Token Compression Pipeline Circuit */}
+      <TokenSaverFlowCircuit
+        rtkEnabled={rtkEnabled}
+        onToggleRtk={handleRtkEnabled}
+        headroomEnabled={headroomEnabled}
+        headroomRunning={headroomRunning}
+        onToggleHeadroom={handleHeadroomEnabled}
+        cavemanEnabled={cavemanEnabled}
+        cavemanLevel={cavemanLevel}
+        onToggleCaveman={handleCavemanEnabled}
+        ponytailEnabled={ponytailEnabled}
+        ponytailLevel={ponytailLevel}
+        customPromptEnabled={customPromptEnabled}
+        claudeCacheTtl={claudeCacheTtl}
+        motionPaused={motionPaused}
+      />
+
+      {/* ZONE 1: Active Command Deck */}
+      <section aria-labelledby="active-deck-heading" className="space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <span
+              className={`size-2 rounded-full ${
+                armedAgSaversCount > 0
+                  ? `bg-emerald-500 ${motionPaused ? "" : "animate-pulse"} shadow-[0_0_8px_rgba(16,185,129,0.75)]`
+                  : "bg-amber-500"
+              }`}
             />
+            <h2
+              id="active-deck-heading"
+              className="text-sm sm:text-base font-bold uppercase tracking-wider font-mono text-text-main"
+            >
+              Đang kích hoạt
+            </h2>
+            <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[11px] font-bold text-cyan-700 dark:text-cyan-300">
+              {armedAgSaversCount} / 5 mô-đun
+            </span>
           </div>
-
-          {/* 2. Headroom — Antigravity Ready */}
-          <div className="flex items-center justify-between pb-2 gap-4 flex-wrap">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-text-main">
-                  Nén ngữ cảnh hội thoại{" "}
-                  <a
-                    href="https://github.com/chopratejas/headroom"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-mono font-normal text-primary underline hover:opacity-80"
-                  >
-                    (Headroom)
-                  </a>
-                </p>
-                <CompatibilityBadge type="antigravity" />
-                <span
-                  className={`font-mono text-[11px] font-semibold px-2 py-0.5 rounded border ${
-                    headroomRunning
-                      ? "border-emerald-500/35 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-                      : "border-amber-500/35 bg-amber-500/12 text-amber-700 dark:text-amber-300"
-                  }`}
-                >
-                  {headroomStatusLabel}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    playHudSound("click");
-                    setShowHeadroomInstallModal(true);
-                  }}
-                  className="font-mono text-xs font-semibold text-primary underline hover:opacity-80 cursor-pointer"
-                >
-                  {headroomRunning ? "Quản lý" : "Cài đặt"}
-                </button>
-              </div>
-              <p className="text-sm text-text-muted mt-1">
-                Nén prompt qua <code className="font-mono text-xs">/v1/compress</code> trước khi gửi tới model
-              </p>
-            </div>
-            <Toggle
-              checked={headroomEnabled}
-              onChange={() => handleHeadroomEnabled(!headroomEnabled)}
-            />
-          </div>
-
-          {headroomStatus.installed && (
-            <div className="mb-2 ml-1 pl-3 pb-4 border-l-2 border-cyan-500/35">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-xs text-text-muted">
-                  Gói nén mở rộng
-                  {headroomExtras.version ? ` · v${headroomExtras.version}` : ""}:
-                </span>
-                {headroomExtras.available.map((extra) => {
-                  const installed = !!headroomExtras.extras[extra];
-                  const pending = pendingExtras.includes(extra);
-                  const extraTitle =
-                    extra === "code"
-                      ? "Nén AST bằng tree-sitter cho phản hồi code"
-                      : "Mô hình Kompress-v2 HF cho văn bản dài/agent (~+1GB)";
-
-                  if (installed) {
-                    const active = extra === "code" ? codeAware : kompress;
-                    return (
-                      <div
-                        key={extra}
-                        className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-text"
-                        title={extraTitle}
-                      >
-                        <Toggle
-                          size="sm"
-                          checked={active}
-                          disabled={restartingProxy}
-                          onChange={() => toggleExtraActive(extra, !active)}
-                        />
-                        <span className="font-mono font-semibold">[{extra}]</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveExtra(extra)}
-                          disabled={removingExtra === extra}
-                          className="ml-1 font-mono text-[11px] text-error underline hover:opacity-80 disabled:opacity-50 cursor-pointer"
-                          title={`Gỡ cài đặt [${extra}]`}
-                        >
-                          {removingExtra === extra ? "Đang gỡ…" : "Gỡ bỏ"}
-                        </button>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <label
-                      key={extra}
-                      className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border cursor-pointer transition-colors ${
-                        pending
-                          ? "border-cyan-500 bg-cyan-500/12 text-cyan-700 dark:text-cyan-300"
-                          : "border-border text-text-muted hover:bg-surface-2"
-                      }`}
-                      title={extraTitle}
-                    >
-                      <input
-                        type="checkbox"
-                        className="w-3 h-3"
-                        checked={pending}
-                        onChange={() => togglePendingExtra(extra)}
-                      />
-                      <span className="font-mono font-semibold">[{extra}]</span>
-                      <span className="opacity-70">chưa cài</span>
-                    </label>
-                  );
-                })}
-                {pendingExtras.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleInstallExtras}
-                    disabled={extrasActionLoading}
-                    className="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-primary text-white hover:opacity-90 disabled:opacity-50 cursor-pointer"
-                  >
-                    {extrasActionLoading
-                      ? "Đang cài…"
-                      : `Cài đặt [proxy,${pendingExtras.join(",")}]`}
-                  </button>
-                )}
-              </div>
-              {extrasActionError && (
-                <p className="text-xs text-error mt-1.5">{extrasActionError}</p>
-              )}
-              {restartingProxy && (
-                <p className="font-mono text-xs text-cyan-600 dark:text-cyan-400 mt-1.5">
-                  Đang khởi động lại proxy…
-                </p>
-              )}
-              {installLog && (
-                <div className="mt-2.5 overflow-hidden rounded-lg border border-cyan-500/30 bg-[#050A15] shadow-inner">
-                  <div className="flex items-center justify-between border-b border-cyan-500/20 bg-[#0A1326] px-3 py-1 font-mono text-[10px] text-cyan-300">
-                    <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider">
-                      <span className="size-1.5 rounded-full bg-cyan-400" />
-                      HEADROOM // LUỒNG CÀI ĐẶT PIPX
-                    </span>
-                    <span className="text-cyan-400/70">LOG TRỰC TIẾP</span>
-                  </div>
-                  <pre className="max-h-36 overflow-auto p-2.5 font-mono text-[10.5px] leading-relaxed text-cyan-100/90 whitespace-pre-wrap">
-                    {installLog}
-                  </pre>
-                </div>
-              )}
-              <p className="text-xs text-text-muted mt-1.5">
-                Cài đặt chỉ tải gói; gạt nút <code>bật</code>/<code>tắt</code>{" "}
-                để kích hoạt (sẽ khởi động lại proxy). Mặc định chỉ cài{" "}
-                <code>[proxy]</code> (SmartCrusher cho JSON). Thêm{" "}
-                <code>[code]</code> để nén AST cho mã nguồn
-                (Python/JS/TS/Go/Rust/Java/C/C++/Perl). Thêm <code>[ml]</code>{" "}
-                bật mô hình Kompress-v2 HF nhưng tốn thêm ~1 GB dung lượng.
-              </p>
-            </div>
-          )}
-
-          {/* 3. Caveman — Antigravity Ready */}
-          <div className="flex items-center justify-between pt-4 border-t border-cyan-500/15 gap-4 flex-wrap">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-text-main">
-                  Nén phản hồi LLM{" "}
-                  <a
-                    href="https://github.com/JuliusBrussee/caveman"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-mono font-normal text-primary underline hover:opacity-80"
-                  >
-                    (Caveman)
-                  </a>
-                </p>
-                <CompatibilityBadge type="antigravity" />
-              </div>
-              <p className="text-sm text-text-muted mt-0.5">
-                Tiêm chỉ thị trả lời cô đọng → giảm ~65% token đầu ra (tối đa 87%)
-              </p>
-            </div>
-            <div className="flex items-center gap-3 shrink-0 flex-wrap">
-              {cavemanEnabled && (
-                <div className="flex flex-col items-end gap-1">
-                  <div className="inline-flex items-center rounded-lg border border-cyan-500/25 bg-black/[0.03] dark:bg-black/30 p-0.5 gap-0.5">
-                    {visibleCavemanLevels.map((lvl) => (
-                      <button
-                        key={lvl.id}
-                        type="button"
-                        onClick={() => handleCavemanLevel(lvl.id)}
-                        className={`px-2.5 py-1 rounded-md font-mono text-xs font-bold transition-all cursor-pointer ${
-                          cavemanLevel === lvl.id
-                            ? "bg-primary text-white shadow-2xs"
-                            : "text-text-muted hover:text-text-main hover:bg-white/40 dark:hover:bg-white/[0.06]"
-                        }`}
-                        title={lvl.desc}
-                      >
-                        {lvl.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-primary">
-                    {
-                      CAVEMAN_LEVELS.find((lvl) => lvl.id === cavemanLevel)
-                        ?.desc
-                    }
-                  </p>
-                </div>
-              )}
-              <Toggle
-                checked={cavemanEnabled}
-                onChange={() => handleCavemanEnabled(!cavemanEnabled)}
-              />
-            </div>
-          </div>
-
-          {/* 4. Ponytail — Antigravity Ready */}
-          <div className="flex items-center justify-between pt-4 border-t border-cyan-500/15 gap-4 flex-wrap">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-text-main">
-                  Code tối giản kiểu Senior{" "}
-                  <a
-                    href="https://github.com/DietrichGebert/ponytail"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-mono font-normal text-primary underline hover:opacity-80"
-                  >
-                    (Ponytail)
-                  </a>
-                </p>
-                <CompatibilityBadge type="antigravity" />
-              </div>
-              <p className="text-sm text-text-muted mt-0.5">
-                Định hướng model viết code tối giản: YAGNI, tận dụng stdlib, hạn chế dư thừa
-              </p>
-            </div>
-            <div className="flex items-center gap-3 shrink-0 flex-wrap">
-              {ponytailEnabled && (
-                <div className="flex flex-col items-end gap-1">
-                  <div className="inline-flex items-center rounded-lg border border-cyan-500/25 bg-black/[0.03] dark:bg-black/30 p-0.5 gap-0.5">
-                    {PONYTAIL_LEVELS.map((lvl) => (
-                      <button
-                        key={lvl.id}
-                        type="button"
-                        onClick={() => handlePonytailLevel(lvl.id)}
-                        className={`px-2.5 py-1 rounded-md font-mono text-xs font-bold transition-all cursor-pointer ${
-                          ponytailLevel === lvl.id
-                            ? "bg-primary text-white shadow-2xs"
-                            : "text-text-muted hover:text-text-main hover:bg-white/40 dark:hover:bg-white/[0.06]"
-                        }`}
-                        title={lvl.desc}
-                      >
-                        {lvl.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-primary">
-                    {
-                      PONYTAIL_LEVELS.find((lvl) => lvl.id === ponytailLevel)
-                        ?.desc
-                    }
-                  </p>
-                </div>
-              )}
-              <Toggle
-                checked={ponytailEnabled}
-                onChange={() => handlePonytailEnabled(!ponytailEnabled)}
-              />
-            </div>
-          </div>
-
-          {/* 5. Custom System Prompt — Antigravity Ready */}
-          <div className="flex items-center justify-between pt-4 border-t border-cyan-500/15 gap-4 flex-wrap">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-text-main">System prompt tùy chỉnh</p>
-                <CompatibilityBadge type="antigravity" />
-              </div>
-              <p className="text-sm text-text-muted mt-0.5">
-                Tự động chèn chỉ thị riêng của bạn vào mọi yêu cầu, độc lập với các bộ tiết kiệm trên
-              </p>
-            </div>
-            <Toggle
-              checked={customPromptEnabled}
-              onChange={() => handleCustomPromptEnabled(!customPromptEnabled)}
-            />
-          </div>
-          {customPromptEnabled && (
-            <div className="pt-1">
-              <textarea
-                id="custom-prompt"
-                aria-label="System prompt tùy chỉnh"
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                onBlur={handleCustomPromptBlur}
-                rows={4}
-                placeholder="Ví dụ: Ưu tiên sửa trực tiếp file hiện có thay vì tạo file mới."
-                className="w-full rounded-lg border border-cyan-500/25 bg-white/60 dark:bg-[#060C19]/80 p-2.5 font-mono text-xs text-text-main focus:outline-none focus:border-cyan-500"
-              />
-              <p className="text-xs text-text-muted mt-1">
-                Áp dụng cho mọi nhà cung cấp và model. Gửi nguyên văn lên upstream; để trống nếu không muốn chèn thêm.
-              </p>
-            </div>
-          )}
-
-          {/* 6. Prompt Cache TTL (Claude) — Claude / Anthropic Only */}
-          <div className="flex items-center justify-between pt-4 border-t border-cyan-500/15 gap-4 flex-wrap">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-text-main">Thời hạn bộ nhớ đệm (Claude)</p>
-                <CompatibilityBadge type="claude" />
-              </div>
-              <p className="text-sm text-text-muted mt-0.5">
-                Thời gian giữ cache hội thoại trên các provider chuẩn Anthropic. System prompt và tools luôn được lưu 1 giờ
-              </p>
-            </div>
-            <div className="flex flex-col items-end gap-1 shrink-0">
-              <div className="inline-flex items-center rounded-lg border border-amber-500/25 bg-black/[0.03] dark:bg-black/30 p-0.5 gap-0.5">
-                {CLAUDE_CACHE_TTLS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => handleClaudeCacheTtl(opt.id)}
-                    className={`px-3 py-1 rounded-md font-mono text-xs font-bold transition-all cursor-pointer ${
-                      claudeCacheTtl === opt.id
-                        ? "bg-amber-500 text-slate-950 shadow-2xs"
-                        : "text-text-muted hover:text-text-main hover:bg-white/40 dark:hover:bg-white/[0.06]"
-                    }`}
-                    title={opt.desc}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                {CLAUDE_CACHE_TTLS.find((opt) => opt.id === claudeCacheTtl)?.desc}
-              </p>
-            </div>
-          </div>
-
-          {/* PXPIPE hidden from UI — experimental, not exposed to users yet */}
-          {false && (
-            <div className="flex items-center justify-between pt-4 mt-4 border-t border-border gap-4 flex-wrap">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <p className="font-medium">
-                    Compress prompts as images{" "}
-                    <a
-                      href="https://github.com/teamchong/pxpipe"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs font-normal text-primary underline hover:opacity-80"
-                    >
-                      (PXPIPE)
-                    </a>
-                  </p>
-                  <span className={`text-xs px-2 py-0.5 rounded ${pxpipeChipClass}`}>
-                    {pxpipeStatusLabel}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowPxpipeModal(true)}
-                    className="text-xs text-primary underline hover:opacity-80"
-                  >
-                    {pxpipeStatus.installed ? "Manage" : "Setup"}
-                  </button>
-                  <a
-                    href="/dashboard/pxpipe"
-                    className="text-xs text-primary underline hover:opacity-80"
-                  >
-                    Dashboard
-                  </a>
-                </div>
-                <p className="text-sm text-text-muted mt-1">
-                  Transforms large textual context into optimized images before
-                  sending to the LLM. Ideal for huge prompts, tool outputs and long
-                  conversations.
-                </p>
-              </div>
-              <Toggle
-                checked={pxpipeEnabled}
-                disabled={!pxpipeStatus.installed}
-                onChange={() => handlePxpipeEnabled(!pxpipeEnabled)}
-              />
-            </div>
-          )}
+          <p className="text-xs text-text-muted">
+            Các mô-đun đang trực tiếp nén &amp; tối ưu luồng prompt/phản hồi
+          </p>
         </div>
-      </HudFrame>
 
+        {activeModules.length === 0 ? (
+          <HudFrame chamfer="sm" accent="amber" padding="md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="font-semibold text-text-main">
+                  Chưa có mô-đun tiết kiệm token nào đang kích hoạt
+                </p>
+                <p className="text-xs sm:text-sm text-text-muted">
+                  Bật nhanh bộ đôi RTK &amp; Caveman để tự động giảm 60–90%
+                  token đầu vào từ terminal/tool và ~65% token đầu ra.
+                </p>
+              </div>
+              <MagneticButton className="shrink-0" data-cursor-target="true">
+                <Button
+                  variant="primary"
+                  icon="bolt"
+                  onClick={handleEnableRecommended}
+                >
+                  Bật RTK &amp; Caveman gợi ý
+                </Button>
+              </MagneticButton>
+            </div>
+          </HudFrame>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {activeModules.map((id) => renderModuleCard(id, true))}
+          </div>
+        )}
+      </section>
+
+      {/* ZONE 2: Inactive Modules & Additional Configuration Bento Grid */}
+      <section aria-labelledby="inactive-bento-heading" className="space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <span className="size-2 rounded-full bg-cyan-500/60" />
+            <h2
+              id="inactive-bento-heading"
+              className="text-sm sm:text-base font-bold uppercase tracking-wider font-mono text-text-main"
+            >
+              {inactiveModules.length > 0
+                ? "Chưa kích hoạt & Cấu hình"
+                : "Cấu hình bổ sung"}
+            </h2>
+            {inactiveModules.length > 0 && (
+              <span className="rounded border border-black/10 dark:border-white/15 bg-black/[0.03] dark:bg-white/[0.04] px-2 py-0.5 font-mono text-[11px] font-bold text-text-muted">
+                {inactiveModules.length} mô-đun tắt
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-text-muted">
+            Bật nhanh các bộ lọc chưa kích hoạt và tinh chỉnh bộ nhớ đệm
+            Anthropic
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {inactiveModules.map((id) => renderModuleCard(id, false))}
+
+          {/* Dedicated Claude Cache TTL Card */}
+          <HudFrame
+            chamfer="sm"
+            accent="amber"
+            padding="md"
+            className={inactiveModules.length % 2 === 0 ? "lg:col-span-2" : ""}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="size-8 rounded-lg border border-amber-500/35 bg-amber-500/12 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[18px]">
+                      cached
+                    </span>
+                  </div>
+                  <h3 className="font-semibold text-sm sm:text-[15px] text-text-main">
+                    Thời hạn bộ nhớ đệm (Claude)
+                  </h3>
+                  <CompatibilityBadge type="claude" />
+                </div>
+                <p className="text-xs sm:text-[13px] text-text-muted leading-relaxed">
+                  Thời gian giữ cache hội thoại trên các provider chuẩn
+                  Anthropic. System prompt và tools luôn được lưu cố định 1 giờ.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
+                <div className="inline-flex items-center rounded-lg border border-amber-500/30 bg-black/[0.03] dark:bg-black/35 p-0.5 gap-0.5">
+                  {CLAUDE_CACHE_TTLS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      data-cursor-target="true"
+                      onClick={() => handleClaudeCacheTtl(opt.id)}
+                      className={`px-3 py-1 rounded-md font-mono text-xs font-bold transition-all cursor-pointer ${
+                        claudeCacheTtl === opt.id
+                          ? "bg-amber-500 text-slate-950 shadow-2xs"
+                          : "text-text-muted hover:text-text-main hover:bg-white/40 dark:hover:bg-white/[0.06]"
+                      }`}
+                      title={opt.desc}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  {
+                    CLAUDE_CACHE_TTLS.find((opt) => opt.id === claudeCacheTtl)
+                      ?.desc
+                  }
+                </p>
+              </div>
+            </div>
+          </HudFrame>
+        </div>
+      </section>
+
+      {/* Headroom Management / Setup Modal (100% Vietnamese) */}
       <Modal
         isOpen={showHeadroomInstallModal}
         title={headroomRunning ? "Quản lý Headroom" : "Cài đặt Headroom"}
@@ -1054,7 +1302,9 @@ export default function TokenSaverClient() {
           <div className="flex items-center justify-between text-sm">
             <span>Trạng thái</span>
             <span
-              className={`font-mono font-semibold ${headroomRunning ? "text-success" : "text-warning"}`}
+              className={`font-mono font-semibold ${
+                headroomRunning ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+              }`}
             >
               {headroomStatusLabel}
             </span>
@@ -1079,11 +1329,12 @@ export default function TokenSaverClient() {
               className="font-mono text-sm"
             />
             <p className="text-xs text-text-muted">
-              Dùng proxy nội bộ để Bật/Tắt nhanh, hoặc dùng sidecar Docker bên ngoài như http://headroom:8787.
+              Dùng proxy nội bộ để Bật/Tắt nhanh, hoặc dùng sidecar Docker bên
+              ngoài như http://headroom:8787.
             </p>
           </div>
           <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">Timeout (ms)</p>
+            <p className="text-sm font-medium">Thời gian chờ (ms)</p>
             <Input
               value={String(headroomTimeoutMs)}
               onChange={(e) => setHeadroomTimeoutMs(e.target.value)}
@@ -1092,7 +1343,7 @@ export default function TokenSaverClient() {
               className="font-mono text-sm"
             />
             <p className="text-xs text-text-muted">
-              Request timeout in milliseconds. Defaults to 3000 ms.
+              Giới hạn thời gian chờ mỗi yêu cầu (mili-giây). Mặc định 3000 ms.
             </p>
           </div>
           {headroomManaged ? (
@@ -1102,11 +1353,12 @@ export default function TokenSaverClient() {
               fullWidth
               disabled={headroomActionLoading}
             >
-              {headroomActionLoading ? "Stopping…" : "Stop Headroom"}
+              {headroomActionLoading ? "Đang dừng…" : "Dừng Headroom"}
             </Button>
           ) : headroomRunning ? (
-            <p className="text-sm text-success">
-              Headroom proxy đã kết nối. Bạn có thể bật tính năng tiết kiệm token.
+            <p className="text-sm text-emerald-600 dark:text-emerald-400">
+              Headroom proxy đã kết nối. Bạn có thể bật tính năng tiết kiệm
+              token.
             </p>
           ) : headroomCanStart ? (
             <Button
@@ -1114,19 +1366,25 @@ export default function TokenSaverClient() {
               fullWidth
               disabled={headroomActionLoading}
             >
-              {headroomActionLoading ? "Đang khởi động…" : "Khởi động Headroom"}
+              {headroomActionLoading
+                ? "Đang khởi động…"
+                : "Khởi động Headroom"}
             </Button>
           ) : !headroomLocalUrl ? (
-            <p className="text-sm text-warning">
-              Hãy khởi chạy Headroom riêng tại URL đã cấu hình, sau đó nhấn Kiểm tra lại.
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              Hãy khởi chạy Headroom riêng tại URL đã cấu hình, sau đó nhấn Kiểm
+              tra lại.
             </p>
           ) : !headroomStatus.python ? (
-            <p className="text-sm text-warning">
-              Cần Python ≥ 3.10 để chạy chế độ tự quản lý. Hãy cài Python trước hoặc dùng URL proxy bên ngoài.
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              Cần Python ≥ 3.10 để chạy chế độ tự quản lý. Hãy cài Python trước
+              hoặc dùng URL proxy bên ngoài.
             </p>
           ) : (
             <div className="flex flex-col gap-1">
-              <p className="text-sm font-medium">Cài đặt rồi nhấn Khởi động:</p>
+              <p className="text-sm font-medium">
+                Cài đặt rồi nhấn Khởi động:
+              </p>
               <div className="flex items-center gap-2">
                 <pre className="flex-1 rounded bg-black/5 dark:bg-white/5 p-2 text-xs font-mono overflow-x-auto">
                   {`pip install "headroom-ai[proxy]"`}
@@ -1134,9 +1392,7 @@ export default function TokenSaverClient() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() =>
-                    copy(`pip install "headroom-ai[proxy]"`)
-                  }
+                  onClick={() => copy(`pip install "headroom-ai[proxy]"`)}
                 >
                   {copied ? "Đã chép" : "Chép"}
                 </Button>
@@ -1144,7 +1400,9 @@ export default function TokenSaverClient() {
             </div>
           )}
           {headroomActionError && (
-            <p className="text-sm text-warning">{headroomActionError}</p>
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              {headroomActionError}
+            </p>
           )}
           <div className="flex gap-2">
             <Button
@@ -1164,116 +1422,8 @@ export default function TokenSaverClient() {
         </div>
       </Modal>
 
-      <Modal
-        isOpen={false}
-        title={pxpipeStatus.installed ? "PXPIPE" : "Setup PXPIPE"}
-        onClose={() => setShowPxpipeModal(false)}
-      >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-text-muted">
-            Compress prompts using multimodal encoding. Runs in-process — no
-            extra server or environment variables required.
-          </p>
-          <div className="flex items-center justify-between text-sm">
-            <span>Status</span>
-            <span className={pxpipeHealthy || pxpipeStatus.running ? "text-success" : "text-warning"}>
-              {pxpipeStatusLabel}
-              {pxpipeStatus.version ? ` · v${pxpipeStatus.version}` : ""}
-            </span>
-          </div>
-          {pxpipeHealth?.checks?.length > 0 && (
-            <div className="flex flex-col gap-1 rounded border border-border p-3">
-              <p className="text-sm font-medium mb-1">Health check</p>
-              {pxpipeHealth.checks.map((check) => (
-                <div key={check.id} className="flex items-center justify-between text-xs">
-                  <span className={check.ok ? "text-success" : "text-warning"}>
-                    {check.ok ? "●" : "○"} {check.label}
-                  </span>
-                  {check.detail && (
-                    <span className="text-text-muted font-mono truncate max-w-[50%]">{check.detail}</span>
-                  )}
-                </div>
-              ))}
-              {pxpipeHealth.error && (
-                <p className="text-xs text-warning mt-1">{pxpipeHealth.error}</p>
-              )}
-            </div>
-          )}
-          {!pxpipeStatus.installed ? (
-            <div className="flex flex-col gap-2">
-              <p className="text-sm text-warning">PXPIPE is not installed.</p>
-              <Button
-                onClick={() => pxpipeAction("install")}
-                fullWidth
-                disabled={pxpipeActionLoading || pxpipeStatus.installing}
-              >
-                {pxpipeActionLoading || pxpipeStatus.installing ? "Installing…" : "Install"}
-              </Button>
-              <p className="text-xs text-text-muted">
-                Installs the npm package <code className="font-mono">pxpipe-proxy</code> into
-                the 9Router data directory. May take a few minutes.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {pxpipeStatus.running ? (
-                <>
-                  <Button onClick={() => pxpipeAction("restart")} variant="ghost" disabled={pxpipeActionLoading}>
-                    Restart
-                  </Button>
-                  <Button onClick={() => pxpipeAction("stop")} variant="ghost" disabled={pxpipeActionLoading}>
-                    Stop
-                  </Button>
-                </>
-              ) : (
-                <Button onClick={() => pxpipeAction("start")} disabled={pxpipeActionLoading}>
-                  {pxpipeActionLoading ? "Starting…" : "Start"}
-                </Button>
-              )}
-              <Button onClick={() => pxpipeAction("install")} variant="ghost" disabled={pxpipeActionLoading}>
-                Repair
-              </Button>
-              <a
-                href="/dashboard/pxpipe#logs"
-                className="col-span-2 rounded border border-border px-4 py-2 text-center text-sm hover:bg-surface-2"
-              >
-                Open Logs
-              </a>
-            </div>
-          )}
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">Minimum prompt size (chars)</p>
-            <Input
-              value={String(pxpipeMinChars)}
-              onChange={(e) => setPxpipeMinChars(e.target.value)}
-              onBlur={handlePxpipeMinCharsBlur}
-              placeholder="25000"
-              className="font-mono text-sm"
-            />
-            <p className="text-xs text-text-muted">
-              Requests smaller than this bypass PXPIPE and are sent as-is.
-            </p>
-          </div>
-          {pxpipeActionError && (
-            <p className="text-sm text-warning">{pxpipeActionError}</p>
-          )}
-          <div className="flex gap-2">
-            <Button
-              onClick={() => refreshPxpipeStatus().then(runPxpipeHealth)}
-              variant="ghost"
-              fullWidth
-            >
-              Recheck
-            </Button>
-            <Button onClick={() => setShowPxpipeModal(false)} fullWidth>
-              Done
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
       <ConfirmModal
-        isOpen={!!extrasConfirm}
+        isOpen={Boolean(extrasConfirm)}
         onClose={() => setExtrasConfirm(null)}
         onConfirm={() => {
           const fn = extrasConfirm?.onConfirm;
@@ -1283,6 +1433,7 @@ export default function TokenSaverClient() {
         title={extrasConfirm?.title}
         message={extrasConfirm?.message}
         confirmText={extrasConfirm?.confirmText}
+        cancelText="Hủy"
         variant={extrasConfirm?.variant}
       />
     </div>

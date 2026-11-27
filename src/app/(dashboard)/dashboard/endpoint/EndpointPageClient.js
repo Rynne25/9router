@@ -11,6 +11,7 @@ import { useCloudflareTunnel } from "./hooks/useCloudflareTunnel";
 import { useTailscaleTunnel } from "./hooks/useTailscaleTunnel";
 import TunnelEndpointSection from "./components/TunnelEndpointSection";
 import ApiKeysCard from "./components/ApiKeysCard";
+import EndpointFlowCircuit from "./components/EndpointFlowCircuit";
 import TunnelModals from "./components/TunnelModals";
 
 const subscribeNoop = () => () => {};
@@ -164,6 +165,21 @@ export default function EndpointPageClient({ machineId: _machineId = "" }) {
           </Link>
         </div>
       </HudFrame>
+
+      {/* Live Endpoint & Tunnel Access Map */}
+      <EndpointFlowCircuit
+        baseUrl={baseUrl}
+        isRemoteHost={isRemoteHost}
+        requireApiKey={requireApiKey}
+        onToggleRequireApiKey={handleRequireApiKey}
+        activeKeysCount={activeKeysCount}
+        cloudflareEnabled={Boolean(cloudflare.tunnelEnabled)}
+        cloudflareReachable={Boolean(cloudflare.tunnelReachable)}
+        tailscaleEnabled={Boolean(tailscale.tsEnabled)}
+        tailscaleReachable={Boolean(tailscale.tsReachable)}
+        copied={apiKeys.copied}
+        onCopy={apiKeys.copy}
+      />
 
       <TunnelEndpointSection
         currentEndpoint={baseUrl}

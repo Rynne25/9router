@@ -5,6 +5,7 @@ import { useCombosPage } from "./hooks/useCombosPage";
 import ComboStrategyBar from "./components/ComboStrategyBar";
 import ComboSelectionToolbar from "./components/ComboSelectionToolbar";
 import ComboCard from "./components/ComboCard";
+import ComboFlowCircuit from "./components/ComboFlowCircuit";
 import CapacityAdapterSection from "./components/CapacityAdapterSection";
 
 export default function CombosPage() {
@@ -64,6 +65,17 @@ export default function CombosPage() {
         presetLoading={presetLoading}
         onGeneratePresets={handleGeneratePresets}
       />
+
+      {combos.length > 0 && (
+        <ComboFlowCircuit
+          combos={combos}
+          filteredCombos={filteredCombos}
+          comboStrategies={comboStrategies}
+          copied={copied}
+          onCopy={copy}
+          onEdit={(combo) => setEditingCombo(combo)}
+        />
+      )}
 
       {combos.length === 0 ? (
         <Card>

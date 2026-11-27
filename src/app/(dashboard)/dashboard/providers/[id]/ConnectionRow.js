@@ -15,6 +15,7 @@ function ConnectionRow({
   isOAuth,
   isFirst,
   isLast,
+  isLongList = false,
   onMoveUp,
   onMoveDown,
   onToggleActive,
@@ -37,26 +38,29 @@ function ConnectionRow({
   const proxyPoolMap = new Map((proxyPools || []).map((pool) => [pool.id, pool]));
   const boundProxyPoolId = connection.providerSpecificData?.proxyPoolId || null;
   const boundProxyPool = boundProxyPoolId ? proxyPoolMap.get(boundProxyPoolId) : null;
-  const hasLegacyProxy = connection.providerSpecificData?.connectionProxyEnabled === true && !!connection.providerSpecificData?.connectionProxyUrl;
+  const hasLegacyProxy =
+    connection.providerSpecificData?.connectionProxyEnabled === true &&
+    !!connection.providerSpecificData?.connectionProxyUrl;
   const hasAnyProxy = !!boundProxyPoolId || hasLegacyProxy;
   const proxyDisplayText = boundProxyPool
     ? `Pool: ${boundProxyPool.name}`
     : boundProxyPoolId
-      ? `Pool: ${boundProxyPoolId} (inactive/missing)`
+      ? `Pool: ${boundProxyPoolId} (tạm tắt / không tìm thấy)`
       : hasLegacyProxy
         ? `Legacy: ${connection.providerSpecificData?.connectionProxyUrl}`
         : "";
+
   const autoPingTooltip = (() => {
     if (!autoPing) return "";
     const activeModes = [];
-    if (autoPing.reactiveOn) activeModes.push("On reset");
-    if (autoPing.scheduleOn) activeModes.push(`Scheduled (${autoPing.scheduleSummary || "active"})`);
+    if (autoPing.reactiveOn) activeModes.push("Khi reset");
+    if (autoPing.scheduleOn) activeModes.push(`Theo lịch (${autoPing.scheduleSummary || "đang bật"})`);
     if (activeModes.length > 0) {
-      return `Auto-ping active: ${activeModes.join(" + ")}. Click to configure.`;
+      return `Auto-Ping đang bật: ${activeModes.join(" + ")}. Bấm để cấu hình.`;
     }
     return autoPing.provider === "codex"
-      ? "Auto-starts the next 5h Codex window after reset or on schedule. Click to configure."
-      : "Auto-starts a new window on quota reset or fixed schedule. Click to configure.";
+      ? "Tự động mở cửa sổ Codex 5h tiếp theo sau khi reset hoặc theo lịch. Bấm để cấu hình."
+      : "Tự động mở cửa sổ Quota mới khi reset hoặc theo lịch cố định. Bấm để cấu hình.";
   })();
 
   let maskedProxyUrl = "";
@@ -111,7 +115,9 @@ function ConnectionRow({
       if (
         proxyDropdownRef.current?.contains(e.target) ||
         proxyBtnRef.current?.contains(e.target)
-      ) return;
+      ) {
+        return;
+      }
       setShowProxyDropdown(false);
     };
     const close = () => setShowProxyDropdown(false);
@@ -144,8 +150,8 @@ function ConnectionRow({
 
   const isValidationBlocked = Boolean(
     connection.validationBlocked ||
-    connection.providerSpecificData?.validationBlocked ||
-    connection.providerSpecificData?.isValidationBlocked
+      connection.providerSpecificData?.validationBlocked ||
+      connection.providerSpecificData?.isValidationBlocked
   );
   const validationReason =
     connection.validationReason ||
@@ -253,13 +259,13 @@ function ConnectionRow({
         const errMsg = data?.error || data?.result?.error || "Làm nóng tài khoản thất bại";
         setActionToast({ type: "error", text: errMsg });
       } else {
-        setActionToast({ type: "success", text: "Làm nóng tài khoản thành công! Weekly quota đã kích hoạt." });
+        setActionToast({ type: "success", text: "Warmup thành công! Quota tuần đã kích hoạt." });
       }
       if (typeof onRefresh === "function") {
         onRefresh();
       }
     } catch (err) {
-      setActionToast({ type: "error", text: err.message || "Lỗi mạng khi gọi warmup" });
+      setActionToast({ type: "error", text: err.message || "Lỗi mạng khi gọi Warmup" });
     } finally {
       setWarmingUp(false);
     }
@@ -280,35 +286,59 @@ function ConnectionRow({
   const isOAuthConnection = rowAuthType === "oauth";
   const isCookieConnection = rowAuthType === "cookie";
   const isLeaseConnection = rowAuthType === "mcode-lease";
-  const authIcon = isLeaseConnection ? "desktop_windows" : isCookieConnection ? "cookie" : isOAuthConnection ? "lock" : "key";
-  const authLabel = isLeaseConnection ? "Desktop Lease" : isOAuthConnection ? "OAuth" : isCookieConnection ? "Cookie" : "API Key";
-  const displayName = connection.name?.trim()
-    || connection.email?.trim()
-    || connection.displayName?.trim()
-    || (isLeaseConnection ? "Desktop Lease" : isOAuthConnection ? "OAuth Account" : isCookieConnection ? "Cookie Account" : "API Key");
-  const secondaryDisplayName = connection.name?.trim() && connection.email?.trim() && connection.name.trim() !== connection.email.trim()
-    ? connection.email.trim()
-    : connection.name?.trim() && connection.displayName?.trim() && connection.name.trim() !== connection.displayName.trim()
-      ? connection.displayName.trim()
-      : null;
+  const authIcon = isLeaseConnection
+    ? "desktop_windows"
+    : isCookieConnection
+      ? "cookie"
+      : isOAuthConnection
+        ? "lock"
+        : "key";
+  const authLabel = isLeaseConnection
+    ? "Desktop Lease"
+    : isOAuthConnection
+      ? "OAuth"
+      : isCookieConnection
+        ? "Cookie"
+        : "API Key";
+  const displayName =
+    connection.name?.trim() ||
+    connection.email?.trim() ||
+    connection.displayName?.trim() ||
+    (isLeaseConnection
+      ? "Desktop Lease"
+      : isOAuthConnection
+        ? "Tài khoản OAuth"
+        : isCookieConnection
+          ? "Tài khoản Cookie"
+          : "API Key");
+  const secondaryDisplayName =
+    connection.name?.trim() && connection.email?.trim() && connection.name.trim() !== connection.email.trim()
+      ? connection.email.trim()
+      : connection.name?.trim() &&
+          connection.displayName?.trim() &&
+          connection.name.trim() !== connection.displayName.trim()
+        ? connection.displayName.trim()
+        : null;
 
   // Use useState + useEffect for impure Date.now() to avoid calling during render
   const [isCooldown, setIsCooldown] = useState(false);
 
   // Get earliest model lock timestamp (useEffect handles the Date.now() comparison)
-  const modelLockUntil = Object.entries(connection)
-    .filter(([k]) => k.startsWith("modelLock_"))
-    .map(([, v]) => v)
-    .filter(v => !!v)
-    .sort()[0] || null;
+  const modelLockUntil =
+    Object.entries(connection)
+      .filter(([k]) => k.startsWith("modelLock_"))
+      .map(([, v]) => v)
+      .filter((v) => !!v)
+      .sort()[0] || null;
 
   useEffect(() => {
     const checkCooldown = () => {
-      const until = Object.entries(connection)
-        .filter(([k]) => k.startsWith("modelLock_"))
-        .map(([, v]) => v)
-        .filter(v => v && new Date(v).getTime() > Date.now())
-        .sort()[0] || null;
+      const until =
+        Object.entries(connection)
+          .filter(([k]) => k.startsWith("modelLock_"))
+          .map(([, v]) => v)
+          .filter((v) => v && new Date(v).getTime() > Date.now())
+          .sort()[0] || null;
       setIsCooldown(!!until);
     };
 
@@ -321,20 +351,24 @@ function ConnectionRow({
 
   // Determine effective status (override unavailable if cooldown expired)
   const isBlocked403 = isAntigravity && isValidationBlocked;
-  const effectiveStatus = (connection.testStatus === "unavailable" && !isCooldown)
-    ? "active"  // Cooldown expired → treat as active
-    : connection.testStatus;
+  const effectiveStatus =
+    connection.testStatus === "unavailable" && !isCooldown ? "active" : connection.testStatus;
 
   const getStatusVariant = () => {
     if (isBlocked403) return "error";
     return getConnectionStatusVariant(connection.isActive, effectiveStatus);
   };
 
+  const statusLabelMap = {
+    active: "hoạt động",
+    error: "lỗi",
+    unavailable: "tạm khóa",
+  };
   const statusDisplayLabel = isBlocked403
     ? "403"
     : connection.isActive === false
-      ? "disabled"
-      : (effectiveStatus || "Unknown");
+      ? "đã tắt"
+      : statusLabelMap[effectiveStatus] || effectiveStatus || "chưa rõ";
 
   const getOneByOneVariant = () => {
     if (!oneByOneStatus) return "default";
@@ -346,41 +380,103 @@ function ConnectionRow({
 
   const getOneByOneLabel = () => {
     if (!oneByOneStatus) return null;
-    if (oneByOneStatus.state === "queued") return "queued";
-    if (oneByOneStatus.state === "testing") return "testing";
-    if (oneByOneStatus.state === "success") return "success";
-    if (oneByOneStatus.state === "failed") return oneByOneStatus.error ? `failed: ${oneByOneStatus.error}` : "failed";
+    if (oneByOneStatus.state === "queued") return "đang chờ";
+    if (oneByOneStatus.state === "testing") return "đang test";
+    if (oneByOneStatus.state === "success") return "thành công";
+    if (oneByOneStatus.state === "failed") {
+      return oneByOneStatus.error ? `thất bại: ${oneByOneStatus.error}` : "thất bại";
+    }
     return null;
   };
 
+  const getRailClass = () => {
+    if (isBlocked403 || (connection.isActive !== false && (effectiveStatus === "error" || effectiveStatus === "unavailable"))) {
+      return "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.6)]";
+    }
+    if (connection.isActive === false) {
+      return "bg-slate-400/50 dark:bg-slate-600/60";
+    }
+    if (isCooldown) {
+      return "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.55)]";
+    }
+    if (isAntigravity) {
+      if (effectiveTier === "ultra") return "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.55)]";
+      if (effectiveTier === "pro") return "bg-purple-400 shadow-[0_0_10px_rgba(192,132,252,0.55)]";
+      if (effectiveTier === "pro_jiro") return "bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.6)]";
+      if (effectiveTier === "plus") return "bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.55)]";
+      if (effectiveTier === "enterprise") return "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.55)]";
+    }
+    return "bg-emerald-500/85 shadow-[0_0_8px_rgba(16,185,129,0.45)]";
+  };
+
   return (
-    <div className={`group flex min-w-0 flex-col gap-3 rounded-lg p-2 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between ${connection.isActive === false ? "opacity-60" : ""}`}>
-      <div className="flex min-w-0 flex-1 items-start gap-2 sm:items-center sm:gap-3">
+    <div
+      style={
+        isLongList
+          ? { contentVisibility: "auto", containIntrinsicSize: "auto 76px" }
+          : undefined
+      }
+      className={cn(
+        "group relative flex min-w-0 flex-col gap-3 rounded-xl border border-transparent p-2.5 transition-all duration-200 sm:flex-row sm:items-center sm:justify-between",
+        "hover:border-cyan-500/30 hover:bg-cyan-500/[0.03] dark:hover:border-cyan-400/30 dark:hover:bg-cyan-400/[0.04]",
+        connection.isActive === false && "opacity-60"
+      )}
+    >
+      {/* Subtle hover spotlight & top beam accent — isolated from focus-visible outlines */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+      >
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/70 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/[0.04] via-transparent to-transparent" />
+      </div>
+
+      <div className="relative z-10 flex min-w-0 flex-1 items-start gap-2.5 sm:items-center sm:gap-3">
+        {/* Health / Tier vertical status rail */}
+        <span
+          aria-hidden="true"
+          className={cn("w-1 self-stretch min-h-[2.25rem] shrink-0 rounded-full transition-colors", getRailClass())}
+        />
+
         {/* Priority arrows */}
         <div className="flex shrink-0 flex-col">
           <button
+            type="button"
             onClick={onMoveUp}
             disabled={isFirst}
-            className={`p-0.5 rounded ${isFirst ? "text-text-muted/30 cursor-not-allowed" : "hover:bg-sidebar text-text-muted hover:text-primary"}`}
+            aria-label="Tăng độ ưu tiên (Priority)"
+            title="Tăng Priority"
+            className={cn(
+              "rounded p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50",
+              isFirst
+                ? "cursor-not-allowed text-text-muted/30"
+                : "text-text-muted hover:bg-sidebar hover:text-cyan-600 dark:hover:text-cyan-300"
+            )}
           >
             <span className="material-symbols-outlined text-sm">keyboard_arrow_up</span>
           </button>
           <button
+            type="button"
             onClick={onMoveDown}
             disabled={isLast}
-            className={`p-0.5 rounded ${isLast ? "text-text-muted/30 cursor-not-allowed" : "hover:bg-sidebar text-text-muted hover:text-primary"}`}
+            aria-label="Giảm độ ưu tiên (Priority)"
+            title="Giảm Priority"
+            className={cn(
+              "rounded p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50",
+              isLast
+                ? "cursor-not-allowed text-text-muted/30"
+                : "text-text-muted hover:bg-sidebar hover:text-cyan-600 dark:hover:text-cyan-300"
+            )}
           >
             <span className="material-symbols-outlined text-sm">keyboard_arrow_down</span>
           </button>
         </div>
-        <span className="material-symbols-outlined shrink-0 text-base text-text-muted">
-          {authIcon}
-        </span>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{displayName}</p>
-          {secondaryDisplayName && (
-            <p className="text-xs text-text-muted truncate">{secondaryDisplayName}</p>
-          )}
+
+        <span className="material-symbols-outlined shrink-0 text-base text-text-muted">{authIcon}</span>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{displayName}</p>
+          {secondaryDisplayName && <p className="truncate text-xs text-text-muted">{secondaryDisplayName}</p>}
           <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
             <Badge variant={getStatusVariant()} size="sm" dot>
               {statusDisplayLabel}
@@ -391,13 +487,19 @@ function ConnectionRow({
             {isAntigravity && (
               <span
                 className={cn(
-                  "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase",
-                  effectiveTier === "pro" && "bg-gradient-to-r from-purple-500/15 to-pink-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30",
-                  effectiveTier === "plus" && "bg-gradient-to-r from-blue-500/15 to-cyan-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30",
-                  effectiveTier === "pro_jiro" && "bg-gradient-to-r from-cyan-500/15 to-indigo-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30",
-                  effectiveTier === "ultra" && "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30",
-                  effectiveTier === "enterprise" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30",
-                  effectiveTier === "free" && "bg-gray-500/15 text-gray-600 dark:text-gray-400 border border-gray-500/20"
+                  "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                  effectiveTier === "pro" &&
+                    "border border-purple-500/30 bg-gradient-to-r from-purple-500/15 to-pink-500/15 text-purple-600 dark:text-purple-400",
+                  effectiveTier === "plus" &&
+                    "border border-blue-500/30 bg-gradient-to-r from-blue-500/15 to-cyan-500/15 text-blue-600 dark:text-blue-400",
+                  effectiveTier === "pro_jiro" &&
+                    "border border-cyan-500/30 bg-gradient-to-r from-cyan-500/15 to-indigo-500/15 text-cyan-600 dark:text-cyan-400",
+                  effectiveTier === "ultra" &&
+                    "border border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                  effectiveTier === "enterprise" &&
+                    "border border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+                  effectiveTier === "free" &&
+                    "border border-gray-500/20 bg-gray-500/15 text-gray-600 dark:text-gray-400"
                 )}
               >
                 {tier}
@@ -407,7 +509,7 @@ function ConnectionRow({
               <button
                 type="button"
                 onClick={() => setShowBlockedModal(true)}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30 hover:bg-red-500/25 transition-colors cursor-pointer"
+                className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-red-500/30 bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-600 transition-colors hover:bg-red-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50 dark:text-red-400"
                 title="Nhấp để xem lý do và cách khắc phục"
               >
                 <span className="material-symbols-outlined text-[12px]">lock</span>
@@ -417,10 +519,10 @@ function ConnectionRow({
             {actionToast && (
               <span
                 className={cn(
-                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium",
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
                   actionToast.type === "success"
-                    ? "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20"
-                    : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
+                    ? "border border-green-500/20 bg-green-500/10 text-green-600 dark:text-green-400"
+                    : "border border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400"
                 )}
               >
                 <span>{actionToast.type === "success" ? "✓" : "✗"}</span>
@@ -438,9 +540,11 @@ function ConnectionRow({
                 {connection.lastError}
               </span>
             )}
-            <span className="text-xs text-text-muted">#{connection.priority}</span>
+            <span className="font-mono text-xs text-text-muted" title="Priority">
+              #{connection.priority}
+            </span>
             {connection.globalPriority && (
-              <span className="text-xs text-text-muted">Auto: {connection.globalPriority}</span>
+              <span className="font-mono text-xs text-text-muted">Auto: {connection.globalPriority}</span>
             )}
             {getOneByOneLabel() && (
               <Badge variant={getOneByOneVariant()} size="sm">
@@ -449,7 +553,7 @@ function ConnectionRow({
             )}
           </div>
           {hasAnyProxy && (
-            <div className="mt-1 flex items-center gap-2 flex-wrap">
+            <div className="mt-1 flex flex-wrap items-center gap-2">
               <span className="max-w-full truncate text-[11px] text-text-muted sm:max-w-[420px]" title={proxyDisplayText}>
                 {proxyDisplayText}
               </span>
@@ -467,52 +571,71 @@ function ConnectionRow({
           )}
         </div>
       </div>
-      <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
+
+      <div className="relative z-10 flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
         {isAntigravity && (
-          <div className="flex items-center gap-1.5 border-r border-black/10 dark:border-white/10 pr-2 mr-1">
-            <div className="inline-flex items-center rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] p-0.5 shadow-sm gap-0.5">
-              <Tooltip text={isActive20 ? "Đang dùng trên Antigravity 2.0 (Bấm để nạp lại)" : "Chuyển sang Antigravity 2.0 (Keyring + Hot reload)"}>
+          <div className="mr-1 flex items-center gap-1.5 border-r border-black/10 pr-2 dark:border-white/10">
+            <div className="inline-flex items-center gap-0.5 rounded-lg border border-black/10 bg-black/[0.03] p-0.5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+              <Tooltip
+                text={
+                  isActive20
+                    ? "Đang dùng trên Antigravity 2.0 (Bấm để nạp lại)"
+                    : "Chuyển sang Antigravity 2.0 (Keyring + Hot reload)"
+                }
+              >
                 <button
                   type="button"
                   onClick={() => handleSwitch("2.0")}
                   disabled={switchingTarget !== null}
                   className={cn(
-                    "px-2 py-1 text-[11px] font-medium rounded transition-all disabled:opacity-50",
+                    "rounded px-2 py-1 text-[11px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 disabled:opacity-50",
                     isActive20
-                      ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-semibold"
-                      : "text-text-muted hover:bg-white dark:hover:bg-white/10 hover:text-text-primary"
+                      ? "border border-blue-500/30 bg-blue-500/15 font-semibold text-blue-600 dark:text-blue-400"
+                      : "text-text-muted hover:bg-white hover:text-text-primary dark:hover:bg-white/10"
                   )}
                 >
                   {switchingTarget === "2.0" || switchingTarget === "classic" ? "..." : "2.0"}
                 </button>
               </Tooltip>
 
-              <Tooltip text={isActiveIde ? "Đang dùng trên Antigravity IDE (Bấm để nạp lại)" : "Chuyển sang Antigravity IDE (state.vscdb + Keyring)"}>
+              <Tooltip
+                text={
+                  isActiveIde
+                    ? "Đang dùng trên Antigravity IDE (Bấm để nạp lại)"
+                    : "Chuyển sang Antigravity IDE (state.vscdb + Keyring)"
+                }
+              >
                 <button
                   type="button"
                   onClick={() => handleSwitch("ide")}
                   disabled={switchingTarget !== null}
                   className={cn(
-                    "px-2 py-1 text-[11px] font-medium rounded transition-all disabled:opacity-50",
+                    "rounded px-2 py-1 text-[11px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 disabled:opacity-50",
                     isActiveIde
-                      ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30 font-semibold"
-                      : "text-text-muted hover:bg-white dark:hover:bg-white/10 hover:text-text-primary"
+                      ? "border border-sky-500/30 bg-sky-500/15 font-semibold text-sky-600 dark:text-sky-400"
+                      : "text-text-muted hover:bg-white hover:text-text-primary dark:hover:bg-white/10"
                   )}
                 >
                   {switchingTarget === "ide" ? "..." : "IDE"}
                 </button>
               </Tooltip>
 
-              <Tooltip text={isActiveCli ? "Đang dùng trên Antigravity CLI (Bấm để nạp lại)" : "Chuyển sang Antigravity CLI (agy)"}>
+              <Tooltip
+                text={
+                  isActiveCli
+                    ? "Đang dùng trên Antigravity CLI (Bấm để nạp lại)"
+                    : "Chuyển sang Antigravity CLI (agy)"
+                }
+              >
                 <button
                   type="button"
                   onClick={() => handleSwitch("agy")}
                   disabled={switchingTarget !== null}
                   className={cn(
-                    "px-2 py-1 text-[11px] font-medium rounded transition-all disabled:opacity-50",
+                    "rounded px-2 py-1 text-[11px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 disabled:opacity-50",
                     isActiveCli
-                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-semibold"
-                      : "text-text-muted hover:bg-white dark:hover:bg-white/10 hover:text-text-primary"
+                      ? "border border-emerald-500/30 bg-emerald-500/15 font-semibold text-emerald-600 dark:text-emerald-400"
+                      : "text-text-muted hover:bg-white hover:text-text-primary dark:hover:bg-white/10"
                   )}
                 >
                   {switchingTarget === "agy" ? "..." : "CLI"}
@@ -520,12 +643,13 @@ function ConnectionRow({
               </Tooltip>
             </div>
 
-            <Tooltip text="Làm nóng (Warmup) kích hoạt hạn mức tuần">
+            <Tooltip text="Warmup kích hoạt Quota tuần">
               <button
                 type="button"
                 onClick={handleWarmup}
                 disabled={warmingUp}
-                className="flex items-center justify-center w-7 h-7 rounded-lg text-amber-500 hover:bg-amber-500/10 hover:text-amber-600 transition-colors disabled:opacity-50"
+                aria-label="Warmup tài khoản"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-amber-500 transition-colors hover:bg-amber-500/10 hover:text-amber-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 disabled:opacity-50"
               >
                 <span className={cn("material-symbols-outlined text-[16px]", warmingUp && "animate-spin")}>
                   {warmingUp ? "progress_activity" : "local_fire_department"}
@@ -534,14 +658,19 @@ function ConnectionRow({
             </Tooltip>
           </div>
         )}
+
         <div className="grid flex-1 grid-cols-3 gap-1 sm:flex sm:flex-none">
           {/* Proxy button with inline dropdown */}
           {(proxyPools || []).length > 0 && (
             <div>
               <button
                 ref={proxyBtnRef}
+                type="button"
                 onClick={toggleProxyDropdown}
-                className={`flex w-full flex-col items-center rounded px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${hasAnyProxy ? "text-primary" : "text-text-muted hover:text-primary"}`}
+                className={cn(
+                  "flex w-full flex-col items-center rounded px-2 py-1 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 dark:hover:bg-white/5",
+                  hasAnyProxy ? "text-cyan-600 dark:text-cyan-300" : "text-text-muted hover:text-cyan-600 dark:hover:text-cyan-300"
+                )}
                 disabled={updatingProxy}
               >
                 <span className="material-symbols-outlined text-[18px]">
@@ -549,57 +678,82 @@ function ConnectionRow({
                 </span>
                 <span className="text-[10px] leading-tight">Proxy</span>
               </button>
-              {showProxyDropdown && createPortal(
-                <div
-                  ref={proxyDropdownRef}
-                  style={proxyDropdownStyle}
-                  className="z-50 max-w-[78vw] min-w-[160px] overflow-y-auto rounded-lg border border-border bg-bg py-1 shadow-lg"
-                >
-                  <button
-                    onClick={() => handleSelectProxy("__none__")}
-                    className={`w-full text-left px-3 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/5 ${!boundProxyPoolId ? "text-primary font-medium" : "text-text-main"}`}
+              {showProxyDropdown &&
+                createPortal(
+                  <div
+                    ref={proxyDropdownRef}
+                    style={proxyDropdownStyle}
+                    className="z-50 min-w-[160px] max-w-[78vw] overflow-y-auto rounded-lg border border-border bg-bg py-1 shadow-lg"
                   >
-                    None
-                  </button>
-                  {(proxyPools || []).map((pool) => (
                     <button
-                      key={pool.id}
-                      onClick={() => handleSelectProxy(pool.id)}
-                      className={`w-full text-left px-3 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/5 ${boundProxyPoolId === pool.id ? "text-primary font-medium" : "text-text-main"}`}
+                      type="button"
+                      onClick={() => handleSelectProxy("__none__")}
+                      className={cn(
+                        "w-full px-3 py-1.5 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5",
+                        !boundProxyPoolId ? "font-medium text-primary" : "text-text-main"
+                      )}
                     >
-                      {pool.name}
+                      Không dùng Proxy
                     </button>
-                  ))}
-                </div>,
-                document.body
-              )}
+                    {(proxyPools || []).map((pool) => (
+                      <button
+                        key={pool.id}
+                        type="button"
+                        onClick={() => handleSelectProxy(pool.id)}
+                        className={cn(
+                          "w-full px-3 py-1.5 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5",
+                          boundProxyPoolId === pool.id ? "font-medium text-primary" : "text-text-main"
+                        )}
+                      >
+                        {pool.name}
+                      </button>
+                    ))}
+                  </div>,
+                  document.body
+                )}
             </div>
           )}
+
           {autoPing && (
             <Tooltip text={autoPingTooltip}>
               <button
+                type="button"
                 onClick={autoPing.onConfigure}
-                className={`flex w-full flex-col items-center rounded px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${autoPing.isActive ? "text-primary" : "text-text-muted hover:text-primary"}`}
+                className={cn(
+                  "flex w-full flex-col items-center rounded px-2 py-1 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 dark:hover:bg-white/5",
+                  autoPing.isActive ? "text-cyan-600 dark:text-cyan-300" : "text-text-muted hover:text-cyan-600 dark:hover:text-cyan-300"
+                )}
               >
                 <span className="material-symbols-outlined text-[18px]">bolt</span>
-                <span className="text-[10px] leading-tight">Auto-ping</span>
+                <span className="text-[10px] leading-tight">Auto-Ping</span>
               </button>
             </Tooltip>
           )}
-          <button onClick={onEdit} className="flex flex-col items-center rounded px-2 py-1 text-text-muted hover:bg-black/5 hover:text-primary dark:hover:bg-white/5">
+
+          <button
+            type="button"
+            onClick={onEdit}
+            className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 dark:hover:bg-white/5 dark:hover:text-cyan-300"
+          >
             <span className="material-symbols-outlined text-[18px]">edit</span>
-            <span className="text-[10px] leading-tight">Edit</span>
+            <span className="text-[10px] leading-tight">Sửa</span>
           </button>
-          <button onClick={onDelete} className="flex flex-col items-center rounded px-2 py-1 text-red-500 hover:bg-red-500/10">
+
+          <button
+            type="button"
+            onClick={onDelete}
+            className="flex flex-col items-center rounded px-2 py-1 text-rose-500 transition-colors hover:bg-rose-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50"
+          >
             <span className="material-symbols-outlined text-[18px]">delete</span>
-            <span className="text-[10px] leading-tight">Delete</span>
+            <span className="text-[10px] leading-tight">Xóa</span>
           </button>
         </div>
+
         <Toggle
           size="sm"
           checked={connection.isActive ?? true}
           onChange={onToggleActive}
-          title={(connection.isActive ?? true) ? "Disable connection" : "Enable connection"}
+          title={(connection.isActive ?? true) ? "Tắt kết nối" : "Bật kết nối"}
         />
       </div>
 
@@ -611,70 +765,65 @@ function ConnectionRow({
           size="md"
         >
           <div className="flex flex-col gap-3.5 text-xs">
-            {/* Red Circle with Cancel Icon */}
-            <div className="flex justify-center -mt-1 mb-1">
-              <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-500">
+            <div className="-mt-1 mb-1 flex justify-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-red-500/30 bg-red-500/15 text-red-500">
                 <span className="material-symbols-outlined text-[28px]">cancel</span>
               </div>
             </div>
 
-            {/* Account field */}
             <div className="flex flex-col gap-1">
               <label className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
                 Tài khoản
               </label>
-              <div className="rounded-lg bg-surface-2 px-3 py-2 border border-border-subtle font-mono text-xs text-text-main">
+              <div className="rounded-lg border border-border-subtle bg-surface-2 px-3 py-2 font-mono text-xs text-text-main">
                 {displayName}
               </div>
             </div>
 
-            {/* Error Status Badges */}
             <div className="flex flex-col gap-1">
               <label className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
                 Trạng thái lỗi
               </label>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-1 text-[11px] font-medium text-amber-500">
                   <span className="material-symbols-outlined text-[13px]">block</span>
                   Proxy bị vô hiệu hóa
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-yellow-500/15 text-yellow-400 border border-yellow-500/30">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-500/30 bg-yellow-500/15 px-2.5 py-1 text-[11px] font-medium text-yellow-400">
                   <span className="material-symbols-outlined text-[13px]">schedule</span>
-                  Verification Required
+                  Cần xác minh tài khoản
                 </span>
               </div>
             </div>
 
-            {/* Reason */}
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                  Reason
+                  Lý do
                 </label>
                 <button
                   type="button"
                   onClick={() => setShowRawReason(!showRawReason)}
-                  className="text-[11px] text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                  className="flex cursor-pointer items-center gap-1 text-[11px] text-primary hover:underline"
                 >
                   <span className="material-symbols-outlined text-[12px]">description</span>
-                  {showRawReason ? "Thu gọn" : "Show Raw"}
+                  {showRawReason ? "Thu gọn" : "Xem chi tiết"}
                 </button>
               </div>
-              <div className="rounded-lg bg-[#0d1117] p-3 border border-red-500/30 font-mono text-xs text-red-400 break-words max-h-48 overflow-y-auto whitespace-pre-wrap">
+              <div className="max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-red-500/30 bg-[#0d1117] p-3 font-mono text-xs text-red-400">
                 {showRawReason
-                  ? (connection.lastError || validationReason)
-                  : "Verify your account to continue."}
+                  ? connection.lastError || validationReason
+                  : "Vui lòng xác minh tài khoản để tiếp tục."}
               </div>
             </div>
 
-            {/* Verification Link Actions */}
             {validationUrl && (
               <div className="flex flex-wrap items-center gap-2">
                 <a
                   href={validationUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-primary/90"
                 >
                   <span className="material-symbols-outlined text-[14px]">open_in_new</span>
                   <span>Nhấp để xác minh</span>
@@ -685,30 +834,29 @@ function ConnectionRow({
                   icon={copiedLink ? "check" : "content_copy"}
                   onClick={handleCopyLink}
                 >
-                  {copiedLink ? "Đã sao chép link" : "Copy Verification Link"}
+                  {copiedLink ? "Đã sao chép link" : "Chép link xác minh"}
                 </Button>
               </div>
             )}
 
-            {/* Terminal Quick Fix Accordion */}
-            <div className="rounded-lg border border-border-subtle bg-surface-2 overflow-hidden">
+            <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-2">
               <button
                 type="button"
                 onClick={() => setShowQuickFix(!showQuickFix)}
-                className="w-full flex items-center justify-between p-2.5 text-xs font-medium text-text-main hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                className="flex w-full cursor-pointer items-center justify-between p-2.5 text-xs font-medium text-text-main transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               >
                 <span className="flex items-center gap-1.5 text-primary">
                   <span className="material-symbols-outlined text-[14px]">terminal</span>
-                  <span>Terminal Quick Fix (Resolves internal 403s)</span>
+                  <span>Sửa nhanh qua Terminal (Xử lý lỗi 403 nội bộ)</span>
                 </span>
                 <span className="material-symbols-outlined text-[16px] text-text-muted">
                   {showQuickFix ? "expand_less" : "expand_more"}
                 </span>
               </button>
               {showQuickFix && (
-                <div className="p-3 pt-1 border-t border-border-subtle flex flex-col gap-2">
-                  <div className="flex items-center justify-between rounded bg-black/40 p-2 font-mono text-[11px] border border-white/5">
-                    <code className="text-primary truncate">gcloud auth login --update-adc</code>
+                <div className="flex flex-col gap-2 border-t border-border-subtle p-3 pt-1">
+                  <div className="flex items-center justify-between rounded border border-white/5 bg-black/40 p-2 font-mono text-[11px]">
+                    <code className="truncate text-primary">gcloud auth login --update-adc</code>
                     <Button
                       size="xs"
                       variant="ghost"
@@ -725,19 +873,18 @@ function ConnectionRow({
               )}
             </div>
 
-            {/* Detection time */}
-            <div className="text-[11px] text-text-muted flex items-center gap-1">
+            <div className="flex items-center gap-1 text-[11px] text-text-muted">
               <span className="material-symbols-outlined text-[13px]">schedule</span>
-              <span>Thời gian phát hiện: {connection.providerSpecificData?.lastVerificationDetectedAt ? new Date(connection.providerSpecificData.lastVerificationDetectedAt).toLocaleString("vi-VN") : new Date().toLocaleString("vi-VN")}</span>
+              <span>
+                Thời gian phát hiện:{" "}
+                {connection.providerSpecificData?.lastVerificationDetectedAt
+                  ? new Date(connection.providerSpecificData.lastVerificationDetectedAt).toLocaleString("vi-VN")
+                  : new Date().toLocaleString("vi-VN")}
+              </span>
             </div>
 
-            {/* Bottom Close Button */}
             <div className="pt-2">
-              <Button
-                onClick={() => setShowBlockedModal(false)}
-                className="w-full py-2.5 font-medium"
-                variant="primary"
-              >
+              <Button onClick={() => setShowBlockedModal(false)} className="w-full py-2.5 font-medium" variant="primary">
                 Đóng
               </Button>
             </div>
@@ -754,6 +901,7 @@ ConnectionRow.propTypes = {
     name: PropTypes.string,
     email: PropTypes.string,
     displayName: PropTypes.string,
+    authType: PropTypes.string,
     modelLockUntil: PropTypes.string,
     testStatus: PropTypes.string,
     isActive: PropTypes.bool,
@@ -767,16 +915,19 @@ ConnectionRow.propTypes = {
     validationUrl: PropTypes.string,
     providerSpecificData: PropTypes.object,
   }).isRequired,
-  proxyPools: PropTypes.arrayOf(PropTypes.shape({
-    id: PropTypes.string,
-    name: PropTypes.string,
-    proxyUrl: PropTypes.string,
-    noProxy: PropTypes.string,
-    isActive: PropTypes.bool,
-  })),
+  proxyPools: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string,
+      name: PropTypes.string,
+      proxyUrl: PropTypes.string,
+      noProxy: PropTypes.string,
+      isActive: PropTypes.bool,
+    })
+  ),
   isOAuth: PropTypes.bool.isRequired,
   isFirst: PropTypes.bool.isRequired,
   isLast: PropTypes.bool.isRequired,
+  isLongList: PropTypes.bool,
   onMoveUp: PropTypes.func.isRequired,
   onMoveDown: PropTypes.func.isRequired,
   onToggleActive: PropTypes.func.isRequired,
@@ -814,6 +965,7 @@ function areConnectionRowPropsEqual(prev, next) {
     prev.rowIndex === next.rowIndex &&
     prev.isFirst === next.isFirst &&
     prev.isLast === next.isLast &&
+    prev.isLongList === next.isLongList &&
     prev.isOAuth === next.isOAuth &&
     prev.proxyPools === next.proxyPools &&
     prev.providerId === next.providerId &&

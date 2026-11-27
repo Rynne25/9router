@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { CardSkeleton } from "@/shared/components";
+import { HudFrame } from "@/shared/components/hud";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import CustomConfigCard from "./CustomConfigCard";
@@ -13,6 +14,7 @@ import { useBulkProxy } from "./hooks/useBulkProxy";
 import { useProviderModels } from "./hooks/useProviderModels";
 import { useProviderModals } from "./hooks/useProviderModals";
 import ProviderDetailHeader from "./components/ProviderDetailHeader";
+import AntigravityRotationCircuit from "./components/AntigravityRotationCircuit";
 import ConnectionsCard from "./components/ConnectionsCard";
 import ProviderModelsCard from "./components/ProviderModelsCard";
 import ProviderTestModals from "./components/ProviderTestModals";
@@ -66,12 +68,17 @@ export default function ProviderDetailPage() {
 
   if (!providerInfo) {
     return (
-      <div className="text-center py-20">
-        <p className="text-text-muted">Provider not found</p>
-        <Link href="/dashboard/providers" className="text-primary mt-4 inline-block">
-          Back to Providers
+      <HudFrame chamfer="sm" accent="cyan" padding="lg" className="my-8 text-center">
+        <p className="text-sm text-text-muted">Không tìm thấy nhà cung cấp</p>
+        <Link
+          href="/dashboard/providers"
+          data-cursor-target
+          className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/35 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-600 transition-colors hover:bg-cyan-500/20 dark:text-cyan-300"
+        >
+          <span className="material-symbols-outlined text-[15px]">arrow_back</span>
+          <span>Quay lại Nhà cung cấp</span>
         </Link>
-      </div>
+      </HudFrame>
     );
   }
 
@@ -81,6 +88,7 @@ export default function ProviderDetailPage() {
         providerInfo={providerInfo}
         providerNode={providerNode}
         connectionsCount={connections.length}
+        connections={connections}
         isOpenAICompatible={isOpenAICompatible}
         isAnthropicCompatible={isAnthropicCompatible}
         isCompatible={isCompatible}
@@ -88,6 +96,19 @@ export default function ProviderDetailPage() {
         onOpenEditNode={() => modalState.setShowEditNodeModal(true)}
         onDeleteNode={() => connState.handleDeleteNode(isAnthropicCompatible, () => router.push("/dashboard/providers"))}
       />
+
+      {providerId === "antigravity" && (
+        <AntigravityRotationCircuit
+          connections={connections}
+          tierCounts={connState.tierCounts}
+          antigravityTierFilter={connState.antigravityTierFilter}
+          onSelectTierFilter={connState.setAntigravityTierFilter}
+          providerStrategy={connState.providerStrategy}
+          onToggleRoundRobin={() =>
+            connState.handleRoundRobinToggle(connState.providerStrategy !== "round-robin")
+          }
+        />
+      )}
 
       <ConnectionsCard
         providerId={providerId}

@@ -2,6 +2,7 @@
 
 import { useId, useMemo } from "react";
 import PropTypes from "prop-types";
+import { HudFrame, NumberTicker } from "@/shared/components/hud";
 
 const fmtFull = (n) => new Intl.NumberFormat("en-US").format(Math.round(n || 0));
 
@@ -25,6 +26,21 @@ const fmtLatency = (ms) => {
   if (ms >= 1000) return `${(ms / 1000).toFixed(2)}s`;
   return `${Math.round(ms)}ms`;
 };
+
+function toCompactTicker(n) {
+  const val = Number(n) || 0;
+  if (val >= 1_000_000_000) return { value: val / 1_000_000_000, decimals: 2, suffix: "B" };
+  if (val >= 1_000_000) return { value: val / 1_000_000, decimals: 2, suffix: "M" };
+  if (val >= 1_000) return { value: val / 1_000, decimals: 1, suffix: "K" };
+  return { value: Math.round(val), decimals: 0, suffix: "" };
+}
+
+function toCostTicker(n) {
+  const val = Number(n) || 0;
+  if (val >= 100) return { value: val, decimals: 1 };
+  if (val > 0 && val < 0.01) return { value: val, decimals: 4 };
+  return { value: val, decimals: 2 };
+}
 
 function computeTrendPct(series) {
   if (!Array.isArray(series) || series.length < 4) return null;
@@ -222,189 +238,271 @@ export default function OverviewCards({ stats, telemetry }) {
         ? "bg-amber-500/12 text-amber-500 dark:text-amber-400 border-amber-500/25"
         : "bg-rose-500/12 text-rose-500 dark:text-rose-400 border-rose-500/25";
 
+  const reqTicker = toCompactTicker(totalRequests);
+  const tokenTicker = toCompactTicker(totalTokens);
+  const costTicker = toCostTicker(totalCost);
+
   return (
     <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-      {/* 1. Total Requests */}
-      <div className="liquid-glass-card group relative flex min-w-0 flex-col justify-between gap-3 overflow-hidden rounded-2xl p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400/35">
-        <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-sky-500/10 blur-2xl transition-opacity group-hover:opacity-100 opacity-70" />
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-            Tổng Requests
-          </span>
-          <span className="flex size-8 items-center justify-center rounded-xl bg-sky-500/12 text-sky-500 dark:text-sky-400 border border-sky-500/20">
-            <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
-          </span>
-        </div>
-
-        <div className="flex items-end justify-between gap-2">
-          <div className="min-w-0">
-            <div
-              className="truncate text-2xl font-extrabold tracking-tight text-text-main tabular-nums"
-              title={fmtFull(totalRequests)}
-            >
-              {fmtCompact(totalRequests)}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              {activeCount > 0 ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/12 px-1.5 py-0.5 text-[10px] font-semibold text-sky-400">
-                  <span className="size-1.5 rounded-full bg-sky-400 animate-pulse" />
-                  {activeCount} live
-                </span>
-              ) : (
-                <TrendBadge pct={reqTrend} />
-              )}
-              <span className="text-[11px] text-text-muted">10p gần nhất</span>
-            </div>
+      {/* 1. Total Requests (Primary KPI Card) */}
+      <HudFrame
+        chamfer="sm"
+        accent="cyan"
+        padding="none"
+        tilt={true}
+        spotlight={true}
+        borderBeam={true}
+        className="group min-w-0 border-cyan-500/35 dark:border-cyan-400/30"
+      >
+        <div className="relative flex h-full min-w-0 flex-col justify-between gap-3 p-4">
+          <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-sky-500/12 blur-2xl transition-opacity group-hover:opacity-100 opacity-70" />
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-text-muted">
+              Tổng Requests
+            </span>
+            <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-cyan-500/10 text-sky-500 dark:text-cyan-300 border border-cyan-500/30 shadow-xs">
+              <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
+            </span>
           </div>
-          <MiniSparkline values={reqSeries} color="#38bdf8" />
+
+          <div className="flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              <div
+                className="truncate text-2xl font-extrabold tracking-tight text-text-main tabular-nums"
+                title={fmtFull(totalRequests)}
+              >
+                <NumberTicker
+                  value={reqTicker.value}
+                  decimals={reqTicker.decimals}
+                  suffix={reqTicker.suffix}
+                />
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                {activeCount > 0 ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-sky-500/35 bg-sky-500/12 px-1.5 py-0.5 text-[10px] font-semibold text-sky-500 dark:text-sky-300">
+                    <span className="size-1.5 rounded-full bg-sky-400 animate-pulse" />
+                    {activeCount} đang chạy
+                  </span>
+                ) : (
+                  <TrendBadge pct={reqTrend} />
+                )}
+                <span className="text-[11px] text-text-muted">10p gần nhất</span>
+              </div>
+            </div>
+            <MiniSparkline values={reqSeries} color="#38bdf8" />
+          </div>
         </div>
-      </div>
+      </HudFrame>
 
       {/* 2. Total Tokens (In/Out + Cache) */}
-      <div className="liquid-glass-card group relative flex min-w-0 flex-col justify-between gap-3 overflow-hidden rounded-2xl p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-400/35">
-        <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-indigo-500/12 blur-2xl transition-opacity group-hover:opacity-100 opacity-70" />
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-            Tổng Tokens
-          </span>
-          <span className="flex size-8 items-center justify-center rounded-xl bg-indigo-500/12 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20">
-            <span className="material-symbols-outlined text-[18px]">token</span>
-          </span>
-        </div>
-
-        <div className="flex items-end justify-between gap-2">
-          <div className="min-w-0">
-            <div
-              className="truncate text-2xl font-extrabold tracking-tight text-text-main tabular-nums"
-              title={`In: ${fmtFull(totalPromptTokens)} | Out: ${fmtFull(totalCompletionTokens)} | Cache: ${fmtFull(totalCachedTokens)}`}
-            >
-              {fmtCompact(totalTokens)}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-medium tabular-nums">
-              <span className="text-indigo-500 dark:text-indigo-400" title={`Input: ${fmtFull(totalPromptTokens)}`}>
-                ↑{fmtCompact(totalPromptTokens)}
-              </span>
-              <span className="text-text-subtle">/</span>
-              <span className="text-emerald-500 dark:text-emerald-400" title={`Output: ${fmtFull(totalCompletionTokens)}`}>
-                ↓{fmtCompact(totalCompletionTokens)}
-              </span>
-              {cacheHitPct > 0 && (
-                <span
-                  className="rounded-md bg-cyan-500/12 px-1 py-0.2 text-[10px] font-semibold text-cyan-500 dark:text-cyan-400"
-                  title={`Cached: ${fmtFull(totalCachedTokens)} tokens`}
-                >
-                  {cacheHitPct}% cache
-                </span>
-              )}
-              {cacheHitPct === 0 && <TrendBadge pct={tokenTrend} />}
-            </div>
+      <HudFrame
+        chamfer="sm"
+        accent="cyan"
+        padding="none"
+        tilt={true}
+        spotlight={true}
+        className="group min-w-0"
+      >
+        <div className="relative flex h-full min-w-0 flex-col justify-between gap-3 p-4">
+          <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-indigo-500/12 blur-2xl transition-opacity group-hover:opacity-100 opacity-70" />
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-text-muted">
+              Tổng Tokens
+            </span>
+            <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-violet-500/10 text-indigo-500 dark:text-indigo-300 border border-indigo-500/25 shadow-xs">
+              <span className="material-symbols-outlined text-[18px]">token</span>
+            </span>
           </div>
-          <MiniSparkline values={tokenSeries} color="#818cf8" />
+
+          <div className="flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              <div
+                className="truncate text-2xl font-extrabold tracking-tight text-text-main tabular-nums"
+                title={`Đầu vào: ${fmtFull(totalPromptTokens)} | Đầu ra: ${fmtFull(totalCompletionTokens)} | Cache: ${fmtFull(totalCachedTokens)}`}
+              >
+                <NumberTicker
+                  value={tokenTicker.value}
+                  decimals={tokenTicker.decimals}
+                  suffix={tokenTicker.suffix}
+                />
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-medium tabular-nums">
+                <span className="text-indigo-500 dark:text-indigo-400" title={`Đầu vào: ${fmtFull(totalPromptTokens)}`}>
+                  ↑{fmtCompact(totalPromptTokens)}
+                </span>
+                <span className="text-text-subtle">/</span>
+                <span className="text-emerald-500 dark:text-emerald-400" title={`Đầu ra: ${fmtFull(totalCompletionTokens)}`}>
+                  ↓{fmtCompact(totalCompletionTokens)}
+                </span>
+                {cacheHitPct > 0 && (
+                  <span
+                    className="rounded-md border border-cyan-500/25 bg-cyan-500/12 px-1.5 py-0.2 text-[10px] font-semibold text-cyan-600 dark:text-cyan-300"
+                    title={`Đã lưu cache: ${fmtFull(totalCachedTokens)} tokens`}
+                  >
+                    {cacheHitPct}% cache
+                  </span>
+                )}
+                {cacheHitPct === 0 && <TrendBadge pct={tokenTrend} />}
+              </div>
+            </div>
+            <MiniSparkline values={tokenSeries} color="#818cf8" />
+          </div>
         </div>
-      </div>
+      </HudFrame>
 
       {/* 3. Success Rate */}
-      <div className="liquid-glass-card group relative flex min-w-0 flex-col justify-between gap-3 overflow-hidden rounded-2xl p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-400/35">
-        <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-emerald-500/12 blur-2xl transition-opacity group-hover:opacity-100 opacity-70" />
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-            Tỷ lệ thành công
-          </span>
-          <span className={`flex size-8 items-center justify-center rounded-xl border ${isHealthy ? "bg-emerald-500/12 text-emerald-500 dark:text-emerald-400 border-emerald-500/20" : "bg-amber-500/12 text-amber-500 dark:text-amber-400 border-amber-500/20"}`}>
-            <span className="material-symbols-outlined text-[18px]">
-              {isHealthy ? "verified" : "warning"}
+      <HudFrame
+        chamfer="sm"
+        accent={isHealthy ? "emerald" : "amber"}
+        padding="none"
+        tilt={true}
+        spotlight={true}
+        className="group min-w-0"
+      >
+        <div className="relative flex h-full min-w-0 flex-col justify-between gap-3 p-4">
+          <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-emerald-500/12 blur-2xl transition-opacity group-hover:opacity-100 opacity-70" />
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-text-muted">
+              Tỷ lệ thành công
             </span>
-          </span>
-        </div>
-
-        <div className="flex items-end justify-between gap-2">
-          <div className="min-w-0">
-            <div className="truncate text-2xl font-extrabold tracking-tight text-text-main tabular-nums">
-              {successRate !== null ? `${successRate}%` : "—"}
-            </div>
-            <div className="mt-1 flex items-center gap-1.5">
-              <span
-                className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${
-                  isHealthy
-                    ? "border-emerald-500/25 bg-emerald-500/12 text-emerald-500 dark:text-emerald-400"
-                    : "border-amber-500/25 bg-amber-500/12 text-amber-500 dark:text-amber-400"
-                }`}
-              >
-                <span className={`size-1.5 rounded-full ${isHealthy ? "bg-emerald-400" : "bg-amber-400 animate-pulse"}`} />
-                {errorProvider ? `Lỗi: ${errorProvider}` : isHealthy ? "Tối ưu" : "Suy giảm"}
+            <span
+              className={`flex size-8 items-center justify-center rounded-xl border shadow-xs ${
+                isHealthy
+                  ? "bg-gradient-to-br from-emerald-500/20 to-teal-500/10 text-emerald-500 dark:text-emerald-300 border-emerald-500/25"
+                  : "bg-gradient-to-br from-amber-500/20 to-orange-500/10 text-amber-500 dark:text-amber-300 border-amber-500/25"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                {isHealthy ? "verified" : "warning"}
               </span>
-            </div>
+            </span>
           </div>
-          <MiniSparkline values={successSeries} color={isHealthy ? "#34d399" : "#fbbf24"} />
+
+          <div className="flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              <div className="truncate text-2xl font-extrabold tracking-tight text-text-main tabular-nums">
+                {successRate !== null ? (
+                  <NumberTicker
+                    value={successRate}
+                    decimals={Number.isInteger(successRate) ? 0 : 1}
+                    suffix="%"
+                  />
+                ) : (
+                  "—"
+                )}
+              </div>
+              <div className="mt-1 flex items-center gap-1.5">
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${
+                    isHealthy
+                      ? "border-emerald-500/25 bg-emerald-500/12 text-emerald-600 dark:text-emerald-400"
+                      : "border-amber-500/25 bg-amber-500/12 text-amber-600 dark:text-amber-400"
+                  }`}
+                >
+                  <span className={`size-1.5 rounded-full ${isHealthy ? "bg-emerald-400" : "bg-amber-400 animate-pulse"}`} />
+                  {errorProvider ? `Lỗi: ${errorProvider}` : isHealthy ? "Tối ưu" : "Suy giảm"}
+                </span>
+              </div>
+            </div>
+            <MiniSparkline values={successSeries} color={isHealthy ? "#34d399" : "#fbbf24"} />
+          </div>
         </div>
-      </div>
+      </HudFrame>
 
       {/* 4. Average Latency */}
-      <div className="liquid-glass-card group relative flex min-w-0 flex-col justify-between gap-3 overflow-hidden rounded-2xl p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-400/35">
-        <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-amber-500/12 blur-2xl transition-opacity group-hover:opacity-100 opacity-70" />
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-            Latency trung bình
-          </span>
-          <span className="flex size-8 items-center justify-center rounded-xl bg-amber-500/12 text-amber-500 dark:text-amber-400 border border-amber-500/20">
-            <span className="material-symbols-outlined text-[18px]">speed</span>
-          </span>
-        </div>
-
-        <div className="flex items-end justify-between gap-2">
-          <div className="min-w-0">
-            <div
-              className="truncate text-2xl font-extrabold tracking-tight text-text-main tabular-nums"
-              title={avgTtftMs ? `TTFT trung bình: ${Math.round(avgTtftMs)}ms` : "Thời gian phản hồi trung bình"}
-            >
-              {fmtLatency(avgLatencyMs)}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${latencyBadgeCls}`}>
-                {latencyLabel}
-              </span>
-              {avgTtftMs !== null && avgTtftMs > 0 && (
-                <span className="text-[11px] text-text-muted tabular-nums">
-                  TTFT {fmtLatency(avgTtftMs)}
-                </span>
-              )}
-            </div>
+      <HudFrame
+        chamfer="sm"
+        accent={avgLatencyMs !== null && avgLatencyMs >= 1800 ? "rose" : "amber"}
+        padding="none"
+        tilt={true}
+        spotlight={true}
+        className="group min-w-0"
+      >
+        <div className="relative flex h-full min-w-0 flex-col justify-between gap-3 p-4">
+          <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-amber-500/12 blur-2xl transition-opacity group-hover:opacity-100 opacity-70" />
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-text-muted">
+              Độ trễ trung bình
+            </span>
+            <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 text-amber-500 dark:text-amber-300 border border-amber-500/25 shadow-xs">
+              <span className="material-symbols-outlined text-[18px]">speed</span>
+            </span>
           </div>
-          <MiniSparkline values={latencySeries} color="#fbbf24" />
+
+          <div className="flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              <div
+                className="truncate text-2xl font-extrabold tracking-tight text-text-main tabular-nums"
+                title={avgTtftMs ? `TTFT trung bình: ${Math.round(avgTtftMs)}ms` : "Thời gian phản hồi trung bình"}
+              >
+                {avgLatencyMs === null ? (
+                  "—"
+                ) : avgLatencyMs >= 1000 ? (
+                  <NumberTicker value={avgLatencyMs / 1000} decimals={2} suffix="s" />
+                ) : (
+                  <NumberTicker value={Math.round(avgLatencyMs)} decimals={0} suffix="ms" />
+                )}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${latencyBadgeCls}`}>
+                  {latencyLabel}
+                </span>
+                {avgTtftMs !== null && avgTtftMs > 0 && (
+                  <span className="text-[11px] text-text-muted tabular-nums">
+                    TTFT {fmtLatency(avgTtftMs)}
+                  </span>
+                )}
+              </div>
+            </div>
+            <MiniSparkline values={latencySeries} color="#fbbf24" />
+          </div>
         </div>
-      </div>
+      </HudFrame>
 
       {/* 5. Est. Cost Saved */}
-      <div className="liquid-glass-card group relative flex min-w-0 flex-col justify-between gap-3 overflow-hidden rounded-2xl p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-400/40 sm:col-span-2 lg:col-span-2 xl:col-span-1">
-        <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-brand-500/14 blur-2xl transition-opacity group-hover:opacity-100 opacity-75" />
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-            Chi phí tiết kiệm
-          </span>
-          <span className="flex size-8 items-center justify-center rounded-xl bg-brand-500/14 text-primary border border-brand-500/25">
-            <span className="material-symbols-outlined text-[18px]">savings</span>
-          </span>
-        </div>
-
-        <div className="flex items-end justify-between gap-2">
-          <div className="min-w-0">
-            <div
-              className="truncate text-2xl font-extrabold tracking-tight text-primary tabular-nums"
-              title={`Giá trị API ước tính: ${fmtCost(totalCost)}`}
-            >
-              ~{fmtCost(totalCost)}
-            </div>
-            <div className="mt-1 flex items-center gap-1.5">
-              <span className="truncate text-[11px] text-text-muted" title="Giá trị ước tính theo bảng giá API tiêu chuẩn">
-                {totalCachedTokens > 0
-                  ? `Cache ${fmtCompact(totalCachedTokens)} tok`
-                  : "Ước tính giá API gốc"}
-              </span>
-            </div>
+      <HudFrame
+        chamfer="sm"
+        accent="emerald"
+        padding="none"
+        tilt={true}
+        spotlight={true}
+        className="group min-w-0 sm:col-span-2 lg:col-span-2 xl:col-span-1"
+      >
+        <div className="relative flex h-full min-w-0 flex-col justify-between gap-3 p-4">
+          <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-brand-500/14 blur-2xl transition-opacity group-hover:opacity-100 opacity-75" />
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-text-muted">
+              Chi phí tiết kiệm
+            </span>
+            <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500/20 to-amber-500/10 text-primary border border-brand-500/25 shadow-xs">
+              <span className="material-symbols-outlined text-[18px]">savings</span>
+            </span>
           </div>
-          <MiniSparkline values={costSeries} color="#ff7654" />
+
+          <div className="flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              <div
+                className="truncate text-2xl font-extrabold tracking-tight text-primary tabular-nums"
+                title={`Giá trị API ước tính: ${fmtCost(totalCost)}`}
+              >
+                <NumberTicker
+                  value={costTicker.value}
+                  decimals={costTicker.decimals}
+                  prefix="~$"
+                />
+              </div>
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className="truncate text-[11px] text-text-muted" title="Giá trị ước tính theo bảng giá API tiêu chuẩn">
+                  {totalCachedTokens > 0
+                    ? `Cache ${fmtCompact(totalCachedTokens)} tokens`
+                    : "Ước tính giá API gốc"}
+                </span>
+              </div>
+            </div>
+            <MiniSparkline values={costSeries} color="#ff7654" />
+          </div>
         </div>
-      </div>
+      </HudFrame>
     </div>
   );
 }

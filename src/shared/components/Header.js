@@ -14,6 +14,13 @@ import { playHudSound } from "@/shared/utils/hudAudio";
 import { cn } from "@/shared/utils/cn";
 import { translate } from "@/i18n/runtime";
 
+const CURSOR_PRESET_META = {
+  reticle: { label: "Chuột: Ngắm", icon: "my_location" },
+  fluid: { label: "Chuột: Khói lỏng", icon: "water_drop" },
+  magnetic: { label: "Chuột: Nam châm", icon: "adjust" },
+  off: { label: "Chuột: Tắt", icon: "mouse" },
+};
+
 const MITM_STATUS_KEY = "/api/cli-tools/antigravity-mitm";
 const MITM_STATUS_TTL_MS = 15000;
 
@@ -191,6 +198,8 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
     toggleMotionPaused,
     soundEnabled,
     toggleSoundEnabled,
+    cursorPreset,
+    cycleCursorPreset,
     openCommandPalette,
   } = useHudPrefs();
   const [mitmStatus, setMitmStatus] = useState(null);
@@ -227,6 +236,10 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   const mitmLive = Boolean(mitmStatus?.running);
   const motionLabel = motionPaused ? "Bật hiệu ứng" : "Tạm dừng hiệu ứng";
   const soundLabel = soundEnabled ? "Tắt âm thanh HUD" : "Bật âm thanh HUD";
+  const cursorMeta = CURSOR_PRESET_META[cursorPreset] || CURSOR_PRESET_META.reticle;
+  const cursorTitle = motionPaused && cursorPreset !== "off"
+    ? `${cursorMeta.label} (đang tạm dừng hiệu ứng HUD — bấm để đổi chế độ)`
+    : `${cursorMeta.label} — Bấm để đổi chế độ con trỏ`;
 
   return (
     <>
@@ -365,6 +378,28 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
             <kbd className="px-1 py-0.5 rounded bg-surface border border-border-subtle text-[10px] font-mono text-text-subtle leading-none">
               ⌘K
             </kbd>
+          </button>
+
+          {/* Cursor Preset Cycle Button */}
+          <button
+            type="button"
+            onClick={() => {
+              const nextPreset = cycleCursorPreset();
+              playHudSound(nextPreset === "off" ? "toggle" : "click");
+            }}
+            aria-label={cursorMeta.label}
+            title={cursorTitle}
+            className={cn(
+              "inline-flex items-center gap-1 h-7 px-2 rounded-lg border text-[11px] font-mono transition-all",
+              cursorPreset !== "off" && !motionPaused
+                ? "border-cyan-500/35 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 hover:border-cyan-400/60"
+                : "border-border bg-surface-2/80 text-text-muted hover:text-cyan-700 dark:hover:text-cyan-300 hover:border-cyan-500/35"
+            )}
+          >
+            <span className="material-symbols-outlined text-[15px]">
+              {cursorMeta.icon}
+            </span>
+            <span>{cursorMeta.label}</span>
           </button>
 
           {/* WCAG 2.2.2 Motion Pause/Play Toggle (label flips, NO aria-pressed) */}

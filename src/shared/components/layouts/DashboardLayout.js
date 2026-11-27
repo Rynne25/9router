@@ -5,16 +5,18 @@ import { usePathname, useRouter } from "next/navigation";
 import { useNotificationStore } from "@/store/notificationStore";
 import { fetchWithCache, fetchJson } from "@/shared/utils/swrCache";
 import useSettingsStore from "@/store/settingsStore";
-import { OrbitalShaderBg, CommandPalette } from "@/shared/components/hud";
+import { OrbitalShaderBg, CommandPalette, CursorEngine } from "@/shared/components/hud";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
 
 const PREFETCH_ROUTES = [
   "/dashboard/endpoint",
   "/dashboard/providers",
+  "/dashboard/providers/antigravity",
   "/dashboard/combos",
   "/dashboard/quota",
   "/dashboard/mitm",
+  "/dashboard/token-saver",
   "/dashboard/console-log",
   "/dashboard/usage",
   "/dashboard/cli-tools",
@@ -71,6 +73,7 @@ export default function DashboardLayout({ children }) {
         }
       }
       useSettingsStore.getState().fetchSettings().catch(() => {});
+      fetchWithCache("/api/settings", () => fetchJson("/api/settings"), { ttlMs: 30000 }).catch(() => {});
       fetchWithCache("/api/providers", () => fetchJson("/api/providers"), { ttlMs: 30000 }).catch(() => {});
       fetchWithCache("/api/keys", () => fetchJson("/api/keys"), { ttlMs: 30000 }).catch(() => {});
       fetchWithCache("/api/combos", () => fetchJson("/api/combos"), { ttlMs: 30000 }).catch(() => {});
@@ -95,8 +98,9 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="flex h-screen w-full overflow-hidden liquid-aurora-canvas relative">
-      {/* Tactical Orbital Shader Background & Global Command Palette */}
+      {/* Tactical Orbital Shader Background, Cursor Engine & Global Command Palette */}
       <OrbitalShaderBg />
+      <CursorEngine />
       <CommandPalette />
 
       {/* Ambient Orbital Top Spotlight */}

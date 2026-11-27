@@ -10,6 +10,7 @@ import { useHudPrefs } from "@/shared/hooks/useHudPrefs";
 import { playHudSound } from "@/shared/utils/hudAudio";
 import useSettingsStore from "@/store/settingsStore";
 import { getCachedData, fetchWithCache, fetchJson } from "@/shared/utils/swrCache";
+import MitmFlowCircuit from "./MitmFlowCircuit";
 
 const MITM_STATUS_DEFAULT = { running: false, certExists: false, dnsStatus: {}, hasCachedPassword: false };
 const MITM_DATA_TTL_MS = 30000;
@@ -108,14 +109,17 @@ export default function MitmPageClient() {
       <HudFrame
         chamfer="md"
         accent={isRunning ? "emerald" : "cyan"}
+        borderBeam={isRunning}
+        spotlight={true}
         padding="sm"
+        className={isRunning ? "hud-glow-emerald" : ""}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2.5 min-w-0">
             <div
               className={`size-8 rounded-lg flex items-center justify-center shrink-0 border ${
                 isRunning
-                  ? "border-emerald-500/35 bg-emerald-500/15 text-emerald-500"
+                  ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.28)]"
                   : "border-cyan-500/35 bg-cyan-500/12 text-cyan-600 dark:text-cyan-400"
               }`}
             >
@@ -129,7 +133,7 @@ export default function MitmPageClient() {
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[10px] font-bold ${
                     isRunning
-                      ? "border-emerald-500/35 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                      ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.22)]"
                       : "border-cyan-500/25 bg-cyan-500/10 text-text-muted"
                   }`}
                 >
@@ -154,19 +158,36 @@ export default function MitmPageClient() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]" data-i18n-skip="true">
-            <div className="flex items-center gap-1.5 rounded-md border border-black/10 dark:border-white/10 bg-white/50 dark:bg-black/25 px-2.5 py-1">
+            <div className="flex items-center gap-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/30 backdrop-blur-xs px-2.5 py-1">
+              <span
+                className={`size-1.5 rounded-full ${
+                  certTrusted ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.75)]" : "bg-amber-500"
+                }`}
+              />
               <span className="text-[10px] uppercase tracking-wider text-text-muted">Root CA</span>
               <span className={`font-bold ${certTrusted ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
                 {certTrusted ? "ĐÃ TIN CẬY" : "CHƯA TIN CẬY"}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 rounded-md border border-black/10 dark:border-white/10 bg-white/50 dark:bg-black/25 px-2.5 py-1">
+            <div className="flex items-center gap-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/30 backdrop-blur-xs px-2.5 py-1">
+              <span
+                className={`size-1.5 rounded-full ${
+                  activeDnsToolsCount > 0 ? "bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.75)]" : "bg-slate-400"
+                }`}
+              />
               <span className="text-[10px] uppercase tracking-wider text-text-muted">DNS đang bật</span>
               <span className="font-bold text-text-main hud-telemetry-num">
                 <NumberTicker value={activeDnsToolsCount} />/{mitmTools.length}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 rounded-md border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1">
+            <div className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/12 backdrop-blur-xs px-2.5 py-1">
+              <span
+                className={`size-1.5 rounded-full ${
+                  antigravityDnsActive && isRunning
+                    ? "bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.85)]"
+                    : "bg-cyan-400"
+                }`}
+              />
               <span className="text-[10px] uppercase tracking-wider text-cyan-700 dark:text-cyan-300">Antigravity</span>
               <span className={`font-bold ${antigravityDnsActive && isRunning ? "text-emerald-600 dark:text-emerald-400" : "text-cyan-700 dark:text-cyan-300"}`}>
                 {antigravityDnsActive && isRunning ? "ĐANG CHẶN" : "CHUYỂN TIẾP THẲNG"}
@@ -175,6 +196,18 @@ export default function MitmPageClient() {
           </div>
         </div>
       </HudFrame>
+
+      {/* Live MITM Intercept Circuit */}
+      <MitmFlowCircuit
+        isRunning={isRunning}
+        certTrusted={certTrusted}
+        activeDnsToolsCount={activeDnsToolsCount}
+        toolsCount={mitmTools.length}
+        antigravityDnsActive={antigravityDnsActive}
+        activeProvidersCount={activeProviders.length}
+        combosCount={combos.length}
+        onFocusTool={(toolId) => setExpandedTool(toolId)}
+      />
 
       {/* MITM Server Control Center */}
       <MitmServerCard

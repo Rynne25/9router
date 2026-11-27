@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Button, Input } from "@/shared/components";
-import { HudFrame } from "@/shared/components/hud";
+import { HudFrame, MagneticButton } from "@/shared/components/hud";
 import { useHudPrefs } from "@/shared/hooks/useHudPrefs";
 import { playHudSound } from "@/shared/utils/hudAudio";
 import { getCachedData, fetchWithCache, fetchJson, invalidateCache } from "@/shared/utils/swrCache";
@@ -103,7 +103,9 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
           playHudSound("alert");
           return;
         }
-        setActionError(data.error || `Failed to ${action} MITM server`);
+        const actionLabel =
+          action === "start" ? "khởi động" : action === "stop" ? "dừng" : "tin cậy chứng chỉ";
+        setActionError(data.error || `Không thể ${actionLabel} máy chủ MITM`);
         playHudSound("alert");
         return;
       }
@@ -114,7 +116,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
       invalidateCache(MITM_STATUS_CACHE_KEY);
       await fetchStatus({ force: true });
     } catch (e) {
-      setActionError(e.message || "Network error");
+      setActionError(e.message || "Lỗi kết nối mạng");
       playHudSound("alert");
     } finally {
       setLoading(false);
@@ -143,7 +145,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
 
   const handleConfirmPassword = () => {
     if (!sudoPassword.trim()) {
-      setModalError("Sudo password is required");
+      setModalError("Vui lòng nhập mật khẩu sudo");
       return;
     }
     doAction(pendingAction, sudoPassword);
@@ -159,8 +161,10 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
       <HudFrame
         chamfer="md"
         accent={isRunning ? "emerald" : "cyan"}
+        borderBeam={isRunning}
+        spotlight={true}
         padding="sm"
-        className="relative overflow-hidden"
+        className="relative"
       >
         <div className="flex flex-col gap-2.5">
           {/* Top Header Row — Orbital Telemetry & Server Controls */}
@@ -216,36 +220,53 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
                 </span>
               </div>
 
-              {/* Compact inline pipeline telemetry */}
-              <div className="hidden xl:flex items-center gap-1.5 ml-1 font-mono text-[10px]" data-i18n-skip="true">
-                <span className="text-text-muted/40">│</span>
+              {/* Glassmorphic Pipeline Telemetry (1.CA -> 2.TLS:443 -> 3.DNS) */}
+              <div
+                className="hidden lg:flex items-center gap-1.5 ml-1 rounded-lg border border-cyan-500/20 bg-white/60 dark:bg-[#070D1B]/75 backdrop-blur-md px-2.5 py-1 font-mono text-[10px] shadow-2xs"
+                data-i18n-skip="true"
+              >
                 <span
-                  className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
+                  className={`inline-flex items-center gap-1 rounded px-1 py-0.5 ${
                     certTrusted
-                      ? "text-emerald-600 dark:text-emerald-400"
+                      ? "text-emerald-600 dark:text-emerald-400 font-semibold"
                       : "text-text-muted"
                   }`}
                 >
+                  <span
+                    className={`size-1.5 rounded-full ${
+                      certTrusted ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.75)]" : "bg-amber-400/70"
+                    }`}
+                  />
                   <span>1.CA</span>
                 </span>
-                <span className="text-text-muted/40">→</span>
+                <span className="text-cyan-500/50">→</span>
                 <span
-                  className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
+                  className={`inline-flex items-center gap-1 rounded px-1 py-0.5 ${
                     isRunning
-                      ? "text-emerald-600 dark:text-emerald-400"
+                      ? "text-emerald-600 dark:text-emerald-400 font-semibold"
                       : "text-text-muted"
                   }`}
                 >
+                  <span
+                    className={`size-1.5 rounded-full ${
+                      isRunning ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.75)]" : "bg-slate-400/60"
+                    }`}
+                  />
                   <span>2.TLS:443</span>
                 </span>
-                <span className="text-text-muted/40">→</span>
+                <span className="text-cyan-500/50">→</span>
                 <span
-                  className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 hud-telemetry-num ${
+                  className={`inline-flex items-center gap-1 rounded px-1 py-0.5 hud-telemetry-num ${
                     activeDnsToolsCount > 0
                       ? "text-cyan-600 dark:text-cyan-400 font-bold"
                       : "text-text-muted"
                   }`}
                 >
+                  <span
+                    className={`size-1.5 rounded-full ${
+                      activeDnsToolsCount > 0 ? "bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.8)]" : "bg-slate-400/60"
+                    }`}
+                  />
                   <span>3.DNS({activeDnsToolsCount})</span>
                 </span>
               </div>
@@ -255,6 +276,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
             <div className="flex items-center gap-1.5 shrink-0" data-i18n-skip="true">
               <button
                 type="button"
+                data-cursor-target="true"
                 onClick={() => {
                   playHudSound("click");
                   fetchStatus({ force: true });
@@ -269,38 +291,47 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
               </button>
 
               {certExists && !certTrusted && (
-                <button
-                  type="button"
-                  onClick={() => handleAction("trust-cert")}
-                  disabled={loading}
-                  className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 text-[11px] font-bold text-amber-700 dark:text-amber-300 transition-all hover:bg-amber-500/25 disabled:opacity-50 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[14px]">verified_user</span>
-                  <span>Tin cậy CA</span>
-                </button>
+                <MagneticButton strength={loading ? 0 : 4}>
+                  <button
+                    type="button"
+                    data-cursor-target="true"
+                    onClick={() => handleAction("trust-cert")}
+                    disabled={loading}
+                    className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 text-[11px] font-bold text-amber-700 dark:text-amber-300 transition-all hover:bg-amber-500/25 disabled:opacity-50 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">verified_user</span>
+                    <span>Tin cậy CA</span>
+                  </button>
+                </MagneticButton>
               )}
 
               {isRunning ? (
-                <button
-                  type="button"
-                  onClick={() => handleAction("stop")}
-                  disabled={loading}
-                  className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-rose-500/40 bg-rose-500/15 px-3 text-[11px] font-bold text-rose-700 dark:text-rose-300 transition-all hover:bg-rose-500/25 disabled:opacity-50 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[14px]">stop_circle</span>
-                  <span>Dừng Server</span>
-                </button>
+                <MagneticButton strength={loading ? 0 : 4}>
+                  <button
+                    type="button"
+                    data-cursor-target="true"
+                    onClick={() => handleAction("stop")}
+                    disabled={loading}
+                    className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-rose-500/40 bg-rose-500/15 px-3 text-[11px] font-bold text-rose-700 dark:text-rose-300 transition-all hover:bg-rose-500/25 disabled:opacity-50 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">stop_circle</span>
+                    <span>Dừng Server</span>
+                  </button>
+                </MagneticButton>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => handleAction("start")}
-                  disabled={loading || !status || noPrivilege}
-                  title={serverIsWindows && !isAdmin ? "Cần quyền Administrator" : undefined}
-                  className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-cyan-500/50 bg-primary text-white px-3 text-[11px] font-bold shadow-2xs transition-all hover:bg-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[14px]">play_circle</span>
-                  <span>Khởi động Server</span>
-                </button>
+                <MagneticButton strength={loading || !status || noPrivilege ? 0 : 4}>
+                  <button
+                    type="button"
+                    data-cursor-target="true"
+                    onClick={() => handleAction("start")}
+                    disabled={loading || !status || noPrivilege}
+                    title={serverIsWindows && !isAdmin ? "Cần quyền Administrator" : undefined}
+                    className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-cyan-500/50 bg-primary text-white px-3 text-[11px] font-bold shadow-[0_0_12px_-3px_rgba(6,182,212,0.5)] transition-all hover:bg-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">play_circle</span>
+                    <span>Khởi động Server</span>
+                  </button>
+                </MagneticButton>
               )}
             </div>
           </div>

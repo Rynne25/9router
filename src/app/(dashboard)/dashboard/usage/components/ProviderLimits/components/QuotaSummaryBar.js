@@ -1,7 +1,7 @@
 "use client";
 
 import ProviderIcon from "@/shared/components/ProviderIcon";
-import { HudFrame, NumberTicker } from "@/shared/components/hud";
+import { HudFrame, MagneticButton, NumberTicker } from "@/shared/components/hud";
 import { cn } from "@/shared/utils/cn";
 
 const SEGMENT_COUNT = 10;
@@ -15,9 +15,20 @@ function getAvgColorClass(avgPct) {
 
 function getSegmentActiveClass(avgPct) {
   if (avgPct === null || avgPct === undefined) return "bg-slate-400/50";
-  if (avgPct > 70) return "bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.55)]";
-  if (avgPct >= 30) return "bg-amber-500 dark:bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.5)]";
-  return "bg-rose-500 dark:bg-rose-400 shadow-[0_0_6px_rgba(244,63,94,0.55)]";
+  if (avgPct > 70) {
+    return "bg-gradient-to-t from-emerald-500 to-emerald-300 shadow-[0_0_9px_rgba(16,185,129,0.65)] ring-1 ring-emerald-300/40";
+  }
+  if (avgPct >= 30) {
+    return "bg-gradient-to-t from-amber-500 to-amber-300 shadow-[0_0_9px_rgba(245,158,11,0.6)] ring-1 ring-amber-300/40";
+  }
+  return "bg-gradient-to-t from-rose-500 to-rose-300 shadow-[0_0_9px_rgba(244,63,94,0.65)] ring-1 ring-rose-300/40";
+}
+
+function getGaugeShellClass(avgPct) {
+  if (avgPct === null || avgPct === undefined) return "border-cyan-500/20 bg-black/[0.025] dark:bg-white/[0.03]";
+  if (avgPct > 70) return "border-emerald-500/30 bg-emerald-500/[0.06] shadow-[0_0_16px_-8px_rgba(16,185,129,0.55)]";
+  if (avgPct >= 30) return "border-amber-500/30 bg-amber-500/[0.06] shadow-[0_0_16px_-8px_rgba(245,158,11,0.5)]";
+  return "border-rose-500/35 bg-rose-500/[0.07] shadow-[0_0_16px_-8px_rgba(244,63,94,0.55)]";
 }
 
 function formatSyncTime(lastUpdated) {
@@ -46,7 +57,7 @@ export default function QuotaSummaryBar({
 }) {
   if (isInitialLoading) {
     return (
-      <HudFrame chamfer="sm" accent="cyan" padding="none" spotlight={false}>
+      <HudFrame chamfer="sm" accent="cyan" padding="none" spotlight={false} borderBeam={true}>
         <div className="px-3.5 py-2.5 flex items-center justify-between gap-3 animate-pulse">
           <div className="h-4 w-44 rounded bg-cyan-500/15" />
           <div className="h-4 w-52 rounded bg-cyan-500/10" />
@@ -83,51 +94,58 @@ export default function QuotaSummaryBar({
       chamfer="sm"
       accent="cyan"
       padding="none"
-      spotlight={false}
-      className="border-cyan-500/25 dark:border-cyan-400/25"
+      spotlight={true}
+      borderBeam={true}
+      className="[&>.hud-frame]:border-cyan-500/30 dark:[&>.hud-frame]:border-cyan-400/30"
     >
-      <div className="px-3.5 py-2 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+      <div className="px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-xs">
         {/* Quick Priority Filter Pills (All + Antigravity) & Monospace Telemetry Counters */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 min-w-0">
           {showAntigravityQuickPill && (
-            <div className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/25 bg-cyan-500/[0.06] p-0.5">
-              <button
-                type="button"
-                onClick={() => onSelectProvider?.("all")}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-wider transition-all cursor-pointer",
-                  providerFilter === "all"
-                    ? "bg-cyan-500 text-slate-950 shadow-xs"
-                    : "text-text-muted hover:text-text-main hover:bg-cyan-500/10",
-                )}
-              >
-                <span>Tất cả</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onSelectProvider?.("antigravity")}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-wider transition-all cursor-pointer",
-                  providerFilter === "antigravity"
-                    ? "bg-cyan-500 text-slate-950 shadow-[0_0_10px_rgba(6,182,212,0.45)]"
-                    : "text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/15",
-                )}
-                title="Ưu tiên lọc nhanh tài khoản Antigravity"
-              >
-                <ProviderIcon
-                  src="/providers/antigravity.png"
-                  alt="antigravity"
-                  size={12}
-                  className="size-3 rounded-xs object-contain"
-                  fallbackText="AG"
-                />
-                <span>Antigravity</span>
-                {antigravityEntry && (
-                  <span className="tabular-nums opacity-85">
-                    ({antigravityEntry.count ?? antigravityEntry.total ?? 0})
-                  </span>
-                )}
-              </button>
+            <div className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/25 bg-cyan-500/[0.07] p-0.5 backdrop-blur-xs">
+              <MagneticButton strength={4}>
+                <button
+                  type="button"
+                  data-cursor-target="true"
+                  onClick={() => onSelectProvider?.("all")}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-wider transition-all cursor-pointer",
+                    providerFilter === "all"
+                      ? "bg-cyan-500 text-slate-950 shadow-[0_0_10px_rgba(6,182,212,0.4)]"
+                      : "text-text-muted hover:text-text-main hover:bg-cyan-500/12",
+                  )}
+                >
+                  <span>Tất cả</span>
+                </button>
+              </MagneticButton>
+              <MagneticButton strength={4}>
+                <button
+                  type="button"
+                  data-cursor-target="true"
+                  onClick={() => onSelectProvider?.("antigravity")}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-wider transition-all cursor-pointer",
+                    providerFilter === "antigravity"
+                      ? "bg-cyan-500 text-slate-950 shadow-[0_0_12px_rgba(6,182,212,0.55)]"
+                      : "text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/15",
+                  )}
+                  title="Ưu tiên lọc nhanh tài khoản Antigravity"
+                >
+                  <ProviderIcon
+                    src="/providers/antigravity.png"
+                    alt="antigravity"
+                    size={12}
+                    className="size-3 rounded-xs object-contain"
+                    fallbackText="AG"
+                  />
+                  <span>Antigravity</span>
+                  {antigravityEntry && (
+                    <span className="tabular-nums opacity-85">
+                      ({antigravityEntry.count ?? antigravityEntry.total ?? 0})
+                    </span>
+                  )}
+                </button>
+              </MagneticButton>
             </div>
           )}
 
@@ -182,12 +200,17 @@ export default function QuotaSummaryBar({
         {/* Segmented Average Quota Gauge, Sync Telemetry & Provider Breakdown */}
         <div className="flex flex-wrap items-center gap-2.5 ml-auto">
           {avgRemainingPct !== null && (
-            <div className="flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-black/[0.025] dark:bg-white/[0.03] px-2.5 py-1">
+            <div
+              className={cn(
+                "flex items-center gap-2 rounded-lg border px-2.5 py-1 backdrop-blur-xs transition-colors",
+                getGaugeShellClass(avgRemainingPct),
+              )}
+            >
               <span className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
                 TB Quota
               </span>
               <div
-                className="flex items-center gap-0.5"
+                className="flex items-center gap-0.5 rounded bg-black/[0.06] dark:bg-black/35 px-1 py-0.5 border border-black/[0.06] dark:border-white/[0.08]"
                 role="meter"
                 aria-label="Hạn mức trung bình"
                 aria-valuemin={0}
@@ -226,6 +249,7 @@ export default function QuotaSummaryBar({
                   <button
                     key={item.provider}
                     type="button"
+                    data-cursor-target="true"
                     onClick={() => onSelectProvider?.(item.provider)}
                     className={cn(
                       "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10.5px] transition-all cursor-pointer",

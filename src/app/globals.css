@@ -460,6 +460,24 @@ dialog::backdrop {
     radial-gradient(ellipse 60% 40% at 88% 96%, rgba(56, 189, 248, 0.08), transparent 65%);
 }
 
+@property --hud-beam-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@property --inner-size {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --outer-size {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 /* ============================================================
    Tactical Orbital HUD Utilities
    ============================================================ */
@@ -570,6 +588,66 @@ dialog::backdrop {
   box-shadow:
     0 0 0 1px rgba(16, 185, 129, 0.28),
     0 0 22px -6px rgba(16, 185, 129, 0.45);
+}
+
+.hud-border-beam {
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--hud-beam-angle, 0deg),
+    transparent 0deg,
+    transparent 245deg,
+    var(--hud-beam-color, rgba(34, 211, 238, 0.9)) 305deg,
+    rgba(255, 255, 255, 0.92) 330deg,
+    var(--hud-beam-color-end, rgba(56, 189, 248, 0.55)) 350deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.hud-blueprint-canvas {
+  background-image:
+    radial-gradient(circle at 14% 18%, rgba(2, 132, 199, 0.08) 0%, transparent 45%),
+    radial-gradient(rgba(2, 132, 199, 0.14) 1px, transparent 1px);
+  background-size: 100% 100%, 18px 18px;
+}
+
+.dark .hud-blueprint-canvas {
+  background-image:
+    radial-gradient(circle at 14% 18%, rgba(34, 211, 238, 0.09) 0%, transparent 45%),
+    radial-gradient(rgba(34, 211, 238, 0.14) 1px, transparent 1px);
+  background-size: 100% 100%, 18px 18px;
+}
+
+@keyframes hud-flow-beam-dash {
+  from {
+    stroke-dashoffset: 56;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hud-flow-beam-active {
+    animation: hud-flow-beam-dash 1.35s linear infinite;
+  }
+  .hud-flow-beam-slow {
+    animation: hud-flow-beam-dash 2.1s linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-flow-packet {
+    display: none;
+  }
 }
 
 /* macOS Traffic Lights */
@@ -696,6 +774,14 @@ button:disabled,
   }
   .hud-beam-flow {
     animation: hudBeamFlow 2.6s linear infinite;
+  }
+
+  @keyframes hudBorderBeamSpin {
+    from { --hud-beam-angle: 0deg; }
+    to { --hud-beam-angle: 360deg; }
+  }
+  .hud-border-beam {
+    animation: hudBorderBeamSpin 3.6s linear infinite;
   }
 
   @keyframes hudScanDrift {

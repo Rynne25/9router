@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { FREE_PROVIDERS, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getCachedData, fetchWithCache, fetchJson } from "@/shared/utils/swrCache";
+import { HudFrame, MagneticButton } from "@/shared/components/hud";
 import Badge from "./Badge";
 import OverviewCards from "@/app/(dashboard)/dashboard/usage/components/OverviewCards";
 import UsageTable, { fmt, fmtTime } from "@/app/(dashboard)/dashboard/usage/components/UsageTable";
@@ -94,94 +95,100 @@ function TimeAgo({ timestamp }) {
 
 function RecentRequests({ requests = [], activeCount = 0 }) {
   return (
-    <div
-      className="liquid-glass-card flex min-w-0 flex-col overflow-hidden rounded-2xl p-4"
-      style={{ height: 460 }}
+    <HudFrame
+      chamfer="md"
+      accent="emerald"
+      padding="none"
+      spotlight={true}
+      className="flex min-w-0 flex-col overflow-hidden [&>div:last-child]:h-full [&>div:last-child]:flex [&>div:last-child]:flex-col"
+      style={{ height: 480 }}
     >
-      {/* Header */}
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle pb-3">
-        <div className="flex items-center gap-2">
-          <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/12 text-emerald-400 border border-emerald-500/20">
-            <span className="material-symbols-outlined text-[16px]">bolt</span>
-          </span>
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-text-main">
-              Luồng Requests trực tiếp
-            </h3>
-            <p className="text-[11px] text-text-muted">Cập nhật thời gian thực</p>
+      <div className="flex h-full min-w-0 flex-col p-4">
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle pb-3">
+          <div className="flex items-center gap-2">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/12 text-emerald-500 dark:text-emerald-400 border border-emerald-500/25">
+              <span className="material-symbols-outlined text-[16px]">bolt</span>
+            </span>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-text-main">
+                Luồng Requests trực tiếp
+              </h3>
+              <p className="text-[11px] text-text-muted">Cập nhật thời gian thực</p>
+            </div>
           </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-500 dark:text-emerald-400">
+            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            {activeCount > 0 ? `${activeCount} đang chạy` : "LIVE"}
+          </span>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-500 dark:text-emerald-400">
-          <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          {activeCount > 0 ? `${activeCount} đang chạy` : "LIVE"}
-        </span>
-      </div>
 
-      {!requests.length ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-text-muted">
-          <span className="material-symbols-outlined text-[30px] opacity-40">stream</span>
-          <span className="text-xs font-medium">Chưa có request nào gần đây</span>
-        </div>
-      ) : (
-        <div className="custom-scrollbar mt-2 flex-1 overflow-y-auto pr-1">
-          <table className="w-full min-w-[270px] border-collapse text-xs">
-            <thead className="sticky top-0 z-10 bg-bg/90 backdrop-blur-md">
-              <tr className="border-b border-border-subtle text-[10px] uppercase tracking-wider text-text-muted">
-                <th className="w-3 py-2 text-left font-semibold" />
-                <th className="py-2 text-left font-semibold">Model</th>
-                <th className="py-2 text-right font-semibold whitespace-nowrap">In / Out</th>
-                <th className="py-2 text-right font-semibold">Lúc</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-subtle/70">
-              {requests.map((r, i) => {
-                const ok = !r.status || r.status === "ok" || r.status === "success";
-                return (
-                  <tr
-                    key={`${r.timestamp}-${i}`}
-                    className="transition-colors hover:bg-surface-2/60"
-                  >
-                    <td className="py-2">
-                      <span
-                        className={`block size-2 rounded-full ${
-                          ok
-                            ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]"
-                            : "bg-rose-400 shadow-[0_0_6px_rgba(248,113,113,0.6)]"
-                        }`}
-                      />
-                    </td>
-                    <td className="py-2 pr-2">
-                      <div
-                        className="max-w-[130px] truncate font-mono text-[11px] font-medium text-text-main"
-                        title={r.model}
-                      >
-                        {r.model}
-                      </div>
-                      {r.provider && (
-                        <div className="text-[10px] text-text-subtle truncate max-w-[120px]">
-                          {r.provider}
+        {!requests.length ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-text-muted">
+            <span className="material-symbols-outlined text-[30px] opacity-40">stream</span>
+            <span className="text-xs font-medium">Chưa có request nào gần đây</span>
+          </div>
+        ) : (
+          <div className="custom-scrollbar mt-2 flex-1 overflow-y-auto pr-1">
+            <table className="w-full min-w-[270px] border-collapse text-xs">
+              <thead className="sticky top-0 z-10 bg-bg/90 backdrop-blur-md">
+                <tr className="border-b border-border-subtle text-[10px] uppercase tracking-wider text-text-muted">
+                  <th className="w-3 py-2 text-left font-semibold" />
+                  <th className="py-2 text-left font-semibold">Model</th>
+                  <th className="py-2 text-right font-semibold whitespace-nowrap">Vào / Ra</th>
+                  <th className="py-2 text-right font-semibold">Lúc</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-subtle/70">
+                {requests.map((r, i) => {
+                  const ok = !r.status || r.status === "ok" || r.status === "success";
+                  return (
+                    <tr
+                      key={`${r.timestamp}-${i}`}
+                      className="transition-colors hover:bg-surface-2/60"
+                    >
+                      <td className="py-2">
+                        <span
+                          className={`block size-2 rounded-full ${
+                            ok
+                              ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]"
+                              : "bg-rose-400 shadow-[0_0_6px_rgba(248,113,113,0.6)]"
+                          }`}
+                        />
+                      </td>
+                      <td className="py-2 pr-2">
+                        <div
+                          className="max-w-[130px] truncate font-mono text-[11px] font-medium text-text-main"
+                          title={r.model}
+                        >
+                          {r.model}
                         </div>
-                      )}
-                    </td>
-                    <td className="py-2 text-right font-mono text-[11px] tabular-nums whitespace-nowrap">
-                      <span className="text-indigo-500 dark:text-indigo-400">
-                        {fmt(r.promptTokens)}↑
-                      </span>{" "}
-                      <span className="text-emerald-500 dark:text-emerald-400">
-                        {fmt(r.completionTokens)}↓
-                      </span>
-                    </td>
-                    <td className="py-2 pl-2 text-right font-mono text-[10px] text-text-muted tabular-nums whitespace-nowrap">
-                      <TimeAgo timestamp={r.timestamp} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+                        {r.provider && (
+                          <div className="text-[10px] text-text-subtle truncate max-w-[120px]">
+                            {r.provider}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-2 text-right font-mono text-[11px] tabular-nums whitespace-nowrap">
+                        <span className="text-indigo-500 dark:text-indigo-400">
+                          {fmt(r.promptTokens)}↑
+                        </span>{" "}
+                        <span className="text-emerald-500 dark:text-emerald-400">
+                          {fmt(r.completionTokens)}↓
+                        </span>
+                      </td>
+                      <td className="py-2 pl-2 text-right font-mono text-[10px] text-text-muted tabular-nums whitespace-nowrap">
+                        <TimeAgo timestamp={r.timestamp} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </HudFrame>
   );
 }
 
@@ -215,15 +222,15 @@ function sortData(dataMap, pendingMap = {}, sortBy, sortOrder) {
 function getGroupKey(item, keyField) {
   switch (keyField) {
     case "rawModel":
-      return item.rawModel || "Unknown Model";
+      return item.rawModel || "Model không xác định";
     case "accountName":
-      return item.accountName || `Account ${item.connectionId?.slice(0, 8)}...` || "Unknown Account";
+      return item.accountName || (item.connectionId ? `Tài khoản ${item.connectionId.slice(0, 8)}...` : "Tài khoản không xác định");
     case "keyName":
-      return item.apiKeyMasked ? `${item.keyName} (${item.apiKeyMasked})` : item.keyName || "Unknown Key";
+      return item.apiKeyMasked ? `${item.keyName} (${item.apiKeyMasked})` : item.keyName || "Key không xác định";
     case "endpoint":
-      return item.endpoint || "Unknown Endpoint";
+      return item.endpoint || "Endpoint không xác định";
     default:
-      return item[keyField] || "Unknown";
+      return item[keyField] || "Không xác định";
   }
 }
 
@@ -274,23 +281,23 @@ const MODEL_COLUMNS = [
   { field: "rawModel", label: "Model" },
   { field: "provider", label: "Provider" },
   { field: "requests", label: "Requests", align: "right" },
-  { field: "lastUsed", label: "Last Used", align: "right" },
+  { field: "lastUsed", label: "Dùng gần nhất", align: "right" },
 ];
 
 const ACCOUNT_COLUMNS = [
   { field: "rawModel", label: "Model" },
   { field: "provider", label: "Provider" },
-  { field: "accountName", label: "Account" },
+  { field: "accountName", label: "Tài khoản" },
   { field: "requests", label: "Requests", align: "right" },
-  { field: "lastUsed", label: "Last Used", align: "right" },
+  { field: "lastUsed", label: "Dùng gần nhất", align: "right" },
 ];
 
 const API_KEY_COLUMNS = [
-  { field: "keyName", label: "API Key Name" },
+  { field: "keyName", label: "Tên API Key" },
   { field: "rawModel", label: "Model" },
   { field: "provider", label: "Provider" },
   { field: "requests", label: "Requests", align: "right" },
-  { field: "lastUsed", label: "Last Used", align: "right" },
+  { field: "lastUsed", label: "Dùng gần nhất", align: "right" },
 ];
 
 const ENDPOINT_COLUMNS = [
@@ -298,7 +305,7 @@ const ENDPOINT_COLUMNS = [
   { field: "rawModel", label: "Model" },
   { field: "provider", label: "Provider" },
   { field: "requests", label: "Requests", align: "right" },
-  { field: "lastUsed", label: "Last Used", align: "right" },
+  { field: "lastUsed", label: "Dùng gần nhất", align: "right" },
 ];
 
 const TABLE_OPTIONS = [
@@ -309,12 +316,12 @@ const TABLE_OPTIONS = [
 ];
 
 const PERIODS = [
-  { value: "today", label: "Today" },
+  { value: "today", label: "Hôm nay" },
   { value: "24h", label: "24h" },
-  { value: "7d", label: "7D" },
-  { value: "30d", label: "30D" },
-  { value: "60d", label: "60D" },
-  { value: "all", label: "All" },
+  { value: "7d", label: "7 ngày" },
+  { value: "30d", label: "30 ngày" },
+  { value: "60d", label: "60 ngày" },
+  { value: "all", label: "Tất cả" },
 ];
 
 function computeTelemetrySummary(details = []) {
@@ -572,7 +579,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           ),
           renderDetailCells: (item) => (
             <>
-              <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.accountName || `Account ${item.connectionId?.slice(0, 8)}...`}</td>
+              <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.accountName || (item.connectionId ? `Tài khoản ${item.connectionId.slice(0, 8)}...` : "Tài khoản không xác định")}</td>
               <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</td>
               <td className="px-6 py-3"><Badge variant={item.pending > 0 ? "primary" : "neutral"} size="sm">{item.provider}</Badge></td>
               <td className="px-6 py-3 text-right">{fmt(item.requests)}</td>
@@ -637,10 +644,12 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
 
   if (!stats && !loading) {
     return (
-      <div className="liquid-glass-card flex flex-col items-center justify-center gap-2 rounded-2xl p-10 text-text-muted">
-        <span className="material-symbols-outlined text-[32px] text-rose-400">cloud_off</span>
-        <span className="text-sm font-medium">Không thể tải dữ liệu thống kê sử dụng.</span>
-      </div>
+      <HudFrame chamfer="md" accent="rose" padding="lg" spotlight={false}>
+        <div className="flex flex-col items-center justify-center gap-2 py-4 text-text-muted">
+          <span className="material-symbols-outlined text-[32px] text-rose-400">cloud_off</span>
+          <span className="text-sm font-medium">Không thể tải dữ liệu thống kê sử dụng.</span>
+        </div>
+      </HudFrame>
     );
   }
 
@@ -661,18 +670,21 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           )}
           <div className="grid flex-1 grid-cols-6 items-center gap-1 rounded-xl border border-border bg-surface-2/60 p-1 backdrop-blur-md sm:flex sm:flex-none">
             {PERIODS.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPeriod(p.value)}
-                disabled={fetching}
-                className={`rounded-lg px-3 py-1 text-xs font-semibold transition-all ${
-                  period === p.value
-                    ? "bg-primary text-white shadow-sm shadow-primary/25"
-                    : "text-text-muted hover:bg-surface-3/60 hover:text-text-main"
-                }`}
-              >
-                {p.label}
-              </button>
+              <MagneticButton key={p.value} strength={4} className="w-full sm:w-auto">
+                <button
+                  type="button"
+                  data-cursor-target="true"
+                  onClick={() => setPeriod(p.value)}
+                  disabled={fetching}
+                  className={`w-full rounded-lg px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                    period === p.value
+                      ? "bg-primary text-white shadow-sm shadow-primary/25"
+                      : "text-text-muted hover:bg-surface-3/60 hover:text-text-main"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              </MagneticButton>
             ))}
           </div>
         </div>
@@ -688,30 +700,74 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       </div>
 
       {/* Row 2: Main Smooth Area Chart */}
-      {loading ? <ChartSkeleton heightClass="h-[310px]" /> : <UsageChart period={period} />}
+      {loading ? (
+        <ChartSkeleton heightClass="h-[310px]" />
+      ) : (
+        <HudFrame
+          chamfer="md"
+          accent="cyan"
+          padding="none"
+          spotlight={true}
+          className="min-w-0 [&_.liquid-glass-card]:border-transparent [&_.liquid-glass-card]:bg-transparent [&_.liquid-glass-card]:shadow-none [&_.liquid-glass-card]:backdrop-blur-none"
+        >
+          <UsageChart period={period} />
+        </HudFrame>
+      )}
 
       {/* Row 3: Distribution Bento (Models Donut + Provider/Account Gradient Bars) */}
       {!loading && (stats?.byProvider || stats?.byModel) && (
         <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
-          <TopModelsChart byModel={stats.byModel} />
-          <ProviderBarChart byProvider={stats.byProvider} byAccount={stats.byAccount} />
+          <HudFrame
+            chamfer="md"
+            accent="cyan"
+            padding="none"
+            spotlight={true}
+            className="min-w-0 [&_.liquid-glass-card]:border-transparent [&_.liquid-glass-card]:bg-transparent [&_.liquid-glass-card]:shadow-none [&_.liquid-glass-card]:backdrop-blur-none"
+          >
+            <TopModelsChart byModel={stats.byModel} />
+          </HudFrame>
+          <HudFrame
+            chamfer="md"
+            accent="cyan"
+            padding="none"
+            spotlight={true}
+            className="min-w-0 [&_.liquid-glass-card]:border-transparent [&_.liquid-glass-card]:bg-transparent [&_.liquid-glass-card]:shadow-none [&_.liquid-glass-card]:backdrop-blur-none"
+          >
+            <ProviderBarChart byProvider={stats.byProvider} byAccount={stats.byAccount} />
+          </HudFrame>
         </div>
       )}
 
       {/* Row 4: Live Routing Topology + Live Stream */}
       {loading ? (
-        <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+        <div
+          className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]"
+          style={{ contentVisibility: "auto", containIntrinsicSize: "auto 320px" }}
+        >
           <ChartSkeleton heightClass="h-[460px]" />
           <ChartSkeleton heightClass="h-[460px]" />
         </div>
       ) : (
-        <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
-          <ProviderTopology
-            providers={providers}
-            activeRequests={stats.activeRequests || []}
-            lastProvider={stats.recentRequests?.[0]?.provider || ""}
-            errorProvider={stats.errorProvider || ""}
-          />
+        <div
+          className="grid min-w-0 grid-cols-1 items-stretch gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]"
+          style={{ contentVisibility: "auto", containIntrinsicSize: "auto 320px" }}
+        >
+          <HudFrame
+            chamfer="md"
+            accent="cyan"
+            padding="sm"
+            spotlight={true}
+            header="Sơ đồ định tuyến Provider"
+            statusDot={true}
+            className="min-w-0"
+          >
+            <ProviderTopology
+              providers={providers}
+              activeRequests={stats.activeRequests || []}
+              lastProvider={stats.recentRequests?.[0]?.provider || ""}
+              errorProvider={stats.errorProvider || ""}
+            />
+          </HudFrame>
           <RecentRequests
             requests={stats.recentRequests || []}
             activeCount={activeCount}
@@ -720,54 +776,65 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       )}
 
       {/* Row 5: Detailed Telemetry Breakdown Table */}
-      <div className="flex flex-col gap-3">
+      <div
+        className="flex flex-col gap-3"
+        style={{ contentVisibility: "auto", containIntrinsicSize: "auto 320px" }}
+      >
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           {/* Interactive Pill Tabs */}
           <div className="flex flex-wrap items-center gap-1 rounded-xl border border-border/80 bg-surface-2/60 p-1 backdrop-blur-md">
             {TABLE_OPTIONS.map((opt) => {
               const active = tableView === opt.value;
               return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setTableView(opt.value)}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                    active
-                      ? "bg-primary text-white shadow-sm shadow-primary/25"
-                      : "text-text-muted hover:bg-surface-3/60 hover:text-text-main"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[15px]">{opt.icon}</span>
-                  <span>{opt.label}</span>
-                </button>
+                <MagneticButton key={opt.value} strength={4}>
+                  <button
+                    type="button"
+                    data-cursor-target="true"
+                    onClick={() => setTableView(opt.value)}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                      active
+                        ? "bg-primary text-white shadow-sm shadow-primary/25"
+                        : "text-text-muted hover:bg-surface-3/60 hover:text-text-main"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[15px]">{opt.icon}</span>
+                    <span>{opt.label}</span>
+                  </button>
+                </MagneticButton>
               );
             })}
           </div>
 
           {/* Costs / Tokens Switch */}
           <div className="grid grid-cols-2 items-center gap-1 rounded-xl border border-border/80 bg-surface-2/60 p-1 backdrop-blur-md sm:flex">
-            <button
-              type="button"
-              onClick={() => setViewMode("costs")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                viewMode === "costs"
-                  ? "bg-primary text-white shadow-sm shadow-primary/25"
-                  : "text-text-muted hover:bg-surface-3/60 hover:text-text-main"
-              }`}
-            >
-              Chi phí
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("tokens")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                viewMode === "tokens"
-                  ? "bg-primary text-white shadow-sm shadow-primary/25"
-                  : "text-text-muted hover:bg-surface-3/60 hover:text-text-main"
-              }`}
-            >
-              Tokens
-            </button>
+            <MagneticButton strength={4} className="w-full sm:w-auto">
+              <button
+                type="button"
+                data-cursor-target="true"
+                onClick={() => setViewMode("costs")}
+                className={`w-full rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  viewMode === "costs"
+                    ? "bg-primary text-white shadow-sm shadow-primary/25"
+                    : "text-text-muted hover:bg-surface-3/60 hover:text-text-main"
+                }`}
+              >
+                Chi phí
+              </button>
+            </MagneticButton>
+            <MagneticButton strength={4} className="w-full sm:w-auto">
+              <button
+                type="button"
+                data-cursor-target="true"
+                onClick={() => setViewMode("tokens")}
+                className={`w-full rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  viewMode === "tokens"
+                    ? "bg-primary text-white shadow-sm shadow-primary/25"
+                    : "text-text-muted hover:bg-surface-3/60 hover:text-text-main"
+                }`}
+              >
+                Tokens
+              </button>
+            </MagneticButton>
           </div>
         </div>
 
@@ -775,20 +842,28 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           <ChartSkeleton heightClass="h-64" />
         ) : (
           activeTableConfig && (
-            <UsageTable
-              title=""
-              columns={activeTableConfig.columns}
-              groupedData={activeTableConfig.groupedData}
-              tableType={tableView}
-              sortBy={sortBy}
-              sortOrder={sortOrder}
-              onToggleSort={toggleSort}
-              viewMode={viewMode}
-              storageKey={activeTableConfig.storageKey}
-              renderSummaryCells={activeTableConfig.renderSummaryCells}
-              renderDetailCells={activeTableConfig.renderDetailCells}
-              emptyMessage={activeTableConfig.emptyMessage}
-            />
+            <HudFrame
+              chamfer="md"
+              accent="cyan"
+              padding="none"
+              spotlight={true}
+              className="min-w-0 [&>div:last-child>div]:border-transparent [&>div:last-child>div]:bg-transparent [&>div:last-child>div]:shadow-none"
+            >
+              <UsageTable
+                title=""
+                columns={activeTableConfig.columns}
+                groupedData={activeTableConfig.groupedData}
+                tableType={tableView}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onToggleSort={toggleSort}
+                viewMode={viewMode}
+                storageKey={activeTableConfig.storageKey}
+                renderSummaryCells={activeTableConfig.renderSummaryCells}
+                renderDetailCells={activeTableConfig.renderDetailCells}
+                emptyMessage={activeTableConfig.emptyMessage}
+              />
+            </HudFrame>
           )
         )}
       </div>

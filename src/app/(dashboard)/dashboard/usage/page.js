@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { RequestLogger, CardSkeleton, SegmentedControl } from "@/shared/components";
+import { HudFrame, MagneticButton } from "@/shared/components/hud";
 import UsageStats from "@/shared/components/UsageStats";
 import RequestDetailsTab from "./components/RequestDetailsTab";
 
@@ -43,49 +44,68 @@ function UsageContent() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5 px-1 sm:px-0">
-      {/* Page Header + Telemetry Status Badge */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-extrabold tracking-tight text-text-main sm:text-2xl">
+      {/* Cyber-Bento Pro Telemetry Hero Banner */}
+      <HudFrame
+        chamfer="md"
+        accent="cyan"
+        padding="md"
+        spotlight={true}
+        borderBeam={activeTab === "overview"}
+        className="border-cyan-500/30 dark:border-cyan-400/25 bg-gradient-to-r from-cyan-500/[0.08] via-sky-500/[0.03] to-transparent"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/35 bg-emerald-500/12 px-2.5 py-0.5 font-mono text-[10.5px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.85)]" />
+                Telemetry Trực tiếp
+              </span>
+              <span className="hidden sm:inline-flex rounded border border-cyan-500/35 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300">
+                GIÁM SÁT LƯU LƯỢNG
+              </span>
+            </div>
+            <h1 className="mt-1.5 text-xl font-extrabold tracking-tight text-text-main sm:text-2xl">
               Thống kê & Giám sát Lưu lượng
             </h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-500 dark:text-emerald-400">
-              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Live Telemetry
-            </span>
+            <p className="mt-0.5 text-xs text-text-muted">
+              Theo dõi khối lượng requests, tokens, tỷ lệ thành công và phân bổ định tuyến model
+            </p>
           </div>
-          <p className="mt-0.5 text-xs text-text-muted">
-            Theo dõi khối lượng requests, tokens, tỷ lệ thành công và phân bổ định tuyến model
-          </p>
-        </div>
 
-        {/* Global Period Selector when in Overview tab */}
-        {activeTab === "overview" && (
-          <div className="flex items-center rounded-xl border border-border/80 bg-surface-2/60 p-1 backdrop-blur-md self-start sm:self-auto">
-            {PERIODS.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPeriod(p.value)}
-                className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                  period === p.value
-                    ? "bg-primary text-white shadow-sm shadow-primary/25"
-                    : "text-text-muted hover:bg-surface-3/60 hover:text-text-main"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+          {/* Global Period Selector when in Overview tab */}
+          {activeTab === "overview" && (
+            <div className="flex flex-wrap items-center gap-1 rounded-xl border border-cyan-500/25 bg-surface-2/70 p-1 backdrop-blur-md self-start sm:self-auto">
+              {PERIODS.map((p) => {
+                const isActive = period === p.value;
+                return (
+                  <MagneticButton key={p.value} strength={4}>
+                    <button
+                      type="button"
+                      data-cursor-target="true"
+                      aria-pressed={isActive}
+                      onClick={() => setPeriod(p.value)}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                        isActive
+                          ? "bg-primary text-white shadow-sm shadow-primary/25"
+                          : "text-text-muted hover:bg-surface-3/60 hover:text-text-main"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  </MagneticButton>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </HudFrame>
 
       {/* Main Tab Navigation */}
       <div className="flex items-center border-b border-border-subtle pb-1">
         <SegmentedControl
           options={[
-            { value: "overview", label: "Tổng quan (Bento Telemetry)" },
-            { value: "details", label: "Chi tiết yêu cầu (Details)" },
+            { value: "overview", label: "Tổng quan (Telemetry)" },
+            { value: "details", label: "Chi tiết yêu cầu" },
           ]}
           value={activeTab}
           onChange={handleTabChange}

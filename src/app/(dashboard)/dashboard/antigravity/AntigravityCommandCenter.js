@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button, Badge } from "@/shared/components";
-import { HudFrame, NumberTicker } from "@/shared/components/hud";
+import { HudFrame, NumberTicker, MagneticButton } from "@/shared/components/hud";
 import { useHudPrefs } from "@/shared/hooks/useHudPrefs";
 import { playHudSound } from "@/shared/utils/hudAudio";
 import { cn } from "@/shared/utils/cn";
@@ -220,7 +220,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
           return next;
         });
       } catch (err) {
-        setQuotaErrors((prev) => ({ ...prev, [conn.id]: err?.message || "Quota fetch failed" }));
+        setQuotaErrors((prev) => ({ ...prev, [conn.id]: err?.message || "Không thể tải quota" }));
       } finally {
         setQuotaLoadingIds((prev) => {
           if (!prev[conn.id]) return prev;
@@ -365,7 +365,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
       if (!res.ok) {
         const msg = data.error || `HTTP ${res.status}`;
         if (res.status === 400 || /sudo/i.test(msg)) {
-          setDnsError("Sudo password required on macOS/Linux");
+          setDnsError("Yêu cầu mật khẩu sudo trên macOS/Linux");
         } else {
           setDnsError(msg);
         }
@@ -374,7 +374,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
           tone: "error",
           text: msg,
           href: "/dashboard/mitm",
-          hrefLabel: "Open MITM Console",
+          hrefLabel: "Mở bảng MITM",
         });
         return;
       }
@@ -552,13 +552,19 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
     },
   ];
 
+  const activeRatioPct =
+    telemetrySummary.totalCount > 0
+      ? Math.round((telemetrySummary.activeCount / telemetrySummary.totalCount) * 100)
+      : 0;
+  const saverRatioPct = Math.round((telemetrySummary.armedSaversCount / 4) * 100);
+
   return (
     <div className="flex flex-col gap-5 pb-6">
       {/* 1. HERO TELEMETRY STRIP */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="inline-flex items-center gap-2 rounded-md border border-cyan-500/35 bg-cyan-500/10 px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-cyan-700 dark:text-cyan-300">
+            <span className="inline-flex items-center gap-2 rounded-md border border-cyan-500/35 bg-cyan-500/10 px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-cyan-700 dark:text-cyan-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
               <span
                 className={cn(
                   "size-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.9)]",
@@ -568,37 +574,40 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
               TRUNG TÂM ĐIỀU KHIỂN ANTIGRAVITY
             </span>
             {machineId ? (
-              <span className="hidden sm:inline-flex items-center gap-1 rounded border border-border bg-surface-2 px-2 py-0.5 font-mono text-[10px] text-text-muted">
+              <span className="hidden sm:inline-flex items-center gap-1 rounded border border-border bg-surface-2/80 px-2 py-0.5 font-mono text-[10px] text-text-muted">
                 MÁY {machineId.slice(0, 8).toUpperCase()}
               </span>
             ) : null}
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              icon="sync"
-              onClick={() => {
-                playHudSound("click");
-                loadAllTelemetry({ force: true });
-              }}
-              loading={providersLoading}
-            >
-              Đồng bộ Telemetry
-            </Button>
+            <MagneticButton strength={4}>
+              <Button
+                variant="outline"
+                size="sm"
+                icon="sync"
+                data-cursor-target
+                onClick={() => {
+                  playHudSound("click");
+                  loadAllTelemetry({ force: true });
+                }}
+                loading={providersLoading}
+              >
+                Đồng bộ Telemetry
+              </Button>
+            </MagneticButton>
           </div>
         </div>
 
         {/* 4 KPI Readouts */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-          <HudFrame accent="cyan" padding="sm" chamfer="sm">
+          <HudFrame accent="cyan" padding="sm" chamfer="sm" tilt={true}>
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">
                 Tài khoản AG đang bật
               </span>
-              <span className="material-symbols-outlined text-[16px] text-cyan-600 dark:text-cyan-400">
-                groups
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <span className="material-symbols-outlined text-[15px]">groups</span>
               </span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
@@ -609,15 +618,36 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                 / {telemetrySummary.totalCount} tổng
               </span>
             </div>
+            <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-surface-3/80">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-sky-400 transition-all duration-500"
+                style={{ width: `${activeRatioPct}%` }}
+              />
+            </div>
           </HudFrame>
 
-          <HudFrame accent={avgQuotaAccent} padding="sm" chamfer="sm">
+          <HudFrame
+            accent={avgQuotaAccent}
+            padding="sm"
+            chamfer="sm"
+            tilt={true}
+            borderBeam={telemetrySummary.healthyCount > 0}
+          >
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">
                 Quota trung bình
               </span>
-              <span className="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400">
-                donut_large
+              <span
+                className={cn(
+                  "flex size-7 shrink-0 items-center justify-center rounded-lg border shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
+                  telemetrySummary.avgQuotaPct !== null && telemetrySummary.avgQuotaPct < 30
+                    ? "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                    : telemetrySummary.avgQuotaPct !== null && telemetrySummary.avgQuotaPct <= 70
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                )}
+              >
+                <span className="material-symbols-outlined text-[15px]">donut_large</span>
               </span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
@@ -643,12 +673,29 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                 {telemetrySummary.healthyCount} sẵn sàng
               </span>
             </div>
+            <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-surface-3/80">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-500",
+                  telemetrySummary.avgQuotaPct === null
+                    ? "bg-cyan-500/40"
+                    : telemetrySummary.avgQuotaPct > 70
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-400"
+                      : telemetrySummary.avgQuotaPct >= 30
+                        ? "bg-gradient-to-r from-amber-500 to-yellow-400"
+                        : "bg-gradient-to-r from-rose-500 to-orange-400"
+                )}
+                style={{ width: `${telemetrySummary.avgQuotaPct ?? 0}%` }}
+              />
+            </div>
           </HudFrame>
 
           <HudFrame
             accent={mitmStatus?.running ? "emerald" : "amber"}
             padding="sm"
             chamfer="sm"
+            tilt={true}
+            borderBeam={Boolean(mitmStatus?.running)}
           >
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">
@@ -656,13 +703,13 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
               </span>
               <span
                 className={cn(
-                  "material-symbols-outlined text-[16px]",
+                  "flex size-7 shrink-0 items-center justify-center rounded-lg border shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
                   mitmStatus?.running
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-amber-600 dark:text-amber-400"
+                    ? "border-emerald-500/35 bg-emerald-500/12 text-emerald-600 dark:text-emerald-400"
+                    : "border-amber-500/35 bg-amber-500/12 text-amber-600 dark:text-amber-400"
                 )}
               >
-                security
+                <span className="material-symbols-outlined text-[15px]">security</span>
               </span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
@@ -684,15 +731,26 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                   : "ĐANG CHỜ"}
               </span>
             </div>
+            <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-surface-3/80">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-500",
+                  mitmStatus?.running
+                    ? "bg-gradient-to-r from-emerald-500 to-cyan-400"
+                    : "bg-amber-500/55"
+                )}
+                style={{ width: mitmStatus?.running ? "100%" : "28%" }}
+              />
+            </div>
           </HudFrame>
 
-          <HudFrame accent="cyan" padding="sm" chamfer="sm">
+          <HudFrame accent="cyan" padding="sm" chamfer="sm" tilt={true}>
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">
                 Tiết kiệm Token
               </span>
-              <span className="material-symbols-outlined text-[16px] text-cyan-600 dark:text-cyan-400">
-                bolt
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <span className="material-symbols-outlined text-[15px]">bolt</span>
               </span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
@@ -702,6 +760,12 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
               <span className="font-mono text-xs text-text-muted">
                 {headroomStatus?.running ? "HEADROOM CHẠY" : "ĐÃ BẬT"}
               </span>
+            </div>
+            <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-surface-3/80">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-indigo-400 transition-all duration-500"
+                style={{ width: `${saverRatioPct}%` }}
+              />
             </div>
           </HudFrame>
         </div>
@@ -735,75 +799,84 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
         >
           <div className="flex flex-col gap-2.5">
             <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="primary"
-                size="sm"
-                icon="local_fire_department"
-                loading={warmingUpAll}
-                disabled={refreshingAll || agConnections.length === 0}
-                onClick={handleWarmupAll}
-                fullWidth
-              >
-                Làm nóng tất cả
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                icon="key"
-                loading={refreshingAll}
-                disabled={warmingUpAll || agConnections.length === 0}
-                onClick={handleRefreshAll}
-                fullWidth
-              >
-                Làm mới Token
-              </Button>
+              <MagneticButton className="block w-full" strength={4}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon="local_fire_department"
+                  data-cursor-target
+                  loading={warmingUpAll}
+                  disabled={refreshingAll || agConnections.length === 0}
+                  onClick={handleWarmupAll}
+                  fullWidth
+                >
+                  Làm nóng tất cả
+                </Button>
+              </MagneticButton>
+              <MagneticButton className="block w-full" strength={4}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon="key"
+                  data-cursor-target
+                  loading={refreshingAll}
+                  disabled={warmingUpAll || agConnections.length === 0}
+                  onClick={handleRefreshAll}
+                  fullWidth
+                >
+                  Làm mới Token
+                </Button>
+              </MagneticButton>
             </div>
 
             <div className="flex flex-col gap-1.5 pt-1">
               <Link
                 href="/dashboard/mitm"
+                data-cursor-target
                 onClick={() => playHudSound("click")}
-                className="group flex items-center justify-between rounded-lg border border-border-subtle bg-surface-2/70 px-3 py-2 text-xs font-medium text-text-main hover:border-cyan-500/40 hover:bg-surface-3/70 transition-colors"
+                className="group flex items-center justify-between rounded-lg border border-border-subtle bg-gradient-to-r from-surface-2/80 to-surface/60 px-3 py-2 text-xs font-medium text-text-main hover:border-cyan-500/45 hover:bg-surface-3/70 hover:shadow-[0_4px_14px_-6px_rgba(6,182,212,0.2)] transition-all duration-200"
               >
                 <span className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px] text-cyan-600 dark:text-cyan-400">
-                    tune
+                  <span className="flex size-6 items-center justify-center rounded-md border border-cyan-500/25 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                    <span className="material-symbols-outlined text-[14px]">tune</span>
                   </span>
                   <span>Ánh xạ Model MITM</span>
                 </span>
-                <span className="font-mono text-[10px] text-text-muted group-hover:text-cyan-500">
+                <span className="font-mono text-[10px] text-text-muted group-hover:text-cyan-500 transition-colors">
                   /mitm →
                 </span>
               </Link>
 
               <Link
                 href="/dashboard/endpoint"
+                data-cursor-target
                 onClick={() => playHudSound("click")}
-                className="group flex items-center justify-between rounded-lg border border-border-subtle bg-surface-2/70 px-3 py-2 text-xs font-medium text-text-main hover:border-cyan-500/40 hover:bg-surface-3/70 transition-colors"
+                className="group flex items-center justify-between rounded-lg border border-border-subtle bg-gradient-to-r from-surface-2/80 to-surface/60 px-3 py-2 text-xs font-medium text-text-main hover:border-cyan-500/45 hover:bg-surface-3/70 hover:shadow-[0_4px_14px_-6px_rgba(6,182,212,0.2)] transition-all duration-200"
               >
                 <span className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px] text-cyan-600 dark:text-cyan-400">
-                    api
+                  <span className="flex size-6 items-center justify-center rounded-md border border-cyan-500/25 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                    <span className="material-symbols-outlined text-[14px]">api</span>
                   </span>
                   <span>Endpoint &amp; Khóa API</span>
                 </span>
-                <span className="font-mono text-[10px] text-text-muted group-hover:text-cyan-500">
+                <span className="font-mono text-[10px] text-text-muted group-hover:text-cyan-500 transition-colors">
                   /v1 →
                 </span>
               </Link>
 
               <Link
                 href="/dashboard/console-log"
+                data-cursor-target
                 onClick={() => playHudSound("click")}
-                className="group flex items-center justify-between rounded-lg border border-border-subtle bg-surface-2/70 px-3 py-2 text-xs font-medium text-text-main hover:border-cyan-500/40 hover:bg-surface-3/70 transition-colors"
+                className="group flex items-center justify-between rounded-lg border border-border-subtle bg-gradient-to-r from-surface-2/80 to-surface/60 px-3 py-2 text-xs font-medium text-text-main hover:border-cyan-500/45 hover:bg-surface-3/70 hover:shadow-[0_4px_14px_-6px_rgba(6,182,212,0.2)] transition-all duration-200"
               >
                 <span className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px] text-cyan-600 dark:text-cyan-400">
-                    monitoring
+                  <span className="flex size-6 items-center justify-center rounded-md border border-cyan-500/25 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                    <span className="material-symbols-outlined text-[14px]">monitoring</span>
                   </span>
                   <span>Nhật ký Console trực tiếp</span>
                 </span>
-                <span className="font-mono text-[10px] text-text-muted group-hover:text-cyan-500">
+                <span className="font-mono text-[10px] text-text-muted group-hover:text-cyan-500 transition-colors">
                   SSE →
                 </span>
               </Link>
@@ -825,12 +898,13 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
               <span className="truncate">{actionBanner.text}</span>
               <div className="flex items-center gap-1.5 shrink-0">
                 {actionBanner.href ? (
-                  <Link href={actionBanner.href} className="underline font-semibold">
+                  <Link href={actionBanner.href} data-cursor-target className="underline font-semibold">
                     {actionBanner.hrefLabel || "Mở"}
                   </Link>
                 ) : null}
                 <button
                   type="button"
+                  data-cursor-target
                   onClick={() => setActionBanner(null)}
                   className="opacity-70 hover:opacity-100 cursor-pointer"
                   aria-label="Đóng thông báo"
@@ -851,9 +925,9 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         {/* LEFT: Antigravity Account Pool */}
         <HudFrame className="lg:col-span-7" accent="cyan" padding="md" chamfer="md">
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-border-subtle">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3.5 border-b border-border-subtle">
             <div className="flex items-center gap-2.5">
-              <div className="flex size-7 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 overflow-hidden">
+              <div className="flex size-8 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                 <Image
                   src="/providers/antigravity.png"
                   alt="Antigravity"
@@ -875,16 +949,18 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
             <div className="flex items-center gap-2">
               <Link
                 href="/dashboard/quota?provider=antigravity"
+                data-cursor-target
                 onClick={() => playHudSound("click")}
-                className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-2.5 py-1 font-mono text-[10.5px] font-semibold text-text-main hover:border-cyan-500/40 transition-colors"
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-2.5 py-1 font-mono text-[10.5px] font-semibold text-text-main hover:border-cyan-500/45 hover:shadow-[0_0_12px_rgba(6,182,212,0.14)] transition-all"
               >
                 <span>Bảng Quota</span>
                 <span className="material-symbols-outlined text-[13px]">open_in_new</span>
               </Link>
               <Link
                 href="/dashboard/providers/antigravity"
+                data-cursor-target
                 onClick={() => playHudSound("click")}
-                className="inline-flex items-center gap-1 rounded-md border border-cyan-500/35 bg-cyan-500/10 px-2.5 py-1 font-mono text-[10.5px] font-semibold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 transition-colors"
+                className="inline-flex items-center gap-1 rounded-md border border-cyan-500/35 bg-cyan-500/10 px-2.5 py-1 font-mono text-[10.5px] font-semibold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 hover:shadow-[0_0_12px_rgba(6,182,212,0.18)] transition-all"
               >
                 <span>Quản lý</span>
                 <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
@@ -893,7 +969,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
           </div>
 
           {providersLoading && agConnections.length === 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               {[1, 2].map((idx) => (
                 <div
                   key={idx}
@@ -914,14 +990,20 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                   Kết nối tài khoản Antigravity OAuth để dùng Gemini 4, Claude và tự động chuyển mạch dự phòng.
                 </p>
               </div>
-              <Link href="/dashboard/providers/antigravity" onClick={() => playHudSound("click")}>
-                <Button variant="primary" size="sm" icon="add_circle">
-                  Kết nối tài khoản Antigravity
-                </Button>
-              </Link>
+              <MagneticButton strength={4}>
+                <Link
+                  href="/dashboard/providers/antigravity"
+                  data-cursor-target
+                  onClick={() => playHudSound("click")}
+                >
+                  <Button variant="primary" size="sm" icon="add_circle" data-cursor-target>
+                    Kết nối tài khoản Antigravity
+                  </Button>
+                </Link>
+              </MagneticButton>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               {agConnections.map((conn) => {
                 const quotaEntry = quotaData[conn.id] || null;
                 const err = quotaErrors[conn.id] || null;
@@ -942,14 +1024,16 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                   <div
                     key={conn.id}
                     className={cn(
-                      "flex items-center gap-3 rounded-xl border p-3 transition-colors bg-surface-2/75",
+                      "flex items-center gap-3.5 rounded-xl border p-3.5 transition-all duration-200",
+                      "bg-gradient-to-br from-surface-2/85 via-surface-2/70 to-surface/60 backdrop-blur-sm",
+                      "hover:-translate-y-0.5",
                       blocked || healthStatus === "exhausted" || healthStatus === "error"
-                        ? "border-rose-500/35"
+                        ? "border-rose-500/35 hover:border-rose-500/55 hover:shadow-[0_6px_20px_-6px_rgba(244,63,94,0.22)]"
                         : healthStatus === "low"
-                          ? "border-amber-500/35"
+                          ? "border-amber-500/35 hover:border-amber-500/55 hover:shadow-[0_6px_20px_-6px_rgba(245,158,11,0.22)]"
                           : conn.isActive === false
                             ? "border-border opacity-70"
-                            : "border-border hover:border-cyan-500/40"
+                            : "border-border hover:border-cyan-500/45 hover:shadow-[0_6px_20px_-6px_rgba(6,182,212,0.2)]"
                     )}
                   >
                     <OrbitalQuotaRing
@@ -970,7 +1054,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                         </p>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <Badge variant={statusBadge.variant} size="sm" dot>
                           {statusBadge.label}
                         </Badge>
@@ -987,7 +1071,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                       </div>
 
                       {breakdown.length > 0 ? (
-                        <div className="flex items-center gap-2.5 font-mono text-[10px] text-text-muted hud-telemetry-num">
+                        <div className="flex items-center gap-3 font-mono text-[10px] text-text-muted hud-telemetry-num">
                           {breakdown.map((b) => (
                             <span key={b.key}>
                               {b.label}:{" "}
@@ -1000,9 +1084,10 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                           href={validationUrl}
                           target="_blank"
                           rel="noreferrer"
+                          data-cursor-target
                           className="font-mono text-[10px] text-rose-600 dark:text-rose-400 underline truncate"
                         >
-                          Verify Google Account →
+                          Xác minh tài khoản Google →
                         </a>
                       ) : err ? (
                         <span className="font-mono text-[10px] text-rose-600 dark:text-rose-400 truncate">
@@ -1019,7 +1104,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
 
         {/* RIGHT: Antigravity Token Saver Matrix */}
         <HudFrame className="lg:col-span-5" accent="cyan" padding="md" chamfer="md">
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-border-subtle">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3.5 border-b border-border-subtle">
             <div>
               <h2 className="text-sm font-bold text-text-main tracking-tight">
                 Ma trận Tiết kiệm Token
@@ -1030,15 +1115,16 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
             </div>
             <Link
               href="/dashboard/token-saver"
+              data-cursor-target
               onClick={() => playHudSound("click")}
-              className="inline-flex items-center gap-1 rounded-md border border-cyan-500/35 bg-cyan-500/10 px-2.5 py-1 font-mono text-[10.5px] font-semibold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 transition-colors"
+              className="inline-flex items-center gap-1 rounded-md border border-cyan-500/35 bg-cyan-500/10 px-2.5 py-1 font-mono text-[10.5px] font-semibold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 hover:shadow-[0_0_12px_rgba(6,182,212,0.18)] transition-all"
             >
               <span>Xem tất cả</span>
               <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
             </Link>
           </div>
 
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-3">
             {saverRows.map((item) => {
               const checked = Boolean(savers[item.key]);
               const busy = savingSettingKey === item.key;
@@ -1047,10 +1133,10 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                 <div
                   key={item.key}
                   className={cn(
-                    "flex items-center justify-between gap-3 rounded-xl border p-3 transition-colors",
+                    "flex items-center justify-between gap-3.5 rounded-xl border p-3.5 transition-all duration-200",
                     checked
-                      ? "border-cyan-500/35 bg-cyan-500/[0.05] dark:bg-cyan-500/[0.06]"
-                      : "border-border-subtle bg-surface-2/60"
+                      ? "border-cyan-500/35 bg-gradient-to-r from-cyan-500/[0.08] via-surface-2/75 to-surface/60 hover:border-cyan-500/55 hover:shadow-[0_4px_18px_-6px_rgba(6,182,212,0.22)]"
+                      : "border-border-subtle bg-gradient-to-r from-surface-2/70 to-surface/55 hover:border-cyan-500/30 hover:shadow-[0_4px_14px_-6px_rgba(6,182,212,0.12)]"
                   )}
                 >
                   <div className="min-w-0 flex-1">
@@ -1078,14 +1164,15 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                     type="button"
                     role="switch"
                     aria-checked={checked}
-                    aria-label={`Toggle ${item.label}`}
+                    aria-label={`Bật / Tắt ${item.label}`}
+                    data-cursor-target
                     disabled={busy}
                     onClick={() => handleToggleSaver(item.key, item.label)}
                     className={cn(
                       "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors cursor-pointer",
                       "focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60",
                       checked
-                        ? "border-cyan-500/60 bg-cyan-500"
+                        ? "border-cyan-500/60 bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.35)]"
                         : "border-border bg-surface-3",
                       busy && "opacity-60 cursor-wait"
                     )}

@@ -17,6 +17,7 @@ import { useProviderLimitsData } from "./hooks/useProviderLimitsData";
 import { useQuotaAutoRefresh } from "./hooks/useQuotaAutoRefresh";
 import { useConnectionQuickActions } from "./hooks/useConnectionQuickActions";
 import QuotaSummaryBar from "./components/QuotaSummaryBar";
+import QuotaFlowCircuit from "./components/QuotaFlowCircuit";
 import QuotaCardSkeleton from "./components/QuotaCardSkeleton";
 import QuotaEmptyState from "./components/QuotaEmptyState";
 import QuotaFilterToolbar from "./components/QuotaFilterToolbar";
@@ -258,6 +259,17 @@ export default function ProviderLimits() {
         lastUpdated={data.lastUpdated}
         hasAntigravity={hasAntigravity}
       />
+
+      {!data.isInitialLoading && (
+        <QuotaFlowCircuit
+          summaryStats={data.summaryStats}
+          healthFilter={data.healthFilter}
+          onSelectHealthFilter={(next) => {
+            data.setPage(1);
+            data.setHealthFilter(next);
+          }}
+        />
+      )}
 
       <QuotaFilterToolbar
         sortedCount={data.sortedConnections.length}

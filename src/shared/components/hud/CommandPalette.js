@@ -33,6 +33,8 @@ export function CommandPalette() {
     toggleMotionPaused,
     soundEnabled,
     toggleSoundEnabled,
+    cursorPreset,
+    setCursorPreset,
     commandPaletteOpen,
     setCommandPaletteOpen,
     closeCommandPalette,
@@ -157,6 +159,42 @@ export function CommandPalette() {
         type: "motion",
       },
       {
+        id: "act-cursor-reticle",
+        label: `Chuột: Ngắm${cursorPreset === "reticle" ? " (Đang bật)" : ""}`,
+        hint: "Khung ngắm HUD bám các nút & mục tiêu tương tác",
+        icon: "my_location",
+        group: "Chuột",
+        type: "cursor",
+        preset: "reticle",
+      },
+      {
+        id: "act-cursor-fluid",
+        label: `Chuột: Khói lỏng${cursorPreset === "fluid" ? " (Đang bật)" : ""}`,
+        hint: "Dải khói neon theo tốc độ con trỏ & sóng nhấn",
+        icon: "water_drop",
+        group: "Chuột",
+        type: "cursor",
+        preset: "fluid",
+      },
+      {
+        id: "act-cursor-magnetic",
+        label: `Chuột: Nam châm${cursorPreset === "magnetic" ? " (Đang bật)" : ""}`,
+        hint: "Vòng hào quang nam châm bám nút bấm & xung nhấn",
+        icon: "adjust",
+        group: "Chuột",
+        type: "cursor",
+        preset: "magnetic",
+      },
+      {
+        id: "act-cursor-off",
+        label: `Chuột: Tắt${cursorPreset === "off" ? " (Đang bật)" : ""}`,
+        hint: "Chỉ sử dụng con trỏ mặc định của hệ thống",
+        icon: "mouse",
+        group: "Chuột",
+        type: "cursor",
+        preset: "off",
+      },
+      {
         id: "act-sound",
         label: soundEnabled ? "Tắt âm thanh HUD" : "Bật âm thanh HUD",
         hint: soundEnabled ? "Tắt âm báo thao tác Web Audio" : "Bật âm báo nhẹ khi thao tác",
@@ -175,7 +213,7 @@ export function CommandPalette() {
         item.hint.toLowerCase().includes(q) ||
         item.group.toLowerCase().includes(q)
     );
-  }, [query, isDark, motionPaused, soundEnabled]);
+  }, [query, isDark, motionPaused, soundEnabled, cursorPreset]);
 
   const safeSelectedIndex = items.length > 0 ? Math.min(selectedIndex, items.length - 1) : 0;
 
@@ -210,6 +248,13 @@ export function CommandPalette() {
         if (willEnable) {
           playHudSound("confirm");
         }
+        closeCommandPalette();
+        return;
+      }
+
+      if (item.type === "cursor" && item.preset) {
+        setCursorPreset(item.preset);
+        playHudSound(item.preset === "off" ? "toggle" : "confirm");
         closeCommandPalette();
         return;
       }
@@ -276,6 +321,7 @@ export function CommandPalette() {
       busyId,
       closeCommandPalette,
       router,
+      setCursorPreset,
       soundEnabled,
       toggleMotionPaused,
       toggleSoundEnabled,
@@ -411,8 +457,8 @@ export function CommandPalette() {
       {/* Footer hints */}
       <div className="flex items-center justify-between px-4 py-2 border-t border-[var(--color-border)] bg-[var(--color-surface-2)] font-mono text-[11px] text-[var(--color-text-subtle)]">
         <div className="flex items-center gap-3">
-          <span>↑↓ Navigate</span>
-          <span>↵ Execute</span>
+          <span>↑↓ Di chuyển</span>
+          <span>↵ Thực thi</span>
         </div>
         <span>Ctrl/Cmd + K</span>
       </div>
