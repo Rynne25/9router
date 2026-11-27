@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/shared/utils/cn";
+import { playHudSound } from "@/shared/utils/hudAudio";
 
 export default function Toggle({
   checked = false,
@@ -18,8 +19,13 @@ export default function Toggle({
   };
 
   const handleClick = () => {
-    if (!disabled && onChange) onChange(!checked);
+    if (!disabled && onChange) {
+      playHudSound("toggle");
+      onChange(!checked);
+    }
   };
+
+  const sizeConfig = sizes[size] || sizes.md;
 
   return (
     <div
@@ -36,11 +42,13 @@ export default function Toggle({
         disabled={disabled}
         onClick={handleClick}
         className={cn(
-          "relative inline-flex shrink-0 cursor-pointer rounded-full",
-          "transition-colors duration-200 ease-in-out",
-          "focus:outline-none focus:ring-2 focus:ring-brand-500/30",
-          checked ? "bg-brand-500" : "bg-surface-3",
-          sizes[size].track,
+          "relative inline-flex shrink-0 cursor-pointer rounded-full border",
+          "transition-all duration-200 ease-in-out",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/45",
+          checked
+            ? "bg-cyan-500 border-cyan-400/70 shadow-[0_0_12px_rgba(6,182,212,0.5)]"
+            : "bg-surface-3 border-border hover:border-cyan-500/35",
+          sizeConfig.track,
           disabled && "cursor-not-allowed"
         )}
       >
@@ -48,9 +56,9 @@ export default function Toggle({
           className={cn(
             "pointer-events-none inline-block rounded-full bg-white shadow-sm",
             "transform transition duration-200 ease-in-out",
-            checked ? sizes[size].translate : "translate-x-0.5",
-            sizes[size].thumb,
-            "mt-0.5"
+            checked ? sizeConfig.translate : "translate-x-0.5",
+            sizeConfig.thumb,
+            "mt-[1px]"
           )}
         />
       </button>

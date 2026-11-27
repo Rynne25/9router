@@ -5,25 +5,39 @@ import { cn } from "@/shared/utils/cn";
 import QuotaTable from "../QuotaTable";
 import {
   extractSupportedModelPills,
+  getAntigravityEffectiveTier,
+  getAntigravityTierBadgeClass,
+  getConnectionHealthStatus,
   getConnectionValidationUrl,
   getQuotaVisibilityKey,
+  getTierBadgeLabel,
   isConnectionValidationBlocked,
 } from "../utils";
 
 const PILL_TONES = {
   violet:
-    "border-violet-500/30 bg-violet-500/12 text-violet-700 dark:text-violet-300",
+    "border-violet-500/35 bg-violet-500/12 text-violet-700 dark:text-violet-300",
   purple:
-    "border-purple-500/30 bg-purple-500/12 text-purple-700 dark:text-purple-300",
+    "border-purple-500/35 bg-purple-500/12 text-purple-700 dark:text-purple-300",
   amber:
-    "border-amber-500/30 bg-amber-500/12 text-amber-700 dark:text-amber-300",
-  sky: "border-sky-500/30 bg-sky-500/12 text-sky-700 dark:text-sky-300",
-  cyan: "border-cyan-500/30 bg-cyan-500/12 text-cyan-700 dark:text-cyan-300",
-  pink: "border-pink-500/30 bg-pink-500/12 text-pink-700 dark:text-pink-300",
+    "border-amber-500/35 bg-amber-500/12 text-amber-700 dark:text-amber-300",
+  sky: "border-sky-500/35 bg-sky-500/12 text-sky-700 dark:text-sky-300",
+  cyan: "border-cyan-500/40 bg-cyan-500/12 text-cyan-700 dark:text-cyan-300",
+  pink: "border-pink-500/35 bg-pink-500/12 text-pink-700 dark:text-pink-300",
   emerald:
-    "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+    "border-emerald-500/35 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
   slate:
     "border-black/10 bg-black/[0.04] text-text-muted dark:border-white/15 dark:bg-white/[0.06]",
+};
+
+const ROW_HEALTH_BORDER = {
+  healthy: "border-emerald-500/20",
+  low: "border-amber-500/30",
+  exhausted: "border-rose-500/30",
+  blocked: "border-rose-500/40",
+  error: "border-rose-500/35",
+  disabled: "border-slate-500/20",
+  loading: "border-cyan-500/20",
 };
 
 export default function QuotaRow({
@@ -44,6 +58,8 @@ export default function QuotaRow({
   const [copiedVerifyUrl, setCopiedVerifyUrl] = useState(false);
 
   const modelPills = extractSupportedModelPills(conn, quota);
+  const effectiveTier = provider === "antigravity" ? getAntigravityEffectiveTier(conn, quota) : null;
+  const healthStatus = getConnectionHealthStatus(conn, quota, error);
   const isBlocked =
     provider === "antigravity" && isConnectionValidationBlocked(conn);
   const connValidationUrl = getConnectionValidationUrl(conn);
@@ -65,15 +81,55 @@ export default function QuotaRow({
   };
 
   return (
-    <div className="px-3 py-2 space-y-2 flex-1 min-w-0">
+    <div
+      className={cn(
+        "px-3 py-2.5 space-y-2 flex-1 min-w-0",
+        "[&_.liquid-glass-tube]:h-[7px] [&_.liquid-glass-tube]:rounded-full [&_.liquid-glass-tube]:bg-slate-900/12 dark:[&_.liquid-glass-tube]:bg-cyan-950/60 [&_.liquid-glass-tube]:border [&_.liquid-glass-tube]:border-cyan-500/20",
+        "[&_.liquid-glass-fill]:rounded-full",
+      )}
+    >
+      {/* Monospace Tier & Supported Model Capability Telemetry Strip */}
+      {(effectiveTier || modelPills.length > 0) && (
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-1 pb-1.5 border-b",
+            provider === "antigravity" && healthStatus === "healthy"
+              ? "border-cyan-500/20"
+              : ROW_HEALTH_BORDER[healthStatus] || "border-black/10 dark:border-white/10",
+          )}
+        >
+          {effectiveTier && (
+            <span
+              className={cn(
+                "inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-wider leading-none",
+                getAntigravityTierBadgeClass(effectiveTier),
+              )}
+            >
+              {getTierBadgeLabel(effectiveTier)}
+            </span>
+          )}
+          {modelPills.map((pill) => (
+            <span
+              key={pill.id}
+              className={cn(
+                "inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-wide leading-none",
+                PILL_TONES[pill.tone] || PILL_TONES.slate,
+              )}
+            >
+              {pill.label}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Inline Warmup Feedback Banner */}
       {warmupFeedback && (
         <div
           className={cn(
             "rounded-xl border px-2.5 py-2 text-[11px] flex flex-col gap-1.5",
             warmupFeedback.ok
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-              : "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+              ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+              : "border-rose-500/35 bg-rose-500/10 text-rose-700 dark:text-rose-300",
           )}
         >
           <div className="flex items-start justify-between gap-2">
@@ -101,7 +157,7 @@ export default function QuotaRow({
                 href={effectiveValidationUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1 text-[10.5px] font-semibold text-white hover:bg-rose-700 transition-colors"
+                className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1 font-mono text-[10.5px] font-semibold text-white hover:bg-rose-700 transition-colors"
               >
                 <span className="material-symbols-outlined text-[13px]">open_in_new</span>
                 <span>Mở trang xác minh</span>
@@ -109,7 +165,7 @@ export default function QuotaRow({
               <button
                 type="button"
                 onClick={() => handleCopyVerifyUrl(effectiveValidationUrl)}
-                className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-white/60 px-2 py-1 text-[10.5px] font-medium text-rose-700 hover:bg-white dark:bg-white/10 dark:text-rose-200 cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-lg border border-rose-500/35 bg-white/70 px-2 py-1 font-mono text-[10.5px] font-medium text-rose-700 hover:bg-white dark:bg-white/10 dark:text-rose-200 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[12px]">
                   {copiedVerifyUrl ? "check" : "content_copy"}
@@ -123,13 +179,16 @@ export default function QuotaRow({
 
       {/* Persistent 403 Verification Alert when account is validationBlocked */}
       {showStoredBlockedBanner && (
-        <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-2.5 py-2 text-[11px] text-amber-800 dark:text-amber-200 space-y-1.5">
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-[11px] text-amber-800 dark:text-amber-200 space-y-1.5">
           <div className="flex items-start gap-1.5">
             <span className="material-symbols-outlined text-[15px] text-amber-500 shrink-0 mt-0.5">
               gpp_maybe
             </span>
             <span className="leading-snug">
-              Tài khoản đang bị chặn xác minh Google (403).{" "}
+              <span className="mr-1.5 inline-flex items-center rounded border border-amber-500/40 bg-amber-500/15 px-1 py-0.2 font-mono text-[9.5px] font-bold uppercase">
+                HTTP 403
+              </span>
+              Tài khoản đang bị chặn xác minh Google.{" "}
               {effectiveValidationUrl
                 ? "Hoàn thành xác minh rồi nhấn Làm nóng để mở khóa."
                 : "Nhấn Làm nóng để kiểm tra lại hoặc lấy link xác minh."}
@@ -141,7 +200,7 @@ export default function QuotaRow({
                 href={effectiveValidationUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1 text-[10.5px] font-semibold text-white hover:bg-amber-700 transition-colors"
+                className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1 font-mono text-[10.5px] font-semibold text-white hover:bg-amber-700 transition-colors"
               >
                 <span className="material-symbols-outlined text-[13px]">open_in_new</span>
                 <span>Xác minh ngay</span>
@@ -149,7 +208,7 @@ export default function QuotaRow({
               <button
                 type="button"
                 onClick={() => handleCopyVerifyUrl(effectiveValidationUrl)}
-                className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-white/60 px-2 py-1 text-[10.5px] font-medium text-amber-800 hover:bg-white dark:bg-white/10 dark:text-amber-200 cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-500/35 bg-white/70 px-2 py-1 font-mono text-[10.5px] font-medium text-amber-800 hover:bg-white dark:bg-white/10 dark:text-amber-200 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[12px]">
                   {copiedVerifyUrl ? "check" : "content_copy"}
@@ -164,26 +223,26 @@ export default function QuotaRow({
       {/* Main Quota Bars / Loading / Error */}
       {!quota && isLoading ? (
         <div className="space-y-2 py-2 animate-pulse">
-          <div className="rounded-xl border border-black/[0.05] dark:border-white/[0.06] p-2.5 space-y-2">
+          <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/[0.03] p-2.5 space-y-2">
             <div className="flex justify-between">
-              <div className="h-3 w-16 rounded bg-black/10 dark:bg-white/10" />
-              <div className="h-3 w-10 rounded bg-black/10 dark:bg-white/10" />
+              <div className="h-3 w-16 rounded bg-cyan-500/15" />
+              <div className="h-3 w-10 rounded bg-cyan-500/15" />
             </div>
-            <div className="h-1.5 w-full rounded-full bg-black/10 dark:bg-white/10" />
+            <div className="h-2 w-full rounded-full bg-cyan-500/15" />
           </div>
         </div>
       ) : error ? (
-        <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 p-3 flex items-start gap-2 text-rose-600 dark:text-rose-400">
+        <div className="rounded-xl border border-rose-500/35 bg-rose-500/10 p-3 flex items-start gap-2 text-rose-700 dark:text-rose-300">
           <span className="material-symbols-outlined text-[18px] shrink-0">error</span>
-          <p className="text-xs leading-relaxed break-words">{error}</p>
+          <p className="font-mono text-[11px] leading-relaxed break-words">{error}</p>
         </div>
       ) : visibleQuotas.length === 0 && quota?.message ? (
-        <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 flex items-start gap-2 text-blue-700 dark:text-blue-300">
+        <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 p-3 flex items-start gap-2 text-cyan-700 dark:text-cyan-300">
           <span className="material-symbols-outlined text-[18px] shrink-0">info</span>
           <p className="text-xs leading-relaxed">{quota.message}</p>
         </div>
       ) : visibleQuotas.length === 0 ? (
-        <div className="rounded-xl border border-black/[0.05] dark:border-white/[0.06] py-4 text-center text-xs text-text-muted">
+        <div className="rounded-xl border border-cyan-500/15 bg-black/[0.02] dark:bg-white/[0.02] py-4 text-center font-mono text-xs text-text-muted">
           Chưa có dữ liệu hạn mức chi tiết
         </div>
       ) : (
@@ -197,13 +256,13 @@ export default function QuotaRow({
       )}
 
       {quota?.message && visibleQuotas.length > 0 && !error && !isLoading && (
-        <p className="px-1 text-[10.5px] leading-relaxed text-text-muted">
+        <p className="px-1 font-mono text-[10.5px] leading-relaxed text-text-muted">
           {quota.message}
         </p>
       )}
 
       {hiddenQuotaRows.length > 0 && (
-        <div className="mt-1.5 flex min-w-0 items-center gap-1.5 border-t border-black/5 pt-1.5 text-[10px] text-text-muted dark:border-white/5">
+        <div className="mt-1.5 flex min-w-0 items-center gap-1.5 border-t border-cyan-500/15 pt-1.5 font-mono text-[10px] text-text-muted">
           <span className="material-symbols-outlined shrink-0 text-[13px]">
             visibility_off
           </span>
@@ -214,7 +273,7 @@ export default function QuotaRow({
                 key={getQuotaVisibilityKey(quotaRow)}
                 type="button"
                 onClick={() => onShowQuota(provider, quotaRow)}
-                className="shrink-0 rounded-md border border-black/10 px-1.5 py-0.5 transition-colors hover:bg-black/5 hover:text-text-primary dark:border-white/10 dark:hover:bg-white/5 cursor-pointer"
+                className="shrink-0 rounded-md border border-cyan-500/25 bg-cyan-500/[0.06] px-1.5 py-0.5 transition-colors hover:bg-cyan-500/15 hover:text-cyan-700 dark:hover:text-cyan-300 cursor-pointer"
                 title="Hiện lại dòng hạn mức này"
               >
                 {quotaRow.name}

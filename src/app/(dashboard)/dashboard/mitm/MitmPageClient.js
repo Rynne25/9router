@@ -5,6 +5,9 @@ import { MITM_TOOLS } from "@/shared/constants/cliTools";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 import { MitmServerCard, MitmToolCard } from "@/app/(dashboard)/dashboard/cli-tools/components";
+import { HudFrame, NumberTicker } from "@/shared/components/hud";
+import { useHudPrefs } from "@/shared/hooks/useHudPrefs";
+import { playHudSound } from "@/shared/utils/hudAudio";
 import useSettingsStore from "@/store/settingsStore";
 import { getCachedData, fetchWithCache, fetchJson } from "@/shared/utils/swrCache";
 
@@ -21,6 +24,7 @@ export default function MitmPageClient() {
   const [mitmStatus, setMitmStatus] = useState(
     () => getCachedData("/api/cli-tools/antigravity-mitm") || MITM_STATUS_DEFAULT
   );
+  const { motionPaused } = useHudPrefs();
 
   useEffect(() => {
     let cancelled = false;
@@ -82,10 +86,96 @@ export default function MitmPageClient() {
     setMitmStatus((prev) => ({ ...prev, dnsStatus: data.dnsStatus ?? prev.dnsStatus }));
   }, []);
 
-  const mitmTools = useMemo(() => Object.entries(MITM_TOOLS), []);
+  // Pin Antigravity first among MITM targets
+  const mitmTools = useMemo(
+    () =>
+      Object.entries(MITM_TOOLS).sort(([a], [b]) => {
+        if (a === "antigravity") return -1;
+        if (b === "antigravity") return 1;
+        return 0;
+      }),
+    []
+  );
+
+  const isRunning = Boolean(mitmStatus?.running);
+  const certTrusted = Boolean(mitmStatus?.certTrusted);
+  const activeDnsToolsCount = Object.values(mitmStatus?.dnsStatus || {}).filter(Boolean).length;
+  const antigravityDnsActive = Boolean(mitmStatus?.dnsStatus?.antigravity);
 
   return (
     <div className="flex w-full flex-col gap-3">
+      {/* HUD Mission Header Strip */}
+      <HudFrame
+        chamfer="md"
+        accent={isRunning ? "emerald" : "cyan"}
+        padding="sm"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+            <div
+              className={`size-8 rounded-lg flex items-center justify-center shrink-0 border ${
+                isRunning
+                  ? "border-emerald-500/35 bg-emerald-500/15 text-emerald-500"
+                  : "border-cyan-500/35 bg-cyan-500/12 text-cyan-600 dark:text-cyan-400"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">radar</span>
+            </div>
+            <div className="flex flex-col min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-600 dark:text-cyan-400">
+                  MITM INTERCEPT CONSOLE
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[10px] font-bold ${
+                    isRunning
+                      ? "border-emerald-500/35 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                      : "border-cyan-500/25 bg-cyan-500/10 text-text-muted"
+                  }`}
+                >
+                  <span
+                    className={`size-1.5 rounded-full ${
+                      isRunning
+                        ? `bg-emerald-500 ${motionPaused ? "" : "animate-pulse"}`
+                        : "bg-slate-400"
+                    }`}
+                  />
+                  {isRunning ? ":443 LIVE" : ":443 STANDBY"}
+                </span>
+                <span
+                  className="inline-flex items-center gap-1 rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-cyan-700 dark:text-cyan-300"
+                  data-i18n-skip="true"
+                >
+                  <span className="material-symbols-outlined text-[12px]">bolt</span>
+                  <span>Smart Transparent Passthrough · Zero IDE Restart</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]" data-i18n-skip="true">
+            <div className="flex items-center gap-1.5 rounded-md border border-black/10 dark:border-white/10 bg-white/50 dark:bg-black/25 px-2.5 py-1">
+              <span className="text-[10px] uppercase tracking-wider text-text-muted">Root CA</span>
+              <span className={`font-bold ${certTrusted ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                {certTrusted ? "TRUSTED" : "PENDING"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-md border border-black/10 dark:border-white/10 bg-white/50 dark:bg-black/25 px-2.5 py-1">
+              <span className="text-[10px] uppercase tracking-wider text-text-muted">Active DNS</span>
+              <span className="font-bold text-text-main hud-telemetry-num">
+                <NumberTicker value={activeDnsToolsCount} />/{mitmTools.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-md border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1">
+              <span className="text-[10px] uppercase tracking-wider text-cyan-700 dark:text-cyan-300">Antigravity</span>
+              <span className={`font-bold ${antigravityDnsActive && isRunning ? "text-emerald-600 dark:text-emerald-400" : "text-cyan-700 dark:text-cyan-300"}`}>
+                {antigravityDnsActive && isRunning ? "INTERCEPTED" : "PASSTHROUGH"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </HudFrame>
+
       {/* MITM Server Control Center */}
       <MitmServerCard
         apiKeys={apiKeys}
@@ -100,7 +190,10 @@ export default function MitmPageClient() {
             key={toolId}
             tool={tool}
             isExpanded={expandedTool === toolId}
-            onToggle={() => setExpandedTool(expandedTool === toolId ? null : toolId)}
+            onToggle={() => {
+              playHudSound("click");
+              setExpandedTool(expandedTool === toolId ? null : toolId);
+            }}
             serverRunning={mitmStatus.running}
             dnsActive={mitmStatus.dnsStatus?.[toolId] || false}
             hasCachedPassword={mitmStatus.hasCachedPassword || false}

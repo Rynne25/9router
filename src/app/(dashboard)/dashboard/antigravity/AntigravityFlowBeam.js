@@ -1,0 +1,547 @@
+"use client";
+
+import { useId } from "react";
+import Link from "next/link";
+import { useHudPrefs } from "@/shared/hooks/useHudPrefs";
+import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { playHudSound } from "@/shared/utils/hudAudio";
+import { cn } from "@/shared/utils/cn";
+
+function HorizontalBeamConnector({ active, paused, accent = "cyan" }) {
+  const gradId = useId();
+  const glowColor = accent === "emerald" ? "#10B981" : "#06B6D4";
+  const secondaryColor = accent === "emerald" ? "#22D3EE" : "#38BDF8";
+
+  return (
+    <div
+      className="hidden md:flex items-center justify-center w-full h-24 select-none pointer-events-none"
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 84 64" className="w-full h-16 overflow-visible">
+        <defs>
+          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={glowColor} stopOpacity="0.25" />
+            <stop offset="50%" stopColor={secondaryColor} stopOpacity="1" />
+            <stop offset="100%" stopColor={glowColor} stopOpacity="0.3" />
+          </linearGradient>
+        </defs>
+
+        {/* Static structural rails */}
+        <path
+          d="M 2 32 C 26 16, 58 16, 82 32"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          className="text-cyan-500/20 dark:text-cyan-400/20"
+        />
+        <path
+          d="M 2 32 C 26 48, 58 48, 82 32"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          className="text-cyan-500/20 dark:text-cyan-400/20"
+        />
+        <line
+          x1="2"
+          y1="32"
+          x2="82"
+          y2="32"
+          stroke="currentColor"
+          strokeWidth="1.25"
+          strokeDasharray="3 4"
+          className="text-cyan-500/25 dark:text-cyan-400/20"
+        />
+
+        {/* Animated energy pulse along Bezier paths */}
+        <path
+          d="M 2 32 C 26 16, 58 16, 82 32"
+          fill="none"
+          stroke={`url(#${gradId})`}
+          strokeWidth={active ? "2.4" : "1.5"}
+          strokeLinecap="round"
+          strokeDasharray="10 18"
+          className={cn(
+            "ag-beam-path",
+            active && !paused ? "ag-beam-active" : "opacity-35"
+          )}
+        />
+        <path
+          d="M 2 32 C 26 48, 58 48, 82 32"
+          fill="none"
+          stroke={`url(#${gradId})`}
+          strokeWidth={active ? "2" : "1.25"}
+          strokeLinecap="round"
+          strokeDasharray="8 20"
+          className={cn(
+            "ag-beam-path-reverse",
+            active && !paused ? "ag-beam-active-slow" : "opacity-25"
+          )}
+        />
+
+        {/* Endpoint port nodes */}
+        <circle
+          cx="4"
+          cy="32"
+          r="3.2"
+          fill={active ? glowColor : "currentColor"}
+          className={!active ? "text-text-subtle/50" : undefined}
+        />
+        <circle
+          cx="80"
+          cy="32"
+          r="3.2"
+          fill={active ? secondaryColor : "currentColor"}
+          className={!active ? "text-text-subtle/50" : undefined}
+        />
+      </svg>
+    </div>
+  );
+}
+
+function VerticalBeamConnector({ active, paused, accent = "cyan" }) {
+  const gradId = useId();
+  const glowColor = accent === "emerald" ? "#10B981" : "#06B6D4";
+  const secondaryColor = accent === "emerald" ? "#22D3EE" : "#38BDF8";
+
+  return (
+    <div
+      className="flex md:hidden items-center justify-center w-full h-9 select-none pointer-events-none"
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 64 40" className="w-20 h-9 overflow-visible">
+        <defs>
+          <linearGradient id={gradId} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor={glowColor} stopOpacity="0.25" />
+            <stop offset="50%" stopColor={secondaryColor} stopOpacity="1" />
+            <stop offset="100%" stopColor={glowColor} stopOpacity="0.3" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M 32 2 C 18 14, 18 26, 32 38"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          className="text-cyan-500/20 dark:text-cyan-400/20"
+        />
+        <path
+          d="M 32 2 C 46 14, 46 26, 32 38"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          className="text-cyan-500/20 dark:text-cyan-400/20"
+        />
+        <path
+          d="M 32 2 C 18 14, 18 26, 32 38"
+          fill="none"
+          stroke={`url(#${gradId})`}
+          strokeWidth={active ? "2.2" : "1.4"}
+          strokeLinecap="round"
+          strokeDasharray="8 14"
+          className={cn(
+            "ag-beam-path",
+            active && !paused ? "ag-beam-active" : "opacity-35"
+          )}
+        />
+        <circle
+          cx="32"
+          cy="3"
+          r="2.8"
+          fill={active ? glowColor : "currentColor"}
+          className={!active ? "text-text-subtle/50" : undefined}
+        />
+        <circle
+          cx="32"
+          cy="37"
+          r="2.8"
+          fill={active ? secondaryColor : "currentColor"}
+          className={!active ? "text-text-subtle/50" : undefined}
+        />
+      </svg>
+    </div>
+  );
+}
+
+function formatGatewayHost(mitmRouterBaseUrl) {
+  const raw = (mitmRouterBaseUrl || "http://localhost:20128").trim().replace(/\/+$/, "");
+  const cleanHost = raw.replace(/^https?:\/\//i, "");
+  return {
+    fullUrl: `${raw}/v1`,
+    displayUrl: `${cleanHost}/v1`,
+  };
+}
+
+export default function AntigravityFlowBeam({
+  mitmStatus = {},
+  mitmLoading = false,
+  dnsBusy = false,
+  dnsError = null,
+  onToggleDns,
+  agAccountsCount = 0,
+  activeAgCount = 0,
+  avgQuotaPct = null,
+  healthyCount = 0,
+  exhaustedCount = 0,
+  tokenSaversCount = 0,
+}) {
+  const { motionPaused } = useHudPrefs();
+  const { copied, copy } = useCopyToClipboard(1800);
+
+  const mitmRunning = Boolean(mitmStatus?.running);
+  const certTrusted = Boolean(mitmStatus?.certTrusted);
+  const dnsActive = Boolean(mitmStatus?.dnsStatus?.antigravity);
+  const gateway = formatGatewayHost(mitmStatus?.mitmRouterBaseUrl);
+  const poolOnline = activeAgCount > 0;
+  const ideBeamActive = mitmRunning && dnsActive;
+  const poolBeamActive = mitmRunning || poolOnline;
+
+  const handleCopyGateway = () => {
+    playHudSound("click");
+    copy(gateway.fullUrl, "gateway-url");
+  };
+
+  return (
+    <div className="relative flex flex-col gap-3">
+      {/* Scoped GPU stroke animation adhering strictly to prefers-reduced-motion */}
+      <style jsx>{`
+        @media (prefers-reduced-motion: no-preference) {
+          .ag-beam-active {
+            animation: ag-beam-flow 1.45s linear infinite;
+          }
+          .ag-beam-active-slow {
+            animation: ag-beam-flow 2.1s linear infinite;
+          }
+        }
+        @keyframes ag-beam-flow {
+          from {
+            stroke-dashoffset: 56;
+          }
+          to {
+            stroke-dashoffset: 0;
+          }
+        }
+      `}</style>
+
+      {/* Top topology bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-border-subtle">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex size-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
+          <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-text-main">
+            Orbital Traffic Matrix
+          </span>
+          <span className="hidden sm:inline-flex items-center rounded border border-cyan-500/25 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-cyan-700 dark:text-cyan-300">
+            ZERO IDE RESTART
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 text-[11px] font-mono text-text-muted">
+          <span>
+            {ideBeamActive
+              ? "INTERCEPTING IDE -> POOL"
+              : mitmRunning
+                ? "PASSTHROUGH READY"
+                : "DIRECT GATEWAY MODE"}
+          </span>
+        </div>
+      </div>
+
+      {/* 3-Node Horizontal / Responsive Vertical Flow */}
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_68px_minmax(0,1fr)_68px_minmax(0,1fr)] items-stretch gap-1 md:gap-0">
+        {/* LEFT NODE: Antigravity IDE */}
+        <div
+          className={cn(
+            "relative flex flex-col justify-between gap-3 rounded-xl border p-3.5 transition-colors",
+            "bg-surface-2/80 dark:bg-surface-2/70",
+            ideBeamActive
+              ? "border-emerald-500/40 shadow-[0_0_18px_rgba(16,185,129,0.12)]"
+              : "border-border"
+          )}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className={cn(
+                  "flex size-9 shrink-0 items-center justify-center rounded-lg border",
+                  ideBeamActive
+                    ? "border-emerald-500/35 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                    : "border-cyan-500/25 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+                )}
+              >
+                <span className="material-symbols-outlined text-[19px]">terminal</span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-text-main truncate">Antigravity IDE</p>
+                <p className="font-mono text-[10px] text-text-muted truncate">
+                  daily-cloudcode-pa
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Live DNS Intercepted vs Smart Passthrough indicator */}
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-border-subtle bg-surface/70 px-2.5 py-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span
+                className={cn(
+                  "size-2 shrink-0 rounded-full",
+                  ideBeamActive
+                    ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.9)]"
+                    : dnsActive
+                      ? "bg-amber-500"
+                      : "bg-cyan-500/70",
+                  ideBeamActive && !motionPaused && "animate-pulse"
+                )}
+              />
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-wide text-text-main truncate">
+                {ideBeamActive
+                  ? "DNS Intercepted"
+                  : dnsActive
+                    ? "DNS Armed (MITM Off)"
+                    : "Smart Passthrough"}
+              </span>
+            </div>
+
+            {/* 1-Click Antigravity DNS Toggle */}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={dnsActive}
+              aria-label="Toggle Antigravity DNS Intercept"
+              disabled={dnsBusy || mitmLoading || !mitmRunning}
+              onClick={() => {
+                playHudSound("toggle");
+                onToggleDns?.();
+              }}
+              title={
+                !mitmRunning
+                  ? "Start :443 MITM Server first in MITM Console"
+                  : dnsActive
+                    ? "Disable Antigravity DNS Intercept (switch to Smart Passthrough)"
+                    : "Enable Antigravity DNS Intercept"
+              }
+              className={cn(
+                "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60",
+                dnsActive
+                  ? "border-emerald-500/60 bg-emerald-500"
+                  : "border-border bg-surface-3",
+                (!mitmRunning || dnsBusy || mitmLoading)
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer"
+              )}
+            >
+              <span
+                className={cn(
+                  "inline-block size-3.5 rounded-full bg-white shadow transition-transform duration-200",
+                  dnsActive ? "translate-x-4" : "translate-x-0.5"
+                )}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
+            {!mitmRunning ? (
+              <Link
+                href="/dashboard/mitm"
+                className="text-cyan-600 dark:text-cyan-400 hover:underline truncate"
+              >
+                Start :443 server to toggle DNS →
+              </Link>
+            ) : dnsError ? (
+              <Link
+                href="/dashboard/mitm"
+                className="text-rose-600 dark:text-rose-400 hover:underline truncate"
+                title={dnsError}
+              >
+                {dnsError} (Open MITM →)
+              </Link>
+            ) : (
+              <span className="text-text-subtle truncate">
+                {dnsActive ? "Routing IDE calls via 9Router" : "Direct Google Cloud passthrough"}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* BEAM 1: IDE -> Orbital Core */}
+        <HorizontalBeamConnector
+          active={ideBeamActive}
+          paused={motionPaused}
+          accent={ideBeamActive ? "emerald" : "cyan"}
+        />
+        <VerticalBeamConnector
+          active={ideBeamActive}
+          paused={motionPaused}
+          accent={ideBeamActive ? "emerald" : "cyan"}
+        />
+
+        {/* CENTER NODE: 9Router Orbital Core */}
+        <div
+          className={cn(
+            "relative flex flex-col justify-between gap-3 rounded-xl border p-3.5 transition-colors",
+            "bg-surface-2/85 dark:bg-surface-2/80",
+            mitmRunning
+              ? "border-cyan-500/45 shadow-[0_0_20px_rgba(6,182,212,0.16)]"
+              : "border-border"
+          )}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className={cn(
+                  "flex size-9 shrink-0 items-center justify-center rounded-lg border",
+                  mitmRunning
+                    ? "border-cyan-500/40 bg-cyan-500/15 text-cyan-600 dark:text-cyan-400"
+                    : "border-border bg-surface-3 text-text-muted"
+                )}
+              >
+                <span className="material-symbols-outlined text-[19px]">hub</span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-text-main truncate">9Router Orbital Core</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded px-1.5 py-0.2 font-mono text-[9.5px] font-bold uppercase border",
+                      mitmRunning
+                        ? "border-emerald-500/35 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                        : "border-border bg-surface-3 text-text-muted"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "size-1.5 rounded-full",
+                        mitmRunning ? "bg-emerald-500" : "bg-text-subtle",
+                        mitmRunning && !motionPaused && "animate-pulse"
+                      )}
+                    />
+                    {mitmRunning ? ":443 LIVE" : ":443 STOPPED"}
+                  </span>
+                  {certTrusted && (
+                    <span className="font-mono text-[9.5px] font-semibold text-cyan-600 dark:text-cyan-400">
+                      CA OK
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Gateway URL quick-copy */}
+          <div className="flex items-center justify-between gap-1.5 rounded-lg border border-border-subtle bg-surface/75 px-2.5 py-1.5">
+            <code className="font-mono text-[10.5px] text-text-main truncate">
+              {gateway.displayUrl}
+            </code>
+            <button
+              type="button"
+              onClick={handleCopyGateway}
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 cursor-pointer shrink-0 transition-colors"
+              title="Copy Gateway URL"
+            >
+              <span className="material-symbols-outlined text-[13px]">
+                {copied === "gateway-url" ? "check" : "content_copy"}
+              </span>
+              <span>{copied === "gateway-url" ? "Copied" : "Copy"}</span>
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
+            <span className="text-text-subtle">H2 Pool · Failover</span>
+            <Link
+              href="/dashboard/mitm"
+              onClick={() => playHudSound("click")}
+              className="inline-flex items-center gap-0.5 font-semibold text-cyan-600 dark:text-cyan-400 hover:underline"
+            >
+              <span>MITM Console</span>
+              <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* BEAM 2: Orbital Core -> Antigravity Pool */}
+        <HorizontalBeamConnector
+          active={poolBeamActive}
+          paused={motionPaused}
+          accent={avgQuotaPct !== null && avgQuotaPct >= 30 ? "emerald" : "cyan"}
+        />
+        <VerticalBeamConnector
+          active={poolBeamActive}
+          paused={motionPaused}
+          accent={avgQuotaPct !== null && avgQuotaPct >= 30 ? "emerald" : "cyan"}
+        />
+
+        {/* RIGHT NODE: Antigravity Pool */}
+        <div
+          className={cn(
+            "relative flex flex-col justify-between gap-3 rounded-xl border p-3.5 transition-colors",
+            "bg-surface-2/80 dark:bg-surface-2/70",
+            poolOnline
+              ? "border-cyan-500/35 shadow-[0_0_16px_rgba(6,182,212,0.10)]"
+              : "border-border"
+          )}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                <span className="material-symbols-outlined text-[19px]">layers</span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-text-main truncate">Antigravity Pool</p>
+                <p className="font-mono text-[10px] text-text-muted hud-telemetry-num">
+                  {activeAgCount}/{agAccountsCount} active nodes
+                </p>
+              </div>
+            </div>
+            <span
+              className={cn(
+                "font-mono text-xs font-bold hud-telemetry-num px-1.5 py-0.5 rounded border",
+                avgQuotaPct === null
+                  ? "border-border bg-surface text-text-muted"
+                  : avgQuotaPct > 70
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : avgQuotaPct >= 30
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                      : "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+              )}
+            >
+              {avgQuotaPct !== null ? `${avgQuotaPct}%` : "--"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
+            <div className="flex items-center justify-between rounded-md border border-border-subtle bg-surface/70 px-2 py-1.5">
+              <span className="text-text-muted">Healthy</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400 hud-telemetry-num">
+                {healthyCount}
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-md border border-border-subtle bg-surface/70 px-2 py-1.5">
+              <span className="text-text-muted">Depleted</span>
+              <span
+                className={cn(
+                  "font-bold hud-telemetry-num",
+                  exhaustedCount > 0 ? "text-rose-600 dark:text-rose-400" : "text-text-muted"
+                )}
+              >
+                {exhaustedCount}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
+            <span className="text-text-subtle">
+              Token Savers: <strong className="text-cyan-600 dark:text-cyan-400">{tokenSaversCount}/4</strong>
+            </span>
+            <Link
+              href="/dashboard/quota?provider=antigravity"
+              onClick={() => playHudSound("click")}
+              className="inline-flex items-center gap-0.5 font-semibold text-cyan-600 dark:text-cyan-400 hover:underline"
+            >
+              <span>Quota Deck</span>
+              <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,4 +1,4 @@
-import { Inter } from "next/font/google";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import "material-symbols/outlined.css";
 import "./globals.css";
@@ -12,9 +12,16 @@ import { AgentationToolbar } from "@/shared/components/AgentationToolbar";
 // Hook console immediately at module load time (server-side only, runs once)
 initConsoleLogCapture();
 
-const inter = Inter({
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-space-grotesk",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
 });
 
 export const metadata = {
@@ -26,13 +33,18 @@ export const metadata = {
 };
 
 export const viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#050811" },
+    { media: "(prefers-color-scheme: light)", color: "#F2F6FC" },
+  ],
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className="fonts-loaded" suppressHydrationWarning>
       <head>
+        <meta name="color-scheme" content="light dark" />
         {/* Apply persisted theme before first paint so a reload does not flash the
             default (light) theme before the client store hydrates. Mirrors the
             zustand-persist "theme" key and the `dark` class applyTheme() sets. */}
@@ -44,7 +56,10 @@ export default function RootLayout({ children }) {
           }}
         />
       </head>
-      <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
+      <body
+        className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} font-sans antialiased`}
+        suppressHydrationWarning
+      >
         <ThemeProvider>
           <RuntimeI18nProvider>
             {children}

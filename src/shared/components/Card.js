@@ -25,24 +25,36 @@ export default function Card({
   return (
     <div
       className={cn(
-        elev ? "card-elev rounded-2xl" : "liquid-glass-card rounded-2xl",
-        hover && "hover:shadow-[var(--shadow-warm)] hover:border-brand-500/40 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer",
+        "relative",
+        elev ? "card-elev rounded-2xl hud-frame" : "liquid-glass-card rounded-2xl hud-frame",
+        hover &&
+          "hover:shadow-[0_10px_28px_-8px_rgba(6,182,212,0.28)] hover:border-cyan-500/45 dark:hover:border-cyan-400/45 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer",
         paddings[padding],
         className
       )}
       {...props}
     >
+      {/* Subtle HUD corner ticks */}
+      <span
+        className="pointer-events-none absolute top-1.5 left-1.5 size-2 border-t border-l border-cyan-500/30 rounded-tl-[2px]"
+        aria-hidden="true"
+      />
+      <span
+        className="pointer-events-none absolute bottom-1.5 right-1.5 size-2 border-b border-r border-cyan-500/30 rounded-br-[2px]"
+        aria-hidden="true"
+      />
+
       {(title || action) && (
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             {icon && (
-              <div className="p-2 rounded-xl liquid-glass-panel text-text-muted">
+              <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 dark:text-cyan-400 shrink-0">
                 <span className="material-symbols-outlined text-[20px]">{icon}</span>
               </div>
             )}
-            <div>
+            <div className="min-w-0">
               {title && (
-                <h3 className="text-text-main font-semibold">{title}</h3>
+                <h3 className="text-text-main font-semibold tracking-tight truncate">{title}</h3>
               )}
               {subtitle && (
                 <p className="text-sm text-text-muted">{subtitle}</p>
@@ -61,7 +73,7 @@ Card.Section = function CardSection({ children, className, ...props }) {
   return (
     <div
       className={cn(
-        "p-4 rounded-xl liquid-glass-panel",
+        "p-4 rounded-xl liquid-glass-panel border border-border-subtle",
         className
       )}
       {...props}
@@ -77,7 +89,7 @@ Card.Row = function CardRow({ children, className, ...props }) {
       className={cn(
         "p-3 -mx-3 px-3 transition-colors",
         "border-b border-border-subtle last:border-b-0",
-        "hover:bg-surface-2/50",
+        "hover:bg-cyan-500/[0.04]",
         className
       )}
       {...props}
@@ -98,7 +110,7 @@ Card.ListItem = function CardListItem({
       className={cn(
         "group flex items-center justify-between p-3 -mx-3 px-3",
         "border-b border-border-subtle last:border-b-0",
-        "hover:bg-surface-2/50 transition-colors",
+        "hover:bg-cyan-500/[0.04] transition-colors",
         className
       )}
       {...props}

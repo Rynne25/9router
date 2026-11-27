@@ -40,6 +40,9 @@ export { default as ProviderInfoCard } from "./ProviderInfoCard";
 export { default as CapacityBadges } from "./CapacityBadges";
 export { default as SmartPolicyModal } from "./SmartPolicyModal";
 
+// HUD Primitives
+export * from "./hud";
+
 // Layouts
 export * from "./layouts";
 

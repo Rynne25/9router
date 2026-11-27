@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, Button, Badge, Input } from "@/shared/components";
+import { Button, Input } from "@/shared/components";
+import { HudFrame } from "@/shared/components/hud";
+import { useHudPrefs } from "@/shared/hooks/useHudPrefs";
+import { playHudSound } from "@/shared/utils/hudAudio";
 import { getCachedData, fetchWithCache, fetchJson, invalidateCache } from "@/shared/utils/swrCache";
 
 const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
@@ -27,6 +30,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
   );
   const [port443Conflict, setPort443Conflict] = useState(null);
   const effectiveApiKey = selectedApiKey || apiKeys?.[0]?.key || "";
+  const { motionPaused } = useHudPrefs();
 
   const serverIsWindows = status?.isWin === true;
   const canRunWithoutPassword = serverIsWindows || status?.hasCachedPassword || status?.needsSudoPassword === false;
@@ -96,18 +100,22 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
         if (data.code === "PORT_443_BUSY" && data.portOwner) {
           setShowPasswordModal(false);
           setPort443Conflict({ owner: data.portOwner, password });
+          playHudSound("alert");
           return;
         }
         setActionError(data.error || `Failed to ${action} MITM server`);
+        playHudSound("alert");
         return;
       }
       setShowPasswordModal(false);
       setSudoPassword("");
       setPort443Conflict(null);
+      playHudSound("confirm");
       invalidateCache(MITM_STATUS_CACHE_KEY);
       await fetchStatus({ force: true });
     } catch (e) {
       setActionError(e.message || "Network error");
+      playHudSound("alert");
     } finally {
       setLoading(false);
       setPendingAction(null);
@@ -118,6 +126,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
     setActionError(null);
     // Wait for status to load before deciding whether to show sudo modal
     if (!status) return;
+    playHudSound("click");
     if (canRunWithoutPassword) {
       doAction(action, "");
     } else {
@@ -147,59 +156,97 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
 
   return (
     <>
-      <Card padding="sm" className="relative overflow-hidden">
+      <HudFrame
+        chamfer="md"
+        accent={isRunning ? "emerald" : "cyan"}
+        padding="sm"
+        className="relative overflow-hidden"
+      >
         <div className="flex flex-col gap-2.5">
-          {/* Top Header Row — Compact Single Line */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/[0.06] dark:border-white/[0.08] pb-2">
+          {/* Top Header Row — Orbital Telemetry & Server Controls */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cyan-500/15 pb-2.5">
             <div className="flex flex-wrap items-center gap-2 min-w-0">
-              <div className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
-                isRunning
-                  ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-500"
-                  : "bg-primary/15 border-primary/30 text-primary"
-              }`}>
+              <div
+                className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
+                  isRunning
+                    ? "bg-emerald-500/15 border-emerald-500/35 text-emerald-500"
+                    : "bg-cyan-500/12 border-cyan-500/30 text-cyan-600 dark:text-cyan-400"
+                }`}
+              >
                 <span className="material-symbols-outlined text-[16px]">security</span>
               </div>
               <h2 className="text-xs sm:text-sm font-bold text-text-main tracking-tight">
                 Proxy MITM Server
               </h2>
-              {isRunning ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Đang chạy (:443)</span>
-                </span>
-              ) : (
-                <Badge variant="default" size="xs">Đã dừng</Badge>
-              )}
 
-              {/* Compact inline pipeline pills */}
-              <div className="hidden xl:flex items-center gap-1.5 ml-2 text-[10.5px]" data-i18n-skip="true">
-                <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium ${
-                  certTrusted
-                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                    : "border-black/10 dark:border-white/10 text-text-muted"
-                }`}>
+              {/* Orbital Telemetry Status Badges */}
+              <div className="flex flex-wrap items-center gap-1.5" data-i18n-skip="true">
+                {isRunning ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/35 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                    <span
+                      className={`size-1.5 rounded-full bg-emerald-500 ${
+                        motionPaused ? "" : "animate-pulse"
+                      }`}
+                    />
+                    <span>:443 LIVE</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] dark:bg-white/[0.05] border border-black/10 dark:border-white/10 px-2 py-0.5 font-mono text-[10px] font-bold text-text-muted">
+                    <span className="size-1.5 rounded-full bg-slate-400" />
+                    <span>:443 STANDBY</span>
+                  </span>
+                )}
+
+                <span
+                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[10px] font-semibold ${
+                    certTrusted
+                      ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+                      : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                  }`}
+                >
                   <span className="material-symbols-outlined text-[12px]">
                     {certTrusted ? "verified_user" : "workspace_premium"}
                   </span>
-                  <span>1. Root CA {certTrusted ? "OK" : "Chưa Trust"}</span>
+                  <span>{certTrusted ? "TRUSTED CERT" : "CERT UNTRUSTED"}</span>
                 </span>
-                <span className="text-text-muted/50">➔</span>
-                <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium ${
-                  isRunning
-                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                    : "border-black/10 dark:border-white/10 text-text-muted"
-                }`}>
-                  <span className="material-symbols-outlined text-[12px]">dns</span>
-                  <span>2. HTTPS :443 {isRunning ? "Bật" : "Tắt"}</span>
-                </span>
-                <span className="text-text-muted/50">➔</span>
-                <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium ${
-                  activeDnsToolsCount > 0
-                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                    : "border-black/10 dark:border-white/10 text-text-muted"
-                }`}>
+
+                <span className="hidden sm:inline-flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-cyan-700 dark:text-cyan-300">
                   <span className="material-symbols-outlined text-[12px]">alt_route</span>
-                  <span>3. DNS ({activeDnsToolsCount} công cụ)</span>
+                  <span>SMART PASSTHROUGH</span>
+                </span>
+              </div>
+
+              {/* Compact inline pipeline telemetry */}
+              <div className="hidden xl:flex items-center gap-1.5 ml-1 font-mono text-[10px]" data-i18n-skip="true">
+                <span className="text-text-muted/40">│</span>
+                <span
+                  className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
+                    certTrusted
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-text-muted"
+                  }`}
+                >
+                  <span>1.CA</span>
+                </span>
+                <span className="text-text-muted/40">→</span>
+                <span
+                  className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
+                    isRunning
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-text-muted"
+                  }`}
+                >
+                  <span>2.TLS:443</span>
+                </span>
+                <span className="text-text-muted/40">→</span>
+                <span
+                  className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 hud-telemetry-num ${
+                    activeDnsToolsCount > 0
+                      ? "text-cyan-600 dark:text-cyan-400 font-bold"
+                      : "text-text-muted"
+                  }`}
+                >
+                  <span>3.DNS({activeDnsToolsCount})</span>
                 </span>
               </div>
             </div>
@@ -208,10 +255,13 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
             <div className="flex items-center gap-1.5 shrink-0" data-i18n-skip="true">
               <button
                 type="button"
-                onClick={() => fetchStatus({ force: true })}
+                onClick={() => {
+                  playHudSound("click");
+                  fetchStatus({ force: true });
+                }}
                 disabled={loading}
                 title="Làm mới trạng thái MITM"
-                className="flex size-7 items-center justify-center rounded-lg border border-black/10 bg-white/50 text-text-muted transition-all hover:bg-white/80 hover:text-text-main dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/10 disabled:opacity-50"
+                className="flex size-7 items-center justify-center rounded-lg border border-cyan-500/20 bg-white/60 text-text-muted transition-all hover:border-cyan-500/45 hover:text-cyan-600 dark:bg-white/[0.04] dark:hover:text-cyan-300 disabled:opacity-50 cursor-pointer"
               >
                 <span className={`material-symbols-outlined text-[15px] ${loading ? "animate-spin" : ""}`}>
                   refresh
@@ -223,7 +273,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
                   type="button"
                   onClick={() => handleAction("trust-cert")}
                   disabled={loading}
-                  className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 text-[11px] font-bold text-amber-600 dark:text-amber-400 transition-all hover:bg-amber-500/25 disabled:opacity-50 cursor-pointer"
+                  className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 text-[11px] font-bold text-amber-700 dark:text-amber-300 transition-all hover:bg-amber-500/25 disabled:opacity-50 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[14px]">verified_user</span>
                   <span>Trust CA</span>
@@ -235,7 +285,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
                   type="button"
                   onClick={() => handleAction("stop")}
                   disabled={loading}
-                  className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-red-500/40 bg-red-500/15 px-3 text-[11px] font-bold text-red-600 dark:text-red-400 transition-all hover:bg-red-500/25 disabled:opacity-50 cursor-pointer"
+                  className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-rose-500/40 bg-rose-500/15 px-3 text-[11px] font-bold text-rose-700 dark:text-rose-300 transition-all hover:bg-rose-500/25 disabled:opacity-50 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[14px]">stop_circle</span>
                   <span>Dừng Server</span>
@@ -244,9 +294,9 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
                 <button
                   type="button"
                   onClick={() => handleAction("start")}
-                  disabled={loading || !status || (serverIsWindows && !isAdmin)}
+                  disabled={loading || !status || noPrivilege}
                   title={serverIsWindows && !isAdmin ? "Cần quyền Administrator" : undefined}
-                  className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-primary/40 bg-primary text-white px-3 text-[11px] font-bold shadow-2xs transition-all hover:bg-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-cyan-500/50 bg-primary text-white px-3 text-[11px] font-bold shadow-2xs transition-all hover:bg-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[14px]">play_circle</span>
                   <span>Khởi động Server</span>
@@ -255,24 +305,28 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
             </div>
           </div>
 
-          {/* Symmetrical 2-Column Compact Inline Configuration Inputs */}
+          {/* Crisp Inline DNS/Router Config Inputs */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <div className="flex items-center gap-2 rounded-lg border border-black/[0.06] dark:border-white/[0.08] bg-white/35 dark:bg-white/[0.02] px-2.5 py-1.5">
-              <span className="material-symbols-outlined text-[14px] text-primary shrink-0">lan</span>
-              <span className="text-[11px] font-semibold text-text-muted shrink-0">Base URL:</span>
+            <div className="flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-white/55 dark:bg-[#070D1B]/75 px-2.5 py-1.5 transition-colors focus-within:border-cyan-500/50">
+              <span className="material-symbols-outlined text-[14px] text-cyan-600 dark:text-cyan-400 shrink-0">lan</span>
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted shrink-0">
+                Router URL
+              </span>
               <input
                 type="text"
                 value={mitmRouterBaseUrl}
                 onChange={(e) => setMitmRouterBaseUrl(e.target.value)}
                 placeholder={DEFAULT_MITM_ROUTER_BASE}
                 disabled={isRunning}
-                className="flex-1 min-w-0 h-6 px-2 bg-white/70 dark:bg-black/25 rounded border border-black/10 dark:border-white/10 text-[11px] font-mono text-text-main focus:outline-none focus:border-primary disabled:opacity-60"
+                className="flex-1 min-w-0 h-6 px-2 bg-white/80 dark:bg-black/40 rounded border border-black/10 dark:border-cyan-500/20 text-[11px] font-mono text-text-main focus:outline-none focus:border-cyan-500 disabled:opacity-60"
               />
             </div>
 
-            <div className="flex items-center gap-2 rounded-lg border border-black/[0.06] dark:border-white/[0.08] bg-white/35 dark:bg-white/[0.02] px-2.5 py-1.5">
-              <span className="material-symbols-outlined text-[14px] text-primary shrink-0">vpn_key</span>
-              <span className="text-[11px] font-semibold text-text-muted shrink-0">API Key:</span>
+            <div className="flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-white/55 dark:bg-[#070D1B]/75 px-2.5 py-1.5 transition-colors focus-within:border-cyan-500/50">
+              <span className="material-symbols-outlined text-[14px] text-cyan-600 dark:text-cyan-400 shrink-0">vpn_key</span>
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted shrink-0">
+                API Key
+              </span>
               <input
                 type="text"
                 list="mitm-api-keys"
@@ -280,7 +334,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
                 onChange={(e) => setSelectedApiKey(e.target.value)}
                 disabled={isRunning}
                 placeholder={cloudEnabled ? "Nhập hoặc chọn API key" : "sk_9router (mặc định)"}
-                className="flex-1 min-w-0 h-6 px-2 bg-white/70 dark:bg-black/25 rounded border border-black/10 dark:border-white/10 text-[11px] font-mono text-text-main focus:outline-none focus:border-primary disabled:opacity-60"
+                className="flex-1 min-w-0 h-6 px-2 bg-white/80 dark:bg-black/40 rounded border border-black/10 dark:border-cyan-500/20 text-[11px] font-mono text-text-main focus:outline-none focus:border-cyan-500 disabled:opacity-60"
               />
               {apiKeys?.length > 0 && (
                 <datalist id="mitm-api-keys">
@@ -294,7 +348,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
 
           {/* Action error */}
           {actionError && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/25">
               <span className="material-symbols-outlined text-[14px] shrink-0">error</span>
               <span>{actionError}</span>
             </div>
@@ -302,21 +356,21 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
 
           {/* Windows admin warning */}
           {serverIsWindows && !isAdmin && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25">
               <span className="material-symbols-outlined text-[14px] shrink-0">shield_lock</span>
               <span>Cần chạy 9Router bằng quyền Quản trị viên (Run as Administrator) khi muốn bật cổng 443. Bạn vẫn có thể cấu hình và lưu ánh xạ Model bình thường.</span>
             </div>
           )}
         </div>
-      </Card>
+      </HudFrame>
 
       {/* Password Modal */}
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="mx-4 flex w-full max-w-sm flex-col gap-4 rounded-xl border border-border bg-surface p-5 shadow-xl sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm">
+          <div className="mx-4 flex w-full max-w-sm flex-col gap-4 rounded-xl border border-cyan-500/30 bg-surface p-5 shadow-xl sm:p-6">
             <h3 className="font-semibold text-text-main">Sudo Password Required</h3>
-            <div className="flex items-start gap-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-              <span className="material-symbols-outlined text-yellow-500 text-[20px]">warning</span>
+            <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+              <span className="material-symbols-outlined text-amber-500 text-[20px]">warning</span>
               <p className="text-xs text-text-muted">Required for SSL certificate and server startup</p>
             </div>
             <Input
@@ -327,7 +381,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
               onKeyDown={(e) => { if (e.key === "Enter" && !loading) handleConfirmPassword(); }}
             />
             {modalError && (
-              <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs bg-red-500/10 text-red-600">
+              <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs bg-rose-500/10 text-rose-600 dark:text-rose-400">
                 <span className="material-symbols-outlined text-[14px]">error</span>
                 <span>{modalError}</span>
               </div>
@@ -346,11 +400,11 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
 
       {/* Port 443 Conflict Modal */}
       {port443Conflict && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="mx-4 flex w-full max-w-md flex-col gap-4 rounded-xl border border-border bg-surface p-5 shadow-xl sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm">
+          <div className="mx-4 flex w-full max-w-md flex-col gap-4 rounded-xl border border-cyan-500/30 bg-surface p-5 shadow-xl sm:p-6">
             <h3 className="font-semibold text-text-main">Port 443 Already In Use</h3>
-            <div className="flex items-start gap-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-              <span className="material-symbols-outlined text-yellow-500 text-[20px]">warning</span>
+            <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+              <span className="material-symbols-outlined text-amber-500 text-[20px]">warning</span>
               <div className="flex flex-col gap-1 text-xs text-text-muted">
                 <p>Port 443 is currently used by another process:</p>
                 <p className="font-mono text-text-main" data-i18n-skip="true">

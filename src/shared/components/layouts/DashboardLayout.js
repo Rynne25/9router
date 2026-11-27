@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useNotificationStore } from "@/store/notificationStore";
 import { fetchWithCache, fetchJson } from "@/shared/utils/swrCache";
 import useSettingsStore from "@/store/settingsStore";
+import { OrbitalShaderBg, CommandPalette } from "@/shared/components/hud";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
 
@@ -22,24 +23,32 @@ const PREFETCH_ROUTES = [
 function getToastStyle(type) {
   if (type === "success") {
     return {
-      wrapper: "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400",
+      wrapper:
+        "border-emerald-500/35 bg-surface/95 text-emerald-700 dark:text-emerald-300 shadow-[0_12px_32px_-8px_rgba(16,185,129,0.25)]",
+      rail: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.75)]",
       icon: "check_circle",
     };
   }
   if (type === "error") {
     return {
-      wrapper: "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400",
+      wrapper:
+        "border-rose-500/35 bg-surface/95 text-rose-700 dark:text-rose-300 shadow-[0_12px_32px_-8px_rgba(244,63,94,0.25)]",
+      rail: "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.75)]",
       icon: "error",
     };
   }
   if (type === "warning") {
     return {
-      wrapper: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+      wrapper:
+        "border-amber-500/35 bg-surface/95 text-amber-700 dark:text-amber-300 shadow-[0_12px_32px_-8px_rgba(245,158,11,0.25)]",
+      rail: "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.75)]",
       icon: "warning",
     };
   }
   return {
-    wrapper: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    wrapper:
+      "border-cyan-500/35 bg-surface/95 text-cyan-700 dark:text-cyan-300 shadow-[0_12px_32px_-8px_rgba(6,182,212,0.25)]",
+    rail: "bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.75)]",
     icon: "info",
   };
 }
@@ -86,28 +95,39 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="flex h-screen w-full overflow-hidden liquid-aurora-canvas relative">
-      {/* Ambient Geist Carbon Top Spotlight */}
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true"><div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[360px] w-[780px] rounded-full bg-brand-500/[0.06] dark:bg-brand-500/[0.09] blur-[120px]" /></div>
+      {/* Tactical Orbital Shader Background & Global Command Palette */}
+      <OrbitalShaderBg />
+      <CommandPalette />
 
-      <div className="fixed top-4 right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2">
+      {/* Ambient Orbital Top Spotlight */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[340px] w-[780px] rounded-full bg-cyan-500/[0.06] dark:bg-cyan-400/[0.09] blur-[120px]" />
+      </div>
+
+      {/* Chamfered HUD Toast Stack */}
+      <div className="fixed top-14 right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2">
         {notifications.map((n) => {
           const style = getToastStyle(n.type);
           return (
             <div
               key={n.id}
-              className={`rounded-xl border px-3.5 py-2.5 shadow-xl backdrop-blur-xl ${style.wrapper}`}
+              className={`relative overflow-hidden rounded-xl border pl-4 pr-3.5 py-2.5 backdrop-blur-xl transition-all ${style.wrapper}`}
             >
-              <div className="flex items-start gap-2">
-                <span className="material-symbols-outlined text-[18px] leading-5">{style.icon}</span>
+              <span
+                className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${style.rail}`}
+                aria-hidden="true"
+              />
+              <div className="flex items-start gap-2.5">
+                <span className="material-symbols-outlined text-[18px] leading-5 shrink-0">{style.icon}</span>
                 <div className="min-w-0 flex-1">
-                  {n.title ? <p className="text-xs font-semibold mb-0.5">{n.title}</p> : null}
-                  <p className="text-xs whitespace-pre-wrap break-words">{n.message}</p>
+                  {n.title ? <p className="text-xs font-semibold tracking-tight mb-0.5">{n.title}</p> : null}
+                  <p className="text-xs whitespace-pre-wrap break-words opacity-90">{n.message}</p>
                 </div>
                 {n.dismissible ? (
                   <button
                     type="button"
                     onClick={() => removeNotification(n.id)}
-                    className="text-current/70 hover:text-current"
+                    className="text-current/70 hover:text-current transition-colors shrink-0"
                     aria-label="Dismiss notification"
                   >
                     <span className="material-symbols-outlined text-[16px]">close</span>
@@ -118,10 +138,11 @@ export default function DashboardLayout({ children }) {
           );
         })}
       </div>
+
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/45 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}

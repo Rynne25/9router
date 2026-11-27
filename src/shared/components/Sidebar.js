@@ -8,9 +8,9 @@ import { cn } from "@/shared/utils/cn";
 import { APP_CONFIG, UPDATER_CONFIG } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { playHudSound } from "@/shared/utils/hudAudio";
 import useSettingsStore from "@/store/settingsStore";
 import Button from "./Button";
-import { ConfirmModal } from "./Modal";
 import AutoUpdateModal from "./AutoUpdateModal";
 import ThemeToggle from "./ThemeToggle";
 import HeaderLanguage from "./HeaderLanguage";
@@ -24,19 +24,24 @@ const COMBINED_WEB_ITEM = {
   href: "/dashboard/media-providers/web",
 };
 
-const CORE_NAV_ITEMS = [
+const ANTIGRAVITY_NAV_ITEMS = [
+  { href: "/dashboard", label: "Command Center", icon: "rocket_launch" },
+  { href: "/dashboard/mitm", label: "Proxy MITM", icon: "security" },
+  { href: "/dashboard/quota", label: "Quota Deck", icon: "data_usage" },
+  { href: "/dashboard/providers/antigravity", label: "AG Accounts", icon: "manage_accounts" },
+  { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
+];
+
+const GATEWAY_NAV_ITEMS = [
   { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "api" },
   { href: "/dashboard/providers", label: "Providers", icon: "dns" },
   { href: "/dashboard/combos", label: "Combos", icon: "layers" },
-  { href: "/dashboard/quota", label: "Quota Tracker", icon: "data_usage" },
-  { href: "/dashboard/mitm", label: "Proxy MITM", icon: "security" },
   { href: "/dashboard/console-log", label: "Console Log", icon: "monitor" },
   { href: "/dashboard/usage", label: "Usage", icon: "bar_chart" },
   { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal" },
 ];
 
-const ADVANCED_NAV_ITEMS = [
-  { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
+const SYSTEM_NAV_ITEMS = [
   { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: "lan" },
   { href: "/dashboard/skills", label: "Skills", icon: "extension" },
   { href: "/dashboard/translator", label: "Translator", icon: "translate", requiresTranslator: true },
@@ -77,7 +82,7 @@ function Sidebar({ onClose }) {
     getCollapsedSnapshot,
     getCollapsedServerSnapshot
   );
-  const [advancedOpenState, setAdvancedOpenState] = useState(false);
+  const [systemOpenState, setSystemOpenState] = useState(false);
   const [mediaOpenState, setMediaOpenState] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
@@ -100,9 +105,9 @@ function Sidebar({ onClose }) {
   const INSTALL_CMD = UPDATER_CONFIG.installCmdLatest;
   const isCollapsed = !isMobileDrawer && storedCollapsed;
   const isMediaRoute = Boolean(pathname?.startsWith("/dashboard/media-providers"));
-  const isAdvancedRoute =
-    isMediaRoute || ADVANCED_NAV_ITEMS.some((item) => pathname?.startsWith(item.href));
-  const advancedOpen = advancedOpenState || isAdvancedRoute;
+  const isSystemRoute =
+    isMediaRoute || SYSTEM_NAV_ITEMS.some((item) => pathname?.startsWith(item.href));
+  const systemOpen = systemOpenState || isSystemRoute;
   const mediaOpen = mediaOpenState || isMediaRoute;
 
   useEffect(() => {
@@ -124,6 +129,7 @@ function Sidebar({ onClose }) {
   }, []);
 
   const toggleCollapse = () => {
+    playHudSound("toggle");
     try {
       localStorage.setItem(SIDEBAR_COLLAPSE_KEY, String(!storedCollapsed));
       window.dispatchEvent(new Event(SIDEBAR_COLLAPSE_EVENT));
@@ -134,15 +140,24 @@ function Sidebar({ onClose }) {
 
   const isActive = (href) => {
     if (!pathname) return false;
+    if (href === "/dashboard") {
+      return pathname === "/dashboard";
+    }
     if (href === "/dashboard/endpoint") {
-      return pathname === "/dashboard" || pathname.startsWith("/dashboard/endpoint");
+      return pathname.startsWith("/dashboard/endpoint");
+    }
+    if (href === "/dashboard/providers") {
+      return (
+        pathname.startsWith("/dashboard/providers") &&
+        !pathname.startsWith("/dashboard/providers/antigravity")
+      );
     }
     return pathname.startsWith(href);
   };
 
-  const handleUpdate = () => {
-    setShowUpdateModal(false);
-    setIsUpdating(true);
+  const handleNavClick = () => {
+    playHudSound("click");
+    onClose?.();
   };
 
   const handleCopyAndShutdown = async () => {
@@ -203,18 +218,63 @@ function Sidebar({ onClose }) {
     [router]
   );
 
-  const visibleAdvancedItems = ADVANCED_NAV_ITEMS.filter(
+  const visibleSystemItems = SYSTEM_NAV_ITEMS.filter(
     (item) => !item.requiresTranslator || enableTranslator
   );
+
+  const renderNavLink = (item, textSize = "text-xs") => {
+    const active = isActive(item.href);
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        prefetch={true}
+        onMouseEnter={() => prefetchRoute(item.href)}
+        onClick={handleNavClick}
+        title={isCollapsed ? item.label : undefined}
+        className={cn(
+          "relative flex items-center rounded-lg transition-all duration-150 group",
+          isCollapsed ? "justify-center h-8.5 w-full px-0" : "gap-2.5 h-8 px-2.5",
+          active
+            ? "bg-cyan-500/12 dark:bg-cyan-400/12 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 shadow-[0_0_14px_-5px_rgba(6,182,212,0.5)] font-semibold"
+            : "text-text-muted hover:bg-cyan-500/[0.06] dark:hover:bg-cyan-400/[0.06] hover:text-text-main border border-transparent hover:border-cyan-500/15"
+        )}
+      >
+        {active && !isCollapsed && (
+          <span
+            className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-cyan-500 dark:bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
+            aria-hidden="true"
+          />
+        )}
+        <span
+          className={cn(
+            "material-symbols-outlined text-[16px] shrink-0 transition-colors",
+            active
+              ? "fill-1 text-cyan-600 dark:text-cyan-400"
+              : "text-text-muted group-hover:text-cyan-600 dark:group-hover:text-cyan-300"
+          )}
+        >
+          {item.icon}
+        </span>
+        {!isCollapsed && <span className={cn(textSize, "truncate")}>{item.label}</span>}
+      </Link>
+    );
+  };
 
   return (
     <>
       <aside
         className={cn(
-          "flex flex-col border-r border-border bg-sidebar/95 backdrop-blur-2xl transition-all duration-200 ease-out min-h-full select-none",
-          isCollapsed ? "w-[60px]" : "w-[214px]"
+          "relative flex flex-col border-r border-cyan-500/15 dark:border-cyan-400/15 bg-sidebar/95 backdrop-blur-2xl transition-all duration-200 ease-out min-h-full select-none",
+          isCollapsed ? "w-[62px]" : "w-[220px]"
         )}
       >
+        {/* Subtle right rail orbital edge sheen */}
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-cyan-400/25 via-transparent to-cyan-400/15"
+          aria-hidden="true"
+        />
+
         {/* Brand header */}
         <div
           className={cn(
@@ -224,19 +284,21 @@ function Sidebar({ onClose }) {
         >
           <Link
             href="/dashboard"
-            onClick={onClose}
+            onClick={handleNavClick}
             title={isCollapsed ? `${APP_CONFIG.name} v${APP_CONFIG.version}` : undefined}
             className={cn("flex items-center gap-2 min-w-0", isCollapsed && "justify-center")}
           >
-            <div className="flex items-center justify-center size-7 shrink-0 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 shadow-[var(--shadow-warm)]">
-              <span className="material-symbols-outlined text-white text-[16px]">hub</span>
+            <div className="relative flex items-center justify-center size-7 shrink-0 rounded-lg bg-gradient-to-br from-cyan-500 to-sky-600 dark:from-cyan-400 dark:to-cyan-600 border border-cyan-300/40 shadow-[0_0_14px_-2px_rgba(6,182,212,0.55)]">
+              <span className="material-symbols-outlined text-white dark:text-slate-950 text-[16px]">
+                radar
+              </span>
             </div>
             {!isCollapsed && (
               <div className="flex items-baseline gap-1.5 min-w-0">
                 <span className="text-xs font-bold tracking-tight text-text-main truncate">
                   {APP_CONFIG.name}
                 </span>
-                <span className="text-[10px] font-mono text-text-subtle shrink-0">
+                <span className="text-[10px] font-mono text-cyan-600 dark:text-cyan-400/85 shrink-0">
                   v{APP_CONFIG.version}
                 </span>
               </div>
@@ -258,7 +320,7 @@ function Sidebar({ onClose }) {
               onClick={toggleCollapse}
               aria-label="Collapse sidebar"
               title="Collapse sidebar"
-              className="p-1.5 rounded-lg text-text-muted hover:text-text-main hover:bg-surface-2 transition-colors"
+              className="p-1.5 rounded-lg text-text-muted hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors"
             >
               <span className="material-symbols-outlined text-[18px]">left_panel_close</span>
             </button>
@@ -273,7 +335,7 @@ function Sidebar({ onClose }) {
               onClick={toggleCollapse}
               aria-label="Expand sidebar"
               title="Expand sidebar"
-              className="p-1.5 rounded-lg text-text-muted hover:text-text-main hover:bg-surface-2 transition-colors"
+              className="p-1.5 rounded-lg text-text-muted hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors"
             >
               <span className="material-symbols-outlined text-[18px]">left_panel_open</span>
             </button>
@@ -282,15 +344,18 @@ function Sidebar({ onClose }) {
 
         {/* Update available banner */}
         {updateInfo && !isCollapsed && (
-          <div className="mx-3 mt-3 rounded-lg border border-border bg-surface p-2.5">
+          <div className="mx-2.5 mt-2.5 rounded-xl border border-amber-500/35 bg-amber-500/10 p-2.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-medium text-emerald-600 dark:text-amber-400 truncate">
-                v{updateInfo.latestVersion} available
+              <span className="text-[11px] font-mono font-semibold text-amber-700 dark:text-amber-300 truncate">
+                v{updateInfo.latestVersion} READY
               </span>
               <button
                 type="button"
-                onClick={() => setShowUpdateModal(true)}
-                className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 dark:bg-amber-500 dark:hover:bg-amber-600 text-white text-[11px] font-medium transition-colors shrink-0"
+                onClick={() => {
+                  playHudSound("click");
+                  setShowUpdateModal(true);
+                }}
+                className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors shrink-0"
               >
                 Update
               </button>
@@ -309,99 +374,93 @@ function Sidebar({ onClose }) {
         )}
 
         {/* Navigation */}
-        <nav className={cn("flex-1 py-2 space-y-1 overflow-y-auto custom-scrollbar", isCollapsed ? "px-1.5" : "px-2.5")}>
-          {/* Core items */}
+        <nav
+          className={cn(
+            "flex-1 py-2.5 space-y-3 overflow-y-auto custom-scrollbar",
+            isCollapsed ? "px-1.5" : "px-2.5"
+          )}
+        >
+          {/* Group 1: Antigravity */}
           <div className="space-y-0.5">
-            {CORE_NAV_ITEMS.map((item) => {
-              const active = isActive(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  prefetch={true}
-                  onMouseEnter={() => prefetchRoute(item.href)}
-                  onClick={onClose}
-                  title={isCollapsed ? item.label : undefined}
-                  className={cn(
-                    "relative flex items-center rounded-xl transition-all duration-150 group",
-                    isCollapsed ? "justify-center h-8.5 w-full px-0" : "gap-2.5 h-8 px-2.5",
-                    active
-                      ? "bg-primary/12 dark:bg-primary/15 text-primary border border-primary/25 shadow-xs font-semibold"
-                      : "text-text-muted hover:bg-black/5 dark:hover:bg-white/[0.06] hover:text-text-main border border-transparent"
-                  )}
-                >
-                  {active && !isCollapsed && (
-                    <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r-full bg-primary" />
-                  )}
-                  <span
-                    className={cn(
-                      "material-symbols-outlined text-[16px] shrink-0",
-                      active ? "fill-1 text-primary" : "text-text-muted group-hover:text-text-main"
-                    )}
-                  >
-                    {item.icon}
-                  </span>
-                  {!isCollapsed && (
-                    <span className="text-xs truncate">{item.label}</span>
-                  )}
-                </Link>
-              );
-            })}
+            {!isCollapsed && (
+              <div className="flex items-center gap-1.5 px-2.5 pb-1">
+                <span className="size-1.5 rounded-full bg-cyan-500 dark:bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.8)]" />
+                <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.14em] text-cyan-700 dark:text-cyan-400">
+                  Antigravity
+                </span>
+              </div>
+            )}
+            {ANTIGRAVITY_NAV_ITEMS.map((item) => renderNavLink(item))}
           </div>
 
-          {/* Collapsible Advanced / System section */}
-          <div className="pt-3 mt-3 border-t border-border-subtle space-y-0.5">
+          {/* Group 2: Gateway */}
+          <div className="pt-2.5 border-t border-border-subtle space-y-0.5">
+            {!isCollapsed && (
+              <div className="flex items-center gap-1.5 px-2.5 pb-1">
+                <span className="size-1.5 rounded-full bg-slate-400 dark:bg-slate-500" />
+                <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.14em] text-text-subtle">
+                  Gateway
+                </span>
+              </div>
+            )}
+            {GATEWAY_NAV_ITEMS.map((item) => renderNavLink(item))}
+          </div>
+
+          {/* Group 3: Collapsible System section */}
+          <div className="pt-2.5 border-t border-border-subtle space-y-0.5">
             {!isCollapsed ? (
               <button
                 type="button"
-                onClick={() => setAdvancedOpenState((v) => !v)}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider text-text-subtle hover:text-text-muted transition-colors"
+                onClick={() => {
+                  playHudSound("toggle");
+                  setSystemOpenState((v) => !v);
+                }}
+                className="w-full flex items-center justify-between px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-[0.14em] text-text-subtle hover:text-cyan-600 dark:hover:text-cyan-300 transition-colors"
               >
-                <span className="truncate">
-                  <span>Advanced</span>
-                  <span> / </span>
-                  <span>System</span>
-                </span>
+                <span className="truncate">System</span>
                 <span
                   className="material-symbols-outlined text-[15px] transition-transform duration-150"
-                  style={{ transform: advancedOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+                  style={{ transform: systemOpen ? "rotate(180deg)" : "rotate(0deg)" }}
                 >
                   expand_more
                 </span>
               </button>
             ) : null}
 
-            {(advancedOpen || isCollapsed) && (
+            {(systemOpen || isCollapsed) && (
               <div className="space-y-0.5">
                 {/* Media Providers */}
                 {isCollapsed ? (
                   <Link
                     href="/dashboard/media-providers/embedding"
-                    onClick={onClose}
+                    onClick={handleNavClick}
                     title="Media Providers"
                     className={cn(
-                      "flex items-center justify-center h-9 w-full rounded-lg transition-colors duration-150 group",
+                      "flex items-center justify-center h-8.5 w-full rounded-lg transition-colors duration-150 group",
                       pathname?.startsWith("/dashboard/media-providers")
-                        ? "bg-primary/10 text-primary"
-                        : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                        ? "bg-cyan-500/12 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30"
+                        : "text-text-muted hover:bg-cyan-500/[0.06] hover:text-text-main"
                     )}
                   >
-                    <span className="material-symbols-outlined text-[18px]">perm_media</span>
+                    <span className="material-symbols-outlined text-[17px]">perm_media</span>
                   </Link>
                 ) : (
                   <>
                     <button
                       type="button"
-                      onClick={() => setMediaOpenState((v) => !v)}
+                      onClick={() => {
+                        playHudSound("toggle");
+                        setMediaOpenState((v) => !v);
+                      }}
                       className={cn(
-                        "w-full flex items-center gap-2.5 h-8 px-2.5 rounded-lg transition-colors duration-150 group",
+                        "w-full flex items-center gap-2.5 h-8 px-2.5 rounded-lg transition-colors duration-150 group border border-transparent",
                         pathname?.startsWith("/dashboard/media-providers")
-                          ? "bg-primary/10 text-primary font-medium"
-                          : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                          ? "bg-cyan-500/12 text-cyan-700 dark:text-cyan-300 border-cyan-500/25 font-semibold"
+                          : "text-text-muted hover:bg-cyan-500/[0.06] hover:text-text-main"
                       )}
                     >
-                      <span className="material-symbols-outlined text-[18px] shrink-0">perm_media</span>
-                      <span className="text-[13px] flex-1 text-left truncate">Media Providers</span>
+                      <span className="material-symbols-outlined text-[16px] shrink-0">perm_media</span>
+                      <span className="text-xs flex-1 text-left truncate">Media Providers</span>
                       <span
                         className="material-symbols-outlined text-[14px] transition-transform duration-150"
                         style={{ transform: mediaOpen ? "rotate(180deg)" : "rotate(0deg)" }}
@@ -410,22 +469,22 @@ function Sidebar({ onClose }) {
                       </span>
                     </button>
                     {mediaOpen && (
-                      <div className="ml-4 pl-2.5 border-l border-border-subtle space-y-0.5 py-0.5">
+                      <div className="ml-4 pl-2.5 border-l border-cyan-500/20 space-y-0.5 py-0.5">
                         {MEDIA_PROVIDER_KINDS.filter((k) => VISIBLE_MEDIA_KINDS.includes(k.id)).map((kind) => {
                           const active = pathname?.startsWith(`/dashboard/media-providers/${kind.id}`);
                           return (
                             <Link
                               key={kind.id}
                               href={`/dashboard/media-providers/${kind.id}`}
-                              onClick={onClose}
+                              onClick={handleNavClick}
                               className={cn(
-                                "flex items-center gap-2 h-7 px-2 rounded-md text-[12.5px] transition-colors",
+                                "flex items-center gap-2 h-7 px-2 rounded-md text-xs transition-colors",
                                 active
-                                  ? "bg-primary/10 text-primary font-medium"
+                                  ? "bg-cyan-500/12 text-cyan-700 dark:text-cyan-300 font-medium"
                                   : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                               )}
                             >
-                              <span className="material-symbols-outlined text-[15px] shrink-0">{kind.icon}</span>
+                              <span className="material-symbols-outlined text-[14px] shrink-0">{kind.icon}</span>
                               <span className="truncate">{kind.label}</span>
                             </Link>
                           );
@@ -433,15 +492,15 @@ function Sidebar({ onClose }) {
                         <Link
                           key={COMBINED_WEB_ITEM.id}
                           href={COMBINED_WEB_ITEM.href}
-                          onClick={onClose}
+                          onClick={handleNavClick}
                           className={cn(
-                            "flex items-center gap-2 h-7 px-2 rounded-md text-[12.5px] transition-colors",
+                            "flex items-center gap-2 h-7 px-2 rounded-md text-xs transition-colors",
                             pathname?.startsWith(COMBINED_WEB_ITEM.href)
-                              ? "bg-primary/10 text-primary font-medium"
+                              ? "bg-cyan-500/12 text-cyan-700 dark:text-cyan-300 font-medium"
                               : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                           )}
                         >
-                          <span className="material-symbols-outlined text-[15px] shrink-0">
+                          <span className="material-symbols-outlined text-[14px] shrink-0">
                             {COMBINED_WEB_ITEM.icon}
                           </span>
                           <span className="truncate">{COMBINED_WEB_ITEM.label}</span>
@@ -451,47 +510,13 @@ function Sidebar({ onClose }) {
                   </>
                 )}
 
-                {visibleAdvancedItems.map((item) => {
-                  const active = isActive(item.href);
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      prefetch={true}
-                      onMouseEnter={() => prefetchRoute(item.href)}
-                      onClick={onClose}
-                      title={isCollapsed ? item.label : undefined}
-                      className={cn(
-                        "relative flex items-center rounded-xl transition-all duration-150 group",
-                        isCollapsed ? "justify-center h-8.5 w-full px-0" : "gap-2.5 h-8 px-2.5",
-                        active
-                          ? "bg-primary/12 dark:bg-primary/15 text-primary border border-primary/25 shadow-xs font-semibold"
-                          : "text-text-muted hover:bg-black/5 dark:hover:bg-white/[0.06] hover:text-text-main border border-transparent"
-                      )}
-                    >
-                      {active && !isCollapsed && (
-                        <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r-full bg-primary" />
-                      )}
-                      <span
-                        className={cn(
-                          "material-symbols-outlined text-[18px] shrink-0",
-                          active ? "fill-1 text-primary" : "text-text-muted group-hover:text-text-main"
-                        )}
-                      >
-                        {item.icon}
-                      </span>
-                      {!isCollapsed && (
-                        <span className="text-[13px] truncate">{item.label}</span>
-                      )}
-                    </Link>
-                  );
-                })}
+                {visibleSystemItems.map((item) => renderNavLink(item))}
               </div>
             )}
           </div>
         </nav>
 
-        {/* Footer: Settings (Full Width) + Bottom Utility Bar */}
+        {/* Footer: Settings + Bottom Utility Bar */}
         <div
           className={cn(
             "border-t border-border-subtle shrink-0 flex flex-col gap-1.5",
@@ -502,20 +527,22 @@ function Sidebar({ onClose }) {
             href="/dashboard/profile"
             prefetch={true}
             onMouseEnter={() => prefetchRoute("/dashboard/profile")}
-            onClick={onClose}
+            onClick={handleNavClick}
             title={isCollapsed ? "Settings" : undefined}
             className={cn(
               "flex items-center rounded-lg transition-colors duration-150 group",
               isCollapsed ? "justify-center size-8 px-0" : "gap-2 h-7.5 px-2 w-full",
               isActive("/dashboard/profile")
-                ? "bg-primary/10 text-primary font-semibold"
-                : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                ? "bg-cyan-500/12 text-cyan-700 dark:text-cyan-300 font-semibold border border-cyan-500/25"
+                : "text-text-muted hover:bg-cyan-500/[0.06] hover:text-text-main border border-transparent"
             )}
           >
             <span
               className={cn(
                 "material-symbols-outlined text-[16px] shrink-0",
-                isActive("/dashboard/profile") ? "fill-1 text-primary" : "text-text-muted group-hover:text-text-main"
+                isActive("/dashboard/profile")
+                  ? "fill-1 text-cyan-600 dark:text-cyan-400"
+                  : "text-text-muted group-hover:text-text-main"
               )}
             >
               settings
@@ -526,7 +553,7 @@ function Sidebar({ onClose }) {
           {/* Quick utility controls */}
           <div
             className={cn(
-              "flex items-center pt-1 border-t border-border-subtle/40",
+              "flex items-center pt-1 border-t border-border-subtle/50",
               isCollapsed ? "flex-col gap-1 w-full" : "justify-between w-full"
             )}
           >
@@ -536,7 +563,7 @@ function Sidebar({ onClose }) {
               </span>
             )}
             <div className={cn("flex items-center", isCollapsed ? "flex-col gap-1" : "gap-1")}>
-              <ThemeToggle className="size-7 rounded-lg p-1 text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5 transition-colors" />
+              <ThemeToggle className="size-7 rounded-lg p-1 text-text-muted hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors" />
               <HeaderLanguage />
               <HeaderMenu onLogout={handleLogout} direction="up" />
             </div>
@@ -554,7 +581,7 @@ function Sidebar({ onClose }) {
 
       {/* Disconnected / Updating Overlay */}
       {(isDisconnected || isUpdating) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-6">
           {isUpdating ? (
             <ManualUpdatePanel
               latestVersion={updateInfo?.latestVersion}
@@ -566,11 +593,11 @@ function Sidebar({ onClose }) {
               isDisconnected={isDisconnected}
             />
           ) : (
-            <div className="text-center p-8">
-              <div className="flex items-center justify-center size-16 rounded-full bg-red-500/20 text-red-500 mx-auto mb-4">
+            <div className="text-center p-8 rounded-2xl border border-rose-500/30 bg-surface/95 backdrop-blur-xl max-w-md">
+              <div className="flex items-center justify-center size-16 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-500 mx-auto mb-4">
                 <span className="material-symbols-outlined text-[32px]">power_off</span>
               </div>
-              <h2 className="text-xl font-semibold text-white mb-2">Server Disconnected</h2>
+              <h2 className="text-xl font-semibold text-text-main mb-2">Server Disconnected</h2>
               <p className="text-text-muted mb-6">The proxy server has been stopped.</p>
               <Button variant="secondary" onClick={() => globalThis.location.reload()}>
                 Reload Page
@@ -598,9 +625,9 @@ function ManualUpdatePanel({
 }) {
   const isCountingDown = countdown > 0;
   return (
-    <div className="w-full max-w-lg rounded-xl bg-neutral-900/95 border border-white/10 p-6 text-white">
+    <div className="w-full max-w-lg rounded-2xl bg-slate-950/95 border border-cyan-500/25 p-6 text-white shadow-2xl">
       <div className="flex items-center gap-3 mb-4">
-        <div className="flex items-center justify-center size-11 rounded-full bg-amber-500/20 text-amber-400">
+        <div className="flex items-center justify-center size-11 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-400">
           <span className="material-symbols-outlined text-[24px]">content_copy</span>
         </div>
         <div>
@@ -618,17 +645,17 @@ function ManualUpdatePanel({
       </div>
 
       <p className="text-sm text-white/80 mb-2">Install command:</p>
-      <div className="w-full px-3 py-2 rounded bg-white/5 mb-4">
+      <div className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 mb-4">
         <code className="text-xs font-mono text-amber-400 break-all">{installCmd}</code>
       </div>
 
       <ol className="text-xs text-white/70 space-y-1 list-decimal list-inside mb-4">
         <li>
-          Click <strong>Copy & Shutdown</strong> below.
+          Click <strong>Copy &amp; Shutdown</strong> below.
         </li>
         <li>Paste the command into your terminal and press Enter.</li>
         <li>
-          Run <code className="px-1 rounded bg-white/10 text-green-400">9router</code> again after install.
+          Run <code className="px-1 rounded bg-white/10 text-emerald-400">9router</code> again after install.
         </li>
       </ol>
 

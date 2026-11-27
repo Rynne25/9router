@@ -256,6 +256,7 @@ export default function ProviderLimits() {
           setProviderFilter(next);
         }}
         lastUpdated={data.lastUpdated}
+        hasAntigravity={hasAntigravity}
       />
 
       <QuotaFilterToolbar
@@ -294,8 +295,9 @@ export default function ProviderLimits() {
       />
 
       {data.expiringFirst && !data.isInitialLoading && (
-        <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3.5 py-2 text-xs text-amber-700 dark:text-amber-300 flex items-center gap-2">
-          <span className="material-symbols-outlined text-[16px]">info</span>
+        <div className="rounded-xl border border-amber-500/35 bg-amber-500/[0.08] px-3.5 py-2 text-xs font-mono text-amber-700 dark:text-amber-300 flex items-center gap-2 shadow-xs">
+          <span className="size-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <span className="material-symbols-outlined text-[15px] shrink-0">schedule</span>
           <span>
             Chế độ &quot;Sắp reset&quot; đang sắp xếp lại các tài khoản trong trang hiện tại.
           </span>

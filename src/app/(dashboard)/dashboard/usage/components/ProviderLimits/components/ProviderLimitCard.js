@@ -1,6 +1,6 @@
 "use client";
 
-import Card from "@/shared/components/Card";
+import { HudFrame } from "@/shared/components/hud";
 import { cn } from "@/shared/utils/cn";
 import {
   filterQuotasByVisibility,
@@ -11,13 +11,25 @@ import ProviderLimitHeader from "./ProviderLimitHeader";
 import QuotaRow from "./QuotaRow";
 
 const CARD_RING_BY_HEALTH = {
-  healthy: "hover:border-emerald-500/35",
-  low: "border-amber-500/25 hover:border-amber-500/45",
-  exhausted: "border-rose-500/25 hover:border-rose-500/45",
-  blocked: "border-red-500/35 hover:border-red-500/55",
-  error: "border-red-500/30 hover:border-red-500/50",
-  disabled: "opacity-65",
-  loading: "",
+  healthy: "[&>.hud-frame]:border-emerald-500/35 hover:[&>.hud-frame]:border-emerald-400/65 dark:[&>.hud-frame]:border-emerald-400/30 dark:hover:[&>.hud-frame]:border-emerald-400/60",
+  healthyAntigravity: "[&>.hud-frame]:border-cyan-500/40 hover:[&>.hud-frame]:border-cyan-400/75 dark:[&>.hud-frame]:border-cyan-400/35 dark:hover:[&>.hud-frame]:border-cyan-300/70",
+  low: "[&>.hud-frame]:border-amber-500/40 hover:[&>.hud-frame]:border-amber-400/70 dark:[&>.hud-frame]:border-amber-400/35 dark:hover:[&>.hud-frame]:border-amber-400/65",
+  exhausted: "[&>.hud-frame]:border-rose-500/40 hover:[&>.hud-frame]:border-rose-400/70 dark:[&>.hud-frame]:border-rose-400/35 dark:hover:[&>.hud-frame]:border-rose-400/65",
+  blocked: "[&>.hud-frame]:border-rose-500/50 hover:[&>.hud-frame]:border-rose-400/80 dark:[&>.hud-frame]:border-rose-500/50 dark:hover:[&>.hud-frame]:border-rose-400/80",
+  error: "[&>.hud-frame]:border-rose-500/45 hover:[&>.hud-frame]:border-rose-400/70 dark:[&>.hud-frame]:border-rose-400/40 dark:hover:[&>.hud-frame]:border-rose-400/70",
+  disabled: "opacity-65 [&>.hud-frame]:border-slate-400/30 dark:[&>.hud-frame]:border-slate-600/35",
+  loading: "[&>.hud-frame]:border-cyan-500/25 hover:[&>.hud-frame]:border-cyan-400/50",
+};
+
+const HUD_ACCENT_BY_HEALTH = {
+  healthy: "emerald",
+  healthyAntigravity: "cyan",
+  low: "amber",
+  exhausted: "rose",
+  blocked: "rose",
+  error: "rose",
+  disabled: "cyan",
+  loading: "cyan",
 };
 
 export default function ProviderLimitCard({
@@ -59,56 +71,71 @@ export default function ProviderLimitCard({
   const hiddenQuotaRows = getHiddenQuotaRows(conn.provider, rawQuotas, quotaVisibility);
   const healthStatus = getConnectionHealthStatus(conn, quota, error);
   const isListMode = layoutMode === "list";
+  const isAntigravityHealthy = conn.provider === "antigravity" && healthStatus === "healthy";
+  const ringKey = isAntigravityHealthy ? "healthyAntigravity" : healthStatus;
 
   return (
-    <Card
+    <HudFrame
+      chamfer="sm"
+      accent={HUD_ACCENT_BY_HEALTH[ringKey] || "cyan"}
       padding="none"
+      spotlight={true}
       className={cn(
-        "min-w-0 overflow-hidden transition-all duration-200 flex flex-col",
-        isListMode && "lg:grid lg:grid-cols-[minmax(280px,1.05fr)_minmax(0,2fr)] lg:items-stretch",
-        CARD_RING_BY_HEALTH[healthStatus] || "",
+        "min-w-0 overflow-hidden transition-all duration-200 flex flex-col [&>div:last-child]:flex-1 [&>div:last-child]:flex [&>div:last-child]:flex-col",
+        CARD_RING_BY_HEALTH[ringKey] || "",
       )}
     >
-      <div className={cn(isListMode && "lg:border-r lg:border-black/[0.06] dark:lg:border-white/[0.08] flex flex-col justify-between")}>
-        <ProviderLimitHeader
+      <div
+        className={cn(
+          "flex flex-col flex-1 min-w-0",
+          isListMode && "lg:grid lg:grid-cols-[minmax(280px,1.05fr)_minmax(0,2fr)] lg:items-stretch",
+        )}
+      >
+        <div
+          className={cn(
+            isListMode && "lg:border-r lg:border-cyan-500/15 dark:lg:border-cyan-400/15 flex flex-col justify-between",
+          )}
+        >
+          <ProviderLimitHeader
+            conn={conn}
+            quota={quota}
+            error={error}
+            isLoading={isLoading}
+            isInactive={isInactive}
+            isDeleting={isDeleting}
+            isResettingLimit={isResettingLimit}
+            isWarmingUp={isWarmingUp}
+            rowBusy={rowBusy}
+            autoPingConfigs={autoPingConfigs}
+            copied={copied}
+            onCopy={onCopy}
+            onWarmup={onWarmup}
+            onOpenResetConfirm={onOpenResetConfirm}
+            onViewResetCredits={onViewResetCredits}
+            onOpenSchedule={onOpenSchedule}
+            onRefresh={onRefresh}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onToggleActive={onToggleActive}
+          />
+        </div>
+
+        <QuotaRow
           conn={conn}
+          provider={conn.provider}
           quota={quota}
-          error={error}
+          visibleQuotas={visibleQuotas}
+          hiddenQuotaRows={hiddenQuotaRows}
           isLoading={isLoading}
-          isInactive={isInactive}
-          isDeleting={isDeleting}
-          isResettingLimit={isResettingLimit}
-          isWarmingUp={isWarmingUp}
-          rowBusy={rowBusy}
-          autoPingConfigs={autoPingConfigs}
-          copied={copied}
-          onCopy={onCopy}
-          onWarmup={onWarmup}
-          onOpenResetConfirm={onOpenResetConfirm}
-          onViewResetCredits={onViewResetCredits}
-          onOpenSchedule={onOpenSchedule}
-          onRefresh={onRefresh}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onToggleActive={onToggleActive}
+          error={error}
+          quotaSortMode={quotaSortMode}
+          compact={layoutMode === "4"}
+          warmupFeedback={cardWarmupFeedback}
+          onClearWarmupFeedback={onClearWarmupFeedback}
+          onHideQuota={onHideQuota}
+          onShowQuota={onShowQuota}
         />
       </div>
-
-      <QuotaRow
-        conn={conn}
-        provider={conn.provider}
-        quota={quota}
-        visibleQuotas={visibleQuotas}
-        hiddenQuotaRows={hiddenQuotaRows}
-        isLoading={isLoading}
-        error={error}
-        quotaSortMode={quotaSortMode}
-        compact={layoutMode === "4"}
-        warmupFeedback={cardWarmupFeedback}
-        onClearWarmupFeedback={onClearWarmupFeedback}
-        onHideQuota={onHideQuota}
-        onShowQuota={onShowQuota}
-      />
-    </Card>
+    </HudFrame>
   );
 }

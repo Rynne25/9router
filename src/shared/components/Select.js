@@ -21,7 +21,7 @@ export default function Select({
       {label && (
         <label className="text-sm font-medium text-text-main">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-rose-500 ml-1">*</span>}
         </label>
       )}
       <div className="relative">
@@ -31,11 +31,13 @@ export default function Select({
           disabled={disabled}
           className={cn(
             "w-full py-2.5 px-3 pr-10 text-sm text-text-main",
-            "bg-surface-2 border border-transparent rounded-[10px] appearance-none",
-            "focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/40",
+            "bg-surface-2 border border-border rounded-[10px] appearance-none",
+            "hover:border-cyan-500/35",
+            "focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500 focus:shadow-[0_0_14px_-4px_rgba(6,182,212,0.35)]",
             "transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed",
             "text-[16px] sm:text-sm",
-            error && "ring-1 ring-red-500 focus:ring-2 focus:ring-red-500/40 border-red-500/40",
+            error &&
+              "ring-1 ring-rose-500 focus:ring-2 focus:ring-rose-500/40 border-rose-500/60",
             selectClassName
           )}
           {...props}
@@ -54,7 +56,7 @@ export default function Select({
         </div>
       </div>
       {error && (
-        <p className="text-xs text-red-500 flex items-center gap-1">
+        <p className="text-xs text-rose-500 flex items-center gap-1">
           <span className="material-symbols-outlined text-[14px]">error</span>
           {error}
         </p>

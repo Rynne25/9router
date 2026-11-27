@@ -18,123 +18,127 @@
 }
 
 /* ============================================================
-   9Router palette — Geist Carbon (Linear / Vercel style)
-   Electric Indigo accent, neutral slate/carbon bases
+   9Router palette — Tactical Orbital HUD x Shader
+   Precision cyan/sky telemetry accents on deep space & clean daylight bases
    ============================================================ */
+html {
+  color-scheme: light dark;
+}
+
 :root {
-  /* Brand scale (Electric Indigo) */
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
-  --color-brand-800: #3730a3;
-  --color-brand-900: #312e81;
+  /* Brand scale (Orbital Sky / Cyan) */
+  --color-brand-50: #f0f9ff;
+  --color-brand-100: #e0f2fe;
+  --color-brand-200: #bae6fd;
+  --color-brand-300: #7dd3fc;
+  --color-brand-400: #38bdf8;
+  --color-brand-500: #0284c7;
+  --color-brand-600: #0369a1;
+  --color-brand-700: #075985;
+  --color-brand-800: #0c4a6e;
+  --color-brand-900: #082f49;
 
   /* Primary */
-  --color-primary: #4f46e5;
-  --color-primary-hover: #4338ca;
+  --color-primary: #0284C7;
+  --color-primary-hover: #0369A1;
 
-  /* Surfaces & backgrounds (Light Mode — Geist Daylight) */
-  --color-bg: #f8fafc;
-  --color-bg-alt: #f1f5f9;
-  --color-surface: rgba(255, 255, 255, 0.92);
-  --color-surface-2: #f8fafc;
-  --color-surface-3: #f1f5f9;
-  --color-sidebar: #ffffff;
+  /* Surfaces & backgrounds (Light Mode — Tactical Daylight) */
+  --color-bg: #F2F6FC;
+  --color-bg-alt: #E6EEF9;
+  --color-surface: rgba(255, 255, 255, 0.90);
+  --color-surface-2: #EDF3FB;
+  --color-surface-3: #E0EBF8;
+  --color-sidebar: rgba(247, 250, 255, 0.94);
 
   /* Borders */
-  --color-border: rgba(15, 23, 42, 0.09);
-  --color-border-subtle: rgba(15, 23, 42, 0.05);
+  --color-border: rgba(2, 132, 199, 0.18);
+  --color-border-subtle: rgba(2, 132, 199, 0.09);
 
   /* Text */
-  --color-text: #090d16;
-  --color-text-main: #090d16;
-  --color-text-muted: #475569;
-  --color-text-subtle: #94a3b8;
+  --color-text: #081426;
+  --color-text-main: #081426;
+  --color-text-muted: #425874;
+  --color-text-subtle: #6F85A3;
 
   /* Status */
-  --color-danger: #EF4444;
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-info: #3B82F6;
+  --color-danger: #E11D48;
+  --color-success: #059669;
+  --color-warning: #D97706;
+  --color-info: #0284C7;
 
   /* Radius */
-  --radius-brand: 12px;
-  --radius-brand-lg: 16px;
+  --radius-brand: 10px;
+  --radius-brand-lg: 14px;
 
-  /* Geist Daylight Shadows (Light) */
+  /* Tactical Daylight Shadows (Light) */
   --shadow-soft:
-    0 1px 2px 0 rgba(15, 23, 42, 0.04),
-    0 4px 12px -2px rgba(15, 23, 42, 0.06);
+    0 1px 2px 0 rgba(8, 20, 38, 0.05),
+    0 4px 14px -2px rgba(2, 132, 199, 0.08);
   --shadow-warm:
-    0 8px 24px -6px rgba(99, 102, 241, 0.22),
-    0 2px 6px -1px rgba(15, 23, 42, 0.05);
+    0 8px 24px -6px rgba(2, 132, 199, 0.22),
+    0 2px 6px -1px rgba(8, 20, 38, 0.05);
   --shadow-elevated:
-    0 12px 32px -8px rgba(15, 23, 42, 0.10),
-    0 2px 8px -2px rgba(15, 23, 42, 0.05);
+    0 12px 32px -8px rgba(8, 20, 38, 0.12),
+    0 2px 8px -2px rgba(2, 132, 199, 0.08);
   --shadow-elev:
-    0 10px 28px -8px rgba(15, 23, 42, 0.09),
-    0 2px 6px -2px rgba(15, 23, 42, 0.04);
-  --shadow-focus: 0 0 0 3px rgba(99, 102, 241, 0.22);
+    0 10px 28px -8px rgba(8, 20, 38, 0.10),
+    0 2px 6px -2px rgba(2, 132, 199, 0.06);
+  --shadow-focus: 0 0 0 3px rgba(2, 132, 199, 0.24);
 
   color-scheme: light;
 }
 
 .dark {
-  /* Brand scale (Electric Indigo) */
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
-  --color-brand-800: #3730a3;
-  --color-brand-900: #312e81;
+  /* Brand scale (Orbital Cyan) */
+  --color-brand-50: #ecfeff;
+  --color-brand-100: #cffafe;
+  --color-brand-200: #a5f3fc;
+  --color-brand-300: #67e8f9;
+  --color-brand-400: #22D3EE;
+  --color-brand-500: #06B6D4;
+  --color-brand-600: #0891B2;
+  --color-brand-700: #0e7490;
+  --color-brand-800: #155e75;
+  --color-brand-900: #164e63;
 
-  --color-primary: #6366f1;
-  --color-primary-hover: #818cf8;
+  --color-primary: #06B6D4;
+  --color-primary-hover: #22D3EE;
 
-  /* Surfaces (Dark Mode — Geist Carbon / Linear Obsidian) */
-  --color-bg: #08090e;
-  --color-bg-alt: #0c0e16;
-  --color-surface: rgba(17, 19, 28, 0.88);
-  --color-surface-2: rgba(24, 27, 39, 0.92);
-  --color-surface-3: rgba(32, 36, 52, 0.95);
-  --color-sidebar: rgba(11, 13, 20, 0.94);
+  /* Surfaces (Dark Mode — Deep Orbital HUD) */
+  --color-bg: #050811;
+  --color-bg-alt: #090F1E;
+  --color-surface: rgba(10, 17, 32, 0.86);
+  --color-surface-2: rgba(14, 24, 46, 0.92);
+  --color-surface-3: rgba(21, 35, 64, 0.96);
+  --color-sidebar: rgba(7, 12, 24, 0.94);
 
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-border-subtle: rgba(255, 255, 255, 0.04);
+  --color-border: rgba(34, 211, 238, 0.16);
+  --color-border-subtle: rgba(34, 211, 238, 0.08);
 
-  --color-text: #f8fafc;
-  --color-text-main: #f8fafc;
-  --color-text-muted: #94a3b8;
-  --color-text-subtle: #64748b;
+  --color-text: #ECF6FF;
+  --color-text-main: #ECF6FF;
+  --color-text-muted: #8BA4C4;
+  --color-text-subtle: #587294;
 
-  --color-danger: #F87171;
-  --color-success: #34D399;
-  --color-warning: #FBBF24;
-  --color-info: #60A5FA;
+  --color-danger: #F43F5E;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-info: #38BDF8;
 
   --shadow-soft:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
-    0 8px 24px -6px rgba(0, 0, 0, 0.55),
-    0 2px 6px 0 rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 0 rgba(34, 211, 238, 0.08),
+    0 8px 24px -6px rgba(0, 0, 0, 0.65),
+    0 2px 6px 0 rgba(0, 0, 0, 0.40);
   --shadow-warm:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
-    0 10px 28px -6px rgba(99, 102, 241, 0.25);
+    inset 0 1px 0 0 rgba(34, 211, 238, 0.12),
+    0 10px 28px -6px rgba(6, 182, 212, 0.28);
   --shadow-elevated:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
-    0 18px 40px -10px rgba(0, 0, 0, 0.70);
+    inset 0 1px 0 0 rgba(34, 211, 238, 0.10),
+    0 18px 40px -10px rgba(0, 0, 0, 0.78);
   --shadow-elev:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
-    0 14px 32px -8px rgba(0, 0, 0, 0.65);
-  --shadow-focus: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    inset 0 1px 0 0 rgba(34, 211, 238, 0.09),
+    0 14px 32px -8px rgba(0, 0, 0, 0.72);
+  --shadow-focus: 0 0 0 3px rgba(34, 211, 238, 0.28);
 
   color-scheme: dark;
 }
@@ -192,18 +196,18 @@ select {
   --color-info: var(--color-info);
 
   /* Static fallbacks (explicit per-mode usage if needed) */
-  --color-bg-light: #FAFAFA;
-  --color-bg-dark: #09090B;
+  --color-bg-light: #F2F6FC;
+  --color-bg-dark: #050811;
   --color-surface-light: #FFFFFF;
-  --color-surface-dark: #121215;
-  --color-sidebar-light: #FAFAFA;
-  --color-sidebar-dark: #0C0C0E;
-  --color-border-light: #E4E4E7;
-  --color-border-dark: #27272A;
-  --color-text-main-light: #09090B;
-  --color-text-main-dark: #FAFAFA;
-  --color-text-muted-light: #71717A;
-  --color-text-muted-dark: #A1A1AA;
+  --color-surface-dark: #0A1120;
+  --color-sidebar-light: #F7FAFF;
+  --color-sidebar-dark: #070C18;
+  --color-border-light: rgba(2, 132, 199, 0.18);
+  --color-border-dark: rgba(34, 211, 238, 0.16);
+  --color-text-main-light: #081426;
+  --color-text-main-dark: #ECF6FF;
+  --color-text-muted-light: #425874;
+  --color-text-muted-dark: #8BA4C4;
 
   /* Radius */
   --radius-brand: var(--radius-brand);
@@ -216,8 +220,9 @@ select {
   --shadow-elev: var(--shadow-elev);
   --shadow-focus: var(--shadow-focus);
 
-  /* Font - Inter primary, Apple system fallback */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
+  /* Fonts — Space Grotesk + JetBrains Mono */
+  --font-sans: var(--font-space-grotesk), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
 
 /* Base */
@@ -232,13 +237,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Selection - brand-tinted */
+/* Selection - Orbital Cyan/Sky tinted */
 ::selection {
-  background-color: rgba(99, 102, 241, 0.22);
-  color: var(--color-primary);
+  background-color: rgba(2, 132, 199, 0.22);
+  color: var(--color-primary-hover);
 }
 .dark ::selection {
-  background-color: rgba(99, 102, 241, 0.28);
+  background-color: rgba(34, 211, 238, 0.24);
   color: var(--color-brand-300);
 }
 
@@ -247,76 +252,99 @@ input, textarea {
   accent-color: var(--color-primary);
 }
 
-/* Scrollbar (custom-scrollbar utility kept for compat) */
+/* Native <dialog> top-layer ergonomics */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.hud-command-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollbar (modern standard properties first, WebKit fallback gated via @supports not) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(2, 132, 199, 0.28) transparent;
+}
+.dark * {
+  scrollbar-color: rgba(34, 211, 238, 0.26) transparent;
+}
+
 .custom-scrollbar {
   overscroll-behavior-y: contain;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
 }
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0.3);
-  border-radius: 20px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-primary);
-}
 
-/* Thin horizontal scrollbar - brand colored */
 .scroll-thin-x {
   scrollbar-width: thin;
-  scrollbar-color: rgba(99, 102, 241, 0.55) transparent;
+  scrollbar-color: rgba(2, 132, 199, 0.45) transparent;
 }
 .dark .scroll-thin-x {
-  scrollbar-color: rgba(99, 102, 241, 0.55) transparent;
-}
-.scroll-thin-x::-webkit-scrollbar { height: 3px; }
-.scroll-thin-x::-webkit-scrollbar-track { background: transparent; }
-.scroll-thin-x::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.55);
-  border-radius: 3px;
-}
-.dark .scroll-thin-x::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.55);
+  scrollbar-color: rgba(34, 211, 238, 0.45) transparent;
 }
 
-/* Global thin mac-like scrollbars (overrides clunky Windows/Linux default) */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(120, 120, 120, 0.35) transparent;
-}
-.dark * {
-  scrollbar-color: rgba(180, 180, 180, 0.3) transparent;
-}
-*::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-*::-webkit-scrollbar-thumb {
-  background-color: rgba(120, 120, 120, 0.35);
-  border-radius: 9999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-*::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(120, 120, 120, 0.55);
-}
-.dark *::-webkit-scrollbar-thumb {
-  background-color: rgba(180, 180, 180, 0.3);
-}
-.dark *::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(180, 180, 180, 0.5);
+@supports not (scrollbar-color: auto) {
+  * {
+    scrollbar-width: auto;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(2, 132, 199, 0.28);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(2, 132, 199, 0.5);
+  }
+  .dark *::-webkit-scrollbar-thumb {
+    background-color: rgba(34, 211, 238, 0.26);
+  }
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(34, 211, 238, 0.48);
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(2, 132, 199, 0.28);
+    border-radius: 20px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-primary);
+  }
+  .scroll-thin-x::-webkit-scrollbar {
+    height: 3px;
+  }
+  .scroll-thin-x::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scroll-thin-x::-webkit-scrollbar-thumb {
+    background: rgba(2, 132, 199, 0.45);
+    border-radius: 3px;
+  }
+  .dark .scroll-thin-x::-webkit-scrollbar-thumb {
+    background: rgba(34, 211, 238, 0.45);
+  }
 }
 
-/* Reusable Geist Carbon cards & surfaces */
+/* ============================================================
+   Orbital HUD Cards & Legacy Compatibility Surfaces
+   ============================================================ */
 .card-soft,
 .liquid-glass-card {
   position: relative;
@@ -332,8 +360,8 @@ input, textarea {
 .dark .liquid-glass-card {
   background-image: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.03) 0%,
-    rgba(255, 255, 255, 0) 100%
+    rgba(34, 211, 238, 0.045) 0%,
+    rgba(10, 17, 32, 0) 42%
   );
 }
 
@@ -350,44 +378,44 @@ input, textarea {
 .dark .card-elev {
   background-image: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.04) 0%,
-    rgba(255, 255, 255, 0) 100%
+    rgba(34, 211, 238, 0.06) 0%,
+    rgba(10, 17, 32, 0) 46%
   );
 }
 
-/* Geist Carbon Pill / Nested Panel */
+/* Tactical Telemetry Panel / Nested Well */
 .liquid-glass-panel {
   background-color: var(--color-surface-2);
   border: 1px solid var(--color-border-subtle);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.7),
-    0 1px 2px 0 rgba(15, 23, 42, 0.03);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.72),
+    0 1px 2px 0 rgba(8, 20, 38, 0.04);
 }
 
 .dark .liquid-glass-panel {
   background-color: var(--color-surface-2);
   border: 1px solid var(--color-border);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
-    0 4px 12px -4px rgba(0, 0, 0, 0.40);
+    inset 0 1px 0 0 rgba(34, 211, 238, 0.08),
+    0 4px 14px -4px rgba(0, 0, 0, 0.55);
 }
 
-/* Liquid Glass Progress Tube */
+/* Telemetry Progress Tube */
 .liquid-glass-tube {
   position: relative;
   overflow: hidden;
   border-radius: 9999px;
-  background: rgba(15, 23, 42, 0.08);
+  background: rgba(2, 132, 199, 0.10);
   box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.12),
-    0 1px 0 rgba(255, 255, 255, 0.65);
+    inset 0 1px 2px rgba(8, 20, 38, 0.14),
+    0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 .dark .liquid-glass-tube {
-  background: rgba(2, 6, 16, 0.65);
+  background: rgba(5, 8, 17, 0.78);
   box-shadow:
-    inset 0 1.5px 3px rgba(0, 0, 0, 0.65),
-    0 1px 0 rgba(255, 255, 255, 0.06);
+    inset 0 1.5px 3px rgba(0, 0, 0, 0.75),
+    0 1px 0 rgba(34, 211, 238, 0.08);
 }
 
 .liquid-glass-fill {
@@ -403,34 +431,145 @@ input, textarea {
   background: linear-gradient(180deg, var(--color-bg-alt) 0%, var(--color-bg) 100%);
 }
 
-/* Geist Carbon Translucent Sidebar / Header Surface */
+/* Translucent Orbital Sidebar / Header Surface */
 .bg-vibrancy {
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  background-color: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  background-color: var(--color-sidebar);
+  box-shadow: 0 1px 3px 0 rgba(8, 20, 38, 0.05);
 }
 .dark .bg-vibrancy {
-  background-color: rgba(11, 13, 20, 0.88);
+  background-color: var(--color-sidebar);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
-    0 8px 24px -8px rgba(0, 0, 0, 0.55);
+    inset 0 1px 0 0 rgba(34, 211, 238, 0.08),
+    0 8px 28px -8px rgba(0, 0, 0, 0.65);
 }
 
-/* Ambient Background for Geist Carbon */
-@keyframes auroraFloatSlow {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(2%, -2%, 0) scale(1.06); }
-}
-
+/* Ambient Orbital Field Canvas */
 .liquid-aurora-canvas {
   background-color: var(--color-bg);
-  background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99, 102, 241, 0.12), transparent 70%);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(2, 132, 199, 0.12), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(6, 182, 212, 0.07), transparent 65%);
 }
 
 .dark .liquid-aurora-canvas {
   background-color: var(--color-bg);
-  background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99, 102, 241, 0.12), transparent 70%);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(6, 182, 212, 0.16), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 88% 96%, rgba(56, 189, 248, 0.08), transparent 65%);
+}
+
+/* ============================================================
+   Tactical Orbital HUD Utilities
+   ============================================================ */
+.hud-frame {
+  position: relative;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.dark .hud-frame {
+  background-image: linear-gradient(
+    180deg,
+    rgba(34, 211, 238, 0.05) 0%,
+    rgba(10, 17, 32, 0.02) 45%
+  );
+}
+
+.hud-chamfer-sm {
+  clip-path: polygon(
+    0 8px,
+    8px 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    8px 100%,
+    0 calc(100% - 8px)
+  );
+}
+
+.hud-chamfer-md {
+  clip-path: polygon(
+    0 12px,
+    12px 0,
+    calc(100% - 12px) 0,
+    100% 12px,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    12px 100%,
+    0 calc(100% - 12px)
+  );
+}
+
+.hud-grid-overlay {
+  background-image:
+    linear-gradient(to right, rgba(2, 132, 199, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(2, 132, 199, 0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.dark .hud-grid-overlay {
+  background-image:
+    linear-gradient(to right, rgba(34, 211, 238, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 211, 238, 0.06) 1px, transparent 1px);
+}
+
+.hud-scanline-subtle {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(2, 132, 199, 0.025) 0px,
+    rgba(2, 132, 199, 0.025) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
+.dark .hud-scanline-subtle {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(34, 211, 238, 0.03) 0px,
+    rgba(34, 211, 238, 0.03) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
+.hud-telemetry-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.hud-beam-flow {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(34, 211, 238, 0.55) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+}
+
+.hud-glow-cyan {
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.25),
+    0 0 22px -6px rgba(6, 182, 212, 0.45);
+}
+
+.hud-glow-amber {
+  box-shadow:
+    0 0 0 1px rgba(245, 158, 11, 0.28),
+    0 0 22px -6px rgba(245, 158, 11, 0.45);
+}
+
+.hud-glow-emerald {
+  box-shadow:
+    0 0 0 1px rgba(16, 185, 129, 0.28),
+    0 0 22px -6px rgba(16, 185, 129, 0.45);
 }
 
 /* macOS Traffic Lights */
@@ -490,32 +629,8 @@ button:disabled,
 }
 
 /* ============================================================
-   Animations
+   Animations & Transitions
    ============================================================ */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-.animate-spin { animation: spin 1s linear infinite; }
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-.animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-
-@keyframes border-glow {
-  0%, 100% {
-    box-shadow: 0 0 5px rgba(99, 102, 241, 0.3), 0 0 10px rgba(99, 102, 241, 0.2);
-    border-color: rgba(99, 102, 241, 0.5);
-  }
-  50% {
-    box-shadow: 0 0 10px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3);
-    border-color: rgba(99, 102, 241, 0.8);
-  }
-}
-.animate-border-glow { animation: border-glow 2s ease-in-out infinite; }
-
 @keyframes slideInFromRight {
   from { transform: translateX(100%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
@@ -532,52 +647,165 @@ button:disabled,
 .fade-in { animation: fadeIn 0.2s ease-out forwards; }
 .slide-in-top { animation: slideInFromTop 0.18s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 
-@keyframes pulseGlow {
-  0%, 100% { opacity: 0.4; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.05); }
-}
-.animate-pulse-glow { animation: pulseGlow 3s ease-in-out infinite; }
-
-/* CTA shimmer + glow pulse */
-@keyframes ctaShimmer {
-  0% { transform: translateX(-120%) skewX(-20deg); }
-  100% { transform: translateX(220%) skewX(-20deg); }
-}
-@keyframes ctaGlowPulse {
-  0%, 100% { box-shadow: 0 8px 24px -8px rgba(99, 102, 241, 0.45), 0 0 0 0 rgba(99, 102, 241, 0.5); }
-  50% { box-shadow: 0 12px 32px -8px rgba(99, 102, 241, 0.6), 0 0 0 8px rgba(99, 102, 241, 0); }
-}
 .btn-cta {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  animation: ctaGlowPulse 2.4s ease-in-out infinite;
-}
-.btn-cta::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 50%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
-  animation: ctaShimmer 2.8s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 1;
 }
 .btn-cta > * { position: relative; z-index: 2; }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin { animation: spin 1s linear infinite; }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes auroraFloatSlow {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(2%, -2%, 0) scale(1.06); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+  @keyframes border-glow {
+    0%, 100% {
+      box-shadow: 0 0 6px rgba(6, 182, 212, 0.3), 0 0 12px rgba(34, 211, 238, 0.18);
+      border-color: rgba(34, 211, 238, 0.45);
+    }
+    50% {
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.5), 0 0 22px rgba(6, 182, 212, 0.3);
+      border-color: rgba(34, 211, 238, 0.78);
+    }
+  }
+  .animate-border-glow { animation: border-glow 2s ease-in-out infinite; }
+
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 0.75; transform: scale(1.05); }
+  }
+  .animate-pulse-glow { animation: pulseGlow 3s ease-in-out infinite; }
+
+  @keyframes hudBeamFlow {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .hud-beam-flow {
+    animation: hudBeamFlow 2.6s linear infinite;
+  }
+
+  @keyframes hudScanDrift {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 32px; }
+  }
+  .hud-scanline-subtle {
+    animation: hudScanDrift 6s linear infinite;
+  }
+
+  /* CTA shimmer + glow pulse */
+  @keyframes ctaShimmer {
+    0% { transform: translateX(-120%) skewX(-20deg); }
+    100% { transform: translateX(220%) skewX(-20deg); }
+  }
+  @keyframes ctaGlowPulse {
+    0%, 100% { box-shadow: 0 8px 24px -8px rgba(6, 182, 212, 0.45), 0 0 0 0 rgba(34, 211, 238, 0.48); }
+    50% { box-shadow: 0 12px 32px -8px rgba(34, 211, 238, 0.6), 0 0 0 8px rgba(34, 211, 238, 0); }
+  }
+  .btn-cta {
+    animation: ctaGlowPulse 2.4s ease-in-out infinite;
+  }
+  .btn-cta::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    animation: ctaShimmer 2.8s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Topology: router card pulse + electric edge beam */
+  @keyframes topology-router-pulse {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow:
+        0 0 8px #fde047,
+        0 0 20px color-mix(in srgb, var(--color-primary) 65%, transparent),
+        0 0 32px rgba(34, 211, 238, 0.4),
+        inset 0 0 10px rgba(253, 224, 71, 0.3);
+    }
+    50% {
+      transform: scale(1.06);
+      box-shadow:
+        0 0 14px #fef08a,
+        0 0 28px #facc15,
+        0 0 44px rgba(34, 211, 238, 0.6),
+        inset 0 0 14px rgba(255, 255, 255, 0.25);
+    }
+  }
+  @keyframes topology-router-icon-shake {
+    0%, 100% { transform: rotate(0deg) scale(1); filter: drop-shadow(0 0 2px #fde047); }
+    25% { transform: rotate(-5deg) scale(1.08); filter: drop-shadow(0 0 6px #facc15); }
+    75% { transform: rotate(5deg) scale(1.08); filter: drop-shadow(0 0 6px #22d3ee); }
+  }
+  @keyframes topology-router-label-flicker {
+    0%, 100% { text-shadow: 0 0 6px #fde047, 0 0 12px #22d3ee; }
+    50% { text-shadow: 0 0 10px #fff, 0 0 18px #facc15; }
+  }
+  @keyframes topology-edge-dash {
+    to { stroke-dashoffset: -36; }
+  }
+  @keyframes topology-edge-flicker {
+    0%, 100% { opacity: 0.85; }
+    40% { opacity: 1; }
+    55% { opacity: 0.55; }
+    70% { opacity: 1; }
+  }
+  .topology-router-core {
+    animation: topology-router-pulse 0.75s ease-in-out infinite;
+    border-color: #fde047 !important;
+  }
+  .topology-router-icon {
+    animation: topology-router-icon-shake 0.45s ease-in-out infinite;
+  }
+  .topology-router-label {
+    animation: topology-router-label-flicker 0.7s ease-in-out infinite;
+  }
+  .topology-edge-kame {
+    stroke-dasharray: 8 6;
+    animation: topology-edge-dash 0.22s linear infinite;
+  }
+  .topology-edge-halo {
+    animation: topology-edge-flicker 0.18s steps(2) infinite;
+  }
+  .topology-edge-plasma {
+    stroke-dasharray: 14 10;
+    animation: topology-edge-dash 0.18s linear infinite, topology-edge-flicker 0.22s steps(3) infinite;
+  }
+}
+
+.topology-router-badge {
+  box-shadow: 0 0 10px #fde047, 0 0 16px rgba(34, 211, 238, 0.6);
+}
 
 /* Dot Grid Background Pattern */
 .dot-grid-bg {
   background-color: var(--color-bg);
   background-image:
-    radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.10) 0%, transparent 40%),
-    radial-gradient(circle at 85% 80%, rgba(99, 102, 241, 0.06) 0%, transparent 40%);
+    radial-gradient(circle at 15% 20%, rgba(2, 132, 199, 0.10) 0%, transparent 42%),
+    radial-gradient(circle at 85% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 42%);
 }
 .dark .dot-grid-bg {
   background-image:
-    radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.18) 0%, transparent 40%),
-    radial-gradient(circle at 85% 80%, rgba(99, 102, 241, 0.10) 0%, transparent 40%);
+    radial-gradient(circle at 15% 20%, rgba(6, 182, 212, 0.18) 0%, transparent 42%),
+    radial-gradient(circle at 85% 80%, rgba(34, 211, 238, 0.10) 0%, transparent 42%);
 }
 
 /* Landing-style faint grid overlay (use absolute pos inside relative parent) */
@@ -590,68 +818,6 @@ button:disabled,
 }
 .dark .landing-grid {
   opacity: 0.04;
-}
-
-/* Topology: router card pulse (no flying rings) + electric edge beam */
-@keyframes topology-router-pulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow:
-      0 0 8px #fde047,
-      0 0 20px color-mix(in srgb, var(--color-primary) 65%, transparent),
-      0 0 32px rgba(34, 211, 238, 0.4),
-      inset 0 0 10px rgba(253, 224, 71, 0.3);
-  }
-  50% {
-    transform: scale(1.06);
-    box-shadow:
-      0 0 14px #fef08a,
-      0 0 28px #facc15,
-      0 0 44px rgba(34, 211, 238, 0.6),
-      inset 0 0 14px rgba(255, 255, 255, 0.25);
-  }
-}
-@keyframes topology-router-icon-shake {
-  0%, 100% { transform: rotate(0deg) scale(1); filter: drop-shadow(0 0 2px #fde047); }
-  25% { transform: rotate(-5deg) scale(1.08); filter: drop-shadow(0 0 6px #facc15); }
-  75% { transform: rotate(5deg) scale(1.08); filter: drop-shadow(0 0 6px #22d3ee); }
-}
-@keyframes topology-router-label-flicker {
-  0%, 100% { text-shadow: 0 0 6px #fde047, 0 0 12px #22d3ee; }
-  50% { text-shadow: 0 0 10px #fff, 0 0 18px #facc15; }
-}
-@keyframes topology-edge-dash {
-  to { stroke-dashoffset: -36; }
-}
-@keyframes topology-edge-flicker {
-  0%, 100% { opacity: 0.85; }
-  40% { opacity: 1; }
-  55% { opacity: 0.55; }
-  70% { opacity: 1; }
-}
-.topology-router-core {
-  animation: topology-router-pulse 0.75s ease-in-out infinite;
-  border-color: #fde047 !important;
-}
-.topology-router-icon {
-  animation: topology-router-icon-shake 0.45s ease-in-out infinite;
-}
-.topology-router-label {
-  animation: topology-router-label-flicker 0.7s ease-in-out infinite;
-}
-.topology-router-badge {
-  box-shadow: 0 0 10px #fde047, 0 0 16px rgba(34, 211, 238, 0.6);
-}
-.topology-edge-kame {
-  stroke-dasharray: 8 6;
-  animation: topology-edge-dash 0.22s linear infinite;
-}
-.topology-edge-halo {
-  animation: topology-edge-flicker 0.18s steps(2) infinite;
-}
-.topology-edge-plasma {
-  stroke-dasharray: 14 10;
-  animation: topology-edge-dash 0.18s linear infinite, topology-edge-flicker 0.22s steps(3) infinite;
 }
 
 /* React Flow controls: match app theme */
@@ -710,7 +876,7 @@ button:disabled,
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
   font-size: 0.875em;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
 }
 .changelog-body a {
   color: var(--color-primary);
