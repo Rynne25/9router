@@ -83,10 +83,20 @@ export function getQuotaCooldown(backoffLevel = 0) {
  * validation 400 means the credential is healthy but this member cannot serve
  * this request, so combo rotation must still try the next member.
  */
-export function checkFallbackError(status, errorText, backoffLevel = 0, provider = null) {
+export function checkFallbackError(status, errorText, backoffLevel = 0, provider = null, meta = {}) {
   const lowerError = errorText
     ? (typeof errorText === "string" ? errorText : JSON.stringify(errorText)).toLowerCase()
     : "";
+
+  // Detail-free 429/409: the executor parsed the body and found no usable quota
+  // metadata (no ErrorInfo.metadata.quotaResetTimeStamp, no RetryInfo.retryDelay).
+  // Google emits this shape for request-shape / identity bucketing *with quota
+  // still available*. Cooling the account here is the bug: it drops a healthy
+  // connection from rotation and the client retry storm then burns real quota.
+  // Hand the error back for this request so the payload gets fixed instead.
+  if (meta.noQuotaMetadata && (status === 429 || status === 409)) {
+    return { shouldFallback: false, cooldownMs: 0, requestScoped: true, classifiedAs: "detailFreeQuota" };
+  }
 
   // 1. Text-based rules first (rate limit, quota, credit, provider-specific text)
   for (const rule of ERROR_RULES) {
@@ -99,7 +109,7 @@ export function checkFallbackError(status, errorText, backoffLevel = 0, provider
       return {
         shouldFallback: true,
         cooldownMs: rule.cooldownMs,
-        modelScoped: Boolean(rule.modelScoped),
+        ...(rule.modelScoped ? { modelScoped: true } : {}),
       };
     }
   }

@@ -28,6 +28,7 @@ export default function ConnectionsToolbar({
   onExportAntigravity,
   onOpenBulkImportAntigravity,
   onRoundRobinToggle,
+  onSoonestResetToggle,
   onStickyLimitChange,
 }) {
   return (
@@ -125,6 +126,10 @@ export default function ConnectionsToolbar({
         <div className="flex items-center gap-2 pl-2 border-l border-black/10 dark:border-white/10">
           <span className="text-xs text-text-muted font-medium whitespace-nowrap">Round Robin</span>
           <Toggle checked={providerStrategy === "round-robin"} onChange={onRoundRobinToggle} />
+          <div className="flex items-center gap-2 pl-2 border-l border-black/10 dark:border-white/10" title="Use the account whose quota window resets soonest first; exhausted accounts go last">
+            <span className="text-xs text-text-muted font-medium whitespace-nowrap">Soonest reset</span>
+            <Toggle checked={providerStrategy === "soonest-reset"} onChange={onSoonestResetToggle} />
+          </div>
           {providerStrategy === "round-robin" && (
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-text-muted">Sticky:</span>
@@ -165,5 +170,6 @@ ConnectionsToolbar.propTypes = {
   onExportAntigravity: PropTypes.func.isRequired,
   onOpenBulkImportAntigravity: PropTypes.func.isRequired,
   onRoundRobinToggle: PropTypes.func.isRequired,
+  onSoonestResetToggle: PropTypes.func,
   onStickyLimitChange: PropTypes.func.isRequired,
 };

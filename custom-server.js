@@ -90,6 +90,9 @@ http.createServer = (...args) => {
       socket.destroy();
       return true;
     }
+    delete req.headers.upgrade;
+    delete req.headers["http2-settings"];
+    req.headers.connection = "close";
     const chunks = [head];
     let received = head.length;
     const serve = () => {
@@ -101,9 +104,18 @@ http.createServer = (...args) => {
       const res = new http.ServerResponse(replay);
       res.shouldKeepAlive = false;
       res.assignSocket(socket);
-      res.once("finish", () => socket.end());
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        if (res.socket === socket) res.detachSocket(socket);
+        if (!socket.destroyed) socket.destroySoon();
+      };
+      res.once("finish", cleanup);
+      res.once("close", cleanup);
       Promise.resolve().then(() => wrapped(replay, res)).catch((error) => {
         console.error("Failed to downgrade h2c request", error);
+        if (res.socket === socket) res.detachSocket(socket);
         socket.destroy();
       });
     };
@@ -118,9 +130,6 @@ http.createServer = (...args) => {
       });
       socket.resume();
     }
-    delete req.headers.upgrade;
-    delete req.headers["http2-settings"];
-    req.headers.connection = "close";
     return true;
   };
   return server;

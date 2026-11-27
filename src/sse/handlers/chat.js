@@ -1,3 +1,4 @@
+import { recordErrorEvent, accountRefOf } from "@/lib/db/repos/errorEventsRepo.js";
 import "open-sse/index.js";
 
 import {
@@ -345,6 +346,8 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       pxpipeTransform: chatSettings.pxpipeEnabled ? await getPxpipeTransform() : null,
       onPxpipeEvent: appendPxpipeEvent,
       providerThinking,
+      // Anthropic prompt-cache TTL for conversation breakpoints ("5m" | "1h")
+      claudeCacheTtl: chatSettings.claudeCacheTtl,
       // Per-provider user overrides (custom headers / connect timeout) from settings
       providerOverrides: (chatSettings.providerOverrides || {})[provider] || null,
       // Detect source format by endpoint + body
@@ -368,7 +371,10 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     // Antigravity 409/429: refresh live quota to get exact resetAt before locking
     let quotaResetMs = null;
     let resetsAtMs = result.resetsAtMs;
-    if (provider === "antigravity" && (result.status === 409 || result.status === 429)) {
+    // Detail-free 429/409 (no ErrorInfo.metadata / RetryInfo) means request-shape
+    // bucketing, not exhausted quota. Never let it burn an account cooldown.
+    const noQuotaMetadata = result.noQuotaMetadata === true;
+    if (provider === "antigravity" && (result.status === 409 || result.status === 429) && !noQuotaMetadata) {
       quotaResetMs = await handleAntigravityQuotaError(
         credentials.connectionId, result.status, model,
         refreshedCredentials.accessToken, credentials.providerSpecificData
@@ -393,7 +399,36 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     // Do not persist a modelLock_* for this path.
     const shouldFallback = provider === "antigravity" && quotaResetMs
       ? true
-      : (await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, resetsAtMs)).shouldFallback;
+      : (await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, resetsAtMs, { noQuotaMetadata })).shouldFallback;
+
+    // Persist the failure with its quota metadata. Without this a 429 leaves no
+    // trace (usageHistory only records successes) and triage has to guess
+    // between real exhaustion and request-shape bucketing.
+    if (result.status >= 400) {
+      const qm = result.quotaMeta || {};
+      recordErrorEvent({
+        provider,
+        model,
+        connectionId: credentials.connectionId,
+        accountRef: accountRefOf(credentials.connectionName || credentials.connectionId),
+        status: result.status,
+        upstreamStatus: result.upstreamStatus || null,
+        reason: qm.reason || (noQuotaMetadata ? "DETAIL_FREE" : null),
+        quotaResetDelay: qm.quotaResetDelay || null,
+        quotaResetTimeStamp: qm.quotaResetTimeStamp || null,
+        retryDelay: qm.quotaResetTimeStamp ? null : (qm.quotaResetDelay || null),
+        hasMetadata: !noQuotaMetadata && Boolean(resetsAtMs),
+        classifiedAs: quotaResetMs
+          ? "metadataCooldown"
+          : noQuotaMetadata
+            ? "detailFreeQuota"
+            : shouldFallback
+              ? "accountCooldown"
+              : "requestScoped",
+        cooldownMs: quotaResetMs ? Math.max(0, quotaResetMs - Date.now()) : 0,
+        message: typeof result.error === "string" ? result.error : String(result.error ?? ""),
+      });
+    }
 
     if (shouldFallback) {
       log.warn("FALLBACK", `⇄ ACC:${credentials.connectionName} UNAVAILABLE (${result.status}) → NEXT ACCOUNT`);

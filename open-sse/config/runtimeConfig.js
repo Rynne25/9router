@@ -18,6 +18,18 @@ export const HTTP_STATUS = {
 export { ERROR_TYPES, DEFAULT_ERROR_MESSAGES, BACKOFF_CONFIG, COOLDOWN_MS } from "./errorConfig.js";
 
 // Cache TTLs (seconds)
+// Anthropic prompt-cache breakpoint TTLs. The system/tools head anchors always use LONG; conversation breakpoints follow the user's `claudeCacheTtl` setting (default SHORT). Anthropic requires longer-TTL breakpoints to precede shorter ones, so the head can never be shorter than the conversation.
+export const CLAUDE_CACHE_TTL = Object.freeze({ SHORT: "5m", LONG: "1h" });
+
+// "1h" (any case, surrounding whitespace ignored) selects the long TTL; anything else, including unset, is the 5m default.
+export function parseClaudeCacheTtl(raw) {
+  const value = String(raw ?? "").trim().toLowerCase();
+  return value === CLAUDE_CACHE_TTL.LONG ? CLAUDE_CACHE_TTL.LONG : CLAUDE_CACHE_TTL.SHORT;
+}
+
+// Default conversation cache TTL. Env: CLAUDE_CACHE_TTL ("5m" | "1h"). A TTL saved on the dashboard (Token Saver → Prompt cache TTL) overrides it.
+export const DEFAULT_CLAUDE_CACHE_TTL = parseClaudeCacheTtl(process.env.CLAUDE_CACHE_TTL);
+
 export const CACHE_TTL = {
   userInfo: 300,    // 5 minutes
   modelAlias: 3600  // 1 hour
@@ -67,11 +79,23 @@ export const FETCH_CONNECT_TIMEOUT_MS = envMs("FETCH_CONNECT_TIMEOUT_MS", 60 * 1
 // Accelerator / NVIDIA NIM) that drop idle sockets without a TCP RST. keepAliveMaxTimeout is
 // clamped to the same value so an upstream `Keep-Alive` header cannot extend it to 600s.
 export const DEFAULT_KEEPALIVE_TIMEOUT_MS = 4 * 1000;
+export const GOOGLE_KEEPALIVE_TIMEOUT_MS = 90 * 1000;
 export const FRESH_RETRY_KEEPALIVE_TIMEOUT_MS = 1;
 export const FETCH_KEEPALIVE_TIMEOUT_MS = envMs("FETCH_KEEPALIVE_TIMEOUT_MS", DEFAULT_KEEPALIVE_TIMEOUT_MS);
 
-export function resolveKeepAliveTimeouts() {
-  const timeout = envMs("FETCH_KEEPALIVE_TIMEOUT_MS", DEFAULT_KEEPALIVE_TIMEOUT_MS);
+function isGoogleApisHost(targetUrl) {
+  if (!targetUrl) return false;
+  try {
+    const hostname = new URL(targetUrl).hostname.toLowerCase();
+    return hostname === "googleapis.com" || hostname.endsWith(".googleapis.com");
+  } catch {
+    return false;
+  }
+}
+
+export function resolveKeepAliveTimeouts(targetUrl = "") {
+  const defaultTimeout = isGoogleApisHost(targetUrl) ? GOOGLE_KEEPALIVE_TIMEOUT_MS : DEFAULT_KEEPALIVE_TIMEOUT_MS;
+  const timeout = envMs("FETCH_KEEPALIVE_TIMEOUT_MS", defaultTimeout);
   return { keepAliveTimeout: timeout, keepAliveMaxTimeout: timeout };
 }
 

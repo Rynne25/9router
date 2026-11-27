@@ -21,6 +21,8 @@ const antigravityRegistry = {
   transport: {
     baseUrls: [ANTIGRAVITY_IDE_BASE_URL],
     format: "antigravity",
+    // Argon high-reasoning prefill can exceed the global 360s budget on large contexts.
+    stallTimeoutMs: 600000,
     timeoutMs: 120000,
     headers: {
       "User-Agent": ANTIGRAVITY_IDE_USER_AGENT,

@@ -1,3 +1,4 @@
+import { orderBySoonestReset, getQuotaSnapshot } from "./quotaResetOrder.js";
 import { getProviderConnections, getProviderConnectionById, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
 import {
@@ -245,6 +246,8 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
           consecutiveUseCount: 1
         });
       }
+    } else if (strategy === "soonest-reset") {
+      connection = orderBySoonestReset(availableConnections, getQuotaSnapshot(availableConnections))[0];
     } else {
       // Default: fill-first (already sorted by priority in getProviderConnections)
       connection = availableConnections[0];
@@ -295,7 +298,7 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
  * @param {string|null} model - The specific model that triggered the error
  * @returns {{ shouldFallback: boolean, cooldownMs: number }}
  */
-export async function markAccountUnavailable(connectionId, status, errorText, provider = null, model = null, resetsAtMs = null) {
+export async function markAccountUnavailable(connectionId, status, errorText, provider = null, model = null, resetsAtMs = null, meta = {}) {
   if (!connectionId || connectionId === "noauth") return { shouldFallback: false, cooldownMs: 0 };
   const connections = await getProviderConnections({ provider });
   const conn = connections.find(c => c.id === connectionId);
@@ -320,7 +323,7 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
   } else {
     ({ shouldFallback, cooldownMs, newBackoffLevel, modelUnsupported } = checkFallbackError(status, errorText, backoffLevel, resolveProviderId(provider)));
   }
-  if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
+  if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0, classifiedAs: meta.noQuotaMetadata ? "detailFreeQuota" : undefined };
 
   const reason = typeof errorText === "string" ? errorText.slice(0, 200) : "Provider error";
   const isUnsupported = Boolean(model && !isSyntheticLockKey(model) && (modelUnsupported || isModelUnsupportedError(status, errorText)));

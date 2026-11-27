@@ -8,8 +8,8 @@ import { GEMINI_LONG_DECODE_MAX_OUTPUT, supportsGeminiLongDecode, wantsGeminiLon
 import { resolveSessionId, toNumericSessionId } from "../utils/sessionManager.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { cleanJSONSchemaForAntigravity, normalizeGeminiContents } from "../translator/formats/gemini.js";
-import { DEFAULT_THINKING_AG_SIGNATURE } from "../config/defaultThinkingSignature.js";
-import { getGeminiThoughtSignatureSync } from "../services/thoughtSignatureStore.js";
+import { DEFAULT_THINKING_AG_SIGNATURE, DEFAULT_THINKING_GEMINI_CLI_SIGNATURE } from "../config/defaultThinkingSignature.js";
+import { getGeminiThoughtSignature, getGeminiThoughtSignatureSync } from "../services/thoughtSignatureStore.js";
 import { sanitizeFunctionName, cloakTools } from "./antigravityTools.js";
 import { buildIdeRequestId } from "./antigravityId.js";
 
@@ -143,6 +143,24 @@ export class AntigravityExecutor extends BaseExecutor {
   }
 
   async execute(args) {
+    const contents = args.body?.request?.contents;
+    if (Array.isArray(contents) && !isImageModel(args.model)) {
+      const sessionId = args.credentials?._clientSessionId || args.body.request.sessionId;
+      const model = args.body.model || args.model;
+      const lookups = new Map();
+      const restored = await Promise.all(contents.map(async (content) => ({
+        ...content,
+        parts: await Promise.all((content.parts || []).map(async (part) => {
+          const id = part.functionCall?.id;
+          const signature = part.thoughtSignature;
+          if (!id || (signature && signature !== DEFAULT_THINKING_AG_SIGNATURE && signature !== DEFAULT_THINKING_GEMINI_CLI_SIGNATURE)) return part;
+          if (!lookups.has(id)) lookups.set(id, getGeminiThoughtSignature(id, sessionId, model));
+          const saved = await lookups.get(id);
+          return saved ? { ...part, thoughtSignature: saved } : part;
+        })),
+      })));
+      args = { ...args, body: { ...args.body, request: { ...args.body.request, contents: restored } } };
+    }
     let result = await super.execute(args);
     if (result?.response?.status === HTTP_STATUS.RATE_LIMITED && !isImageModel(args.model)) {
       const moved = moveSystemInstructionToContents(args.body);
@@ -170,12 +188,19 @@ export class AntigravityExecutor extends BaseExecutor {
         const json = JSON.parse(bodyText);
         const err = json?.error;
         let resetsAtMs = null;
+        // Full quota metadata, kept for telemetry + classification.
+        let quotaMeta = null;
         const details = Array.isArray(err?.details) ? err.details : [];
         for (const d of details) {
           if (d?.metadata?.quotaResetTimeStamp) {
             const ms = new Date(d.metadata.quotaResetTimeStamp).getTime();
             if (!isNaN(ms) && ms > Date.now()) {
               resetsAtMs = ms;
+              quotaMeta = {
+                reason: d.reason ?? null,
+                quotaResetDelay: d.metadata.quotaResetDelay ?? null,
+                quotaResetTimeStamp: d.metadata.quotaResetTimeStamp ?? null,
+              };
               break;
             }
           }
@@ -185,14 +210,32 @@ export class AntigravityExecutor extends BaseExecutor {
               const ms = Date.now() + Math.round(sec * 1000);
               if (ms > Date.now()) {
                 resetsAtMs = ms;
+                quotaMeta = {
+                  reason: d.reason ?? (d["@type"]?.includes("RetryInfo") ? "RETRY_INFO_ONLY" : null),
+                  quotaResetDelay: d.retryDelay ?? null,
+                  quotaResetTimeStamp: null,
+                };
                 break;
               }
             }
           }
         }
         if (resetsAtMs) {
-          return { status: response.status, message: err?.message || bodyText, resetsAtMs };
+          return { status: response.status, message: err?.message || bodyText, resetsAtMs, quotaMeta };
         }
+        // A 429/409 that carried NO usable reset metadata is a request-shape /
+        // identity-bucketing rejection (Google returns detail-free
+        // RESOURCE_EXHAUSTED even with quota available — see the
+        // `delete body.requestType` note in transformRequest). Burning an
+        // account cooldown on it removes a healthy connection from rotation and
+        // triggers the retry storm that really does exhaust quota.
+        return {
+          status: response.status,
+          message: err?.message || bodyText,
+          noQuotaMetadata: true,
+          hasDetails: details.length > 0,
+          upstreamStatus: err?.status ?? null,
+        };
       } catch { /* fall through to default */ }
     }
     return super.parseError(response, bodyText);
@@ -354,12 +397,22 @@ export class AntigravityExecutor extends BaseExecutor {
     // Rewrite competing-client branding in system prompts (e.g. Zed's Claude prompt,
     // OpenCode naming) so Antigravity doesn't flag the request with a 429 Quota Exhausted.
     if (requestWithoutTools.systemInstruction?.parts) {
+      const rewrittenParts = [];
       for (const part of requestWithoutTools.systemInstruction.parts) {
-        if (typeof part.text !== "string") continue;
-        for (const { from, to } of ANTIGRAVITY_PROMPT_REWRITES) {
-          part.text = part.text.replaceAll(from, to);
+        if (typeof part.text !== "string") {
+          rewrittenParts.push(part);
+          continue;
         }
+        let text = part.text;
+        for (const { from, to } of ANTIGRAVITY_PROMPT_REWRITES) {
+          text = text.replaceAll(from, to);
+        }
+        if (text.trim()) rewrittenParts.push({ ...part, text });
       }
+      requestWithoutTools.systemInstruction = {
+        ...requestWithoutTools.systemInstruction,
+        parts: rewrittenParts,
+      };
     }
 
     // The real client always opens the system prompt with the Antigravity identity.

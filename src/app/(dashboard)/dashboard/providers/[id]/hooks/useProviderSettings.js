@@ -68,6 +68,12 @@ export function useProviderSettings({ providerId }) {
     saveProviderStrategy(strategy, sticky);
   }, [providerStickyLimit, saveProviderStrategy]);
 
+  const handleSoonestResetToggle = useCallback((enabled) => {
+    const strategy = enabled ? "soonest-reset" : null;
+    setProviderStrategy(strategy);
+    saveProviderStrategy(strategy, providerStickyLimit);
+  }, [providerStickyLimit, saveProviderStrategy]);
+
   const handleStickyLimitChange = useCallback((value) => {
     setProviderStickyLimit(value);
     saveProviderStrategy("round-robin", value);
@@ -102,6 +108,7 @@ export function useProviderSettings({ providerId }) {
     autoPing,
     syncSettingsFromData,
     handleRoundRobinToggle,
+    handleSoonestResetToggle,
     handleStickyLimitChange,
     handleSaveAutoPing,
   };

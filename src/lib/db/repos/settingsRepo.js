@@ -1,3 +1,4 @@
+import { DEFAULT_CLAUDE_CACHE_TTL } from "open-sse/config/runtimeConfig.js";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
@@ -65,6 +66,8 @@ const DEFAULT_SETTINGS = {
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,
   pxpipeTimeoutMs: 15000,
+  // Anthropic prompt-cache TTL for conversation breakpoints: "5m" or "1h". Defaults to the CLAUDE_CACHE_TTL env var (5m when unset); a saved dashboard choice overrides it. System/tools anchors are always 1h.
+  claudeCacheTtl: DEFAULT_CLAUDE_CACHE_TTL,
   // Per-provider user header overrides applied at dispatch: { [providerId]: { headers: {..} } }
   providerOverrides: {},
   // Remote Account Sync Settings
