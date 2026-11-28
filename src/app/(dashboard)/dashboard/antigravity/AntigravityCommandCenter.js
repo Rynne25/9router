@@ -54,6 +54,8 @@ const DEFAULT_MITM_STATUS = {
 
 const DEFAULT_SAVERS = {
   rtkEnabled: true,
+  toonEnabled: true,
+  toolDedupEnabled: true,
   headroomEnabled: false,
   cavemanEnabled: false,
   ponytailEnabled: false,
@@ -143,6 +145,8 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
     if (!cached) return DEFAULT_SAVERS;
     return {
       rtkEnabled: cached.rtkEnabled !== false,
+      toonEnabled: cached.toonEnabled !== false,
+      toolDedupEnabled: cached.toolDedupEnabled !== false,
       headroomEnabled: Boolean(cached.headroomEnabled),
       cavemanEnabled: Boolean(cached.cavemanEnabled),
       ponytailEnabled: Boolean(cached.ponytailEnabled),
@@ -152,6 +156,14 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
   const [headroomStatus, setHeadroomStatus] = useState(
     () => getCachedData(HEADROOM_CACHE_KEY) || { running: false, installed: false }
   );
+  const [pluginSummary, setPluginSummary] = useState({
+    loading: true,
+    plugins: [],
+    smartPackIds: [],
+    smartPackNote: "",
+    installing: false,
+  });
+  const [installingSmartPack, setInstallingSmartPack] = useState(false);
 
   const [warmingUpAll, setWarmingUpAll] = useState(false);
   const [refreshingAll, setRefreshingAll] = useState(false);
@@ -246,7 +258,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
   const loadAllTelemetry = useCallback(
     async ({ force = false, signal } = {}) => {
       try {
-        const [providersRes, mitmRes, settingsRes, headroomRes] = await Promise.allSettled([
+        const [providersRes, mitmRes, settingsRes, headroomRes, pluginsRes] = await Promise.allSettled([
           fetchWithCache(PROVIDERS_CACHE_KEY, () => fetchJson(PROVIDERS_CACHE_KEY), {
             ttlMs: 30000,
             force,
@@ -263,6 +275,10 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
             ttlMs: 20000,
             force,
           }),
+          fetch("/api/antigravity/plugins", {
+            headers: { "Cache-Control": "no-store" },
+            signal,
+          }).then((r) => (r.ok ? r.json() : null)),
         ]);
         if (signal?.aborted) return;
 
@@ -285,6 +301,8 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
           const s = settingsRes.value;
           setSavers({
             rtkEnabled: s.rtkEnabled !== false,
+            toonEnabled: s.toonEnabled !== false,
+            toolDedupEnabled: s.toolDedupEnabled !== false,
             headroomEnabled: Boolean(s.headroomEnabled),
             cavemanEnabled: Boolean(s.cavemanEnabled),
             ponytailEnabled: Boolean(s.ponytailEnabled),
@@ -293,6 +311,19 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
 
         if (headroomRes.status === "fulfilled" && headroomRes.value) {
           setHeadroomStatus(headroomRes.value);
+        }
+
+        if (pluginsRes.status === "fulfilled" && pluginsRes.value) {
+          const p = pluginsRes.value;
+          setPluginSummary({
+            loading: false,
+            plugins: Array.isArray(p.plugins) ? p.plugins : [],
+            smartPackIds: Array.isArray(p.smartPackIds) ? p.smartPackIds : [],
+            smartPackNote: p.smartPackNote || "",
+            installing: Boolean(p.installing),
+          });
+        } else {
+          setPluginSummary((prev) => ({ ...prev, loading: false }));
         }
       } catch {
         setProvidersLoading(false);
@@ -349,6 +380,8 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
     const avgQuotaPct = quotaSamples > 0 ? Math.round(quotaSum / quotaSamples) : null;
     const armedSaversCount = [
       savers.rtkEnabled,
+      savers.toonEnabled,
+      savers.toolDedupEnabled,
       savers.headroomEnabled,
       savers.cavemanEnabled,
       savers.ponytailEnabled,
@@ -527,6 +560,50 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
     [notify, savers, savingSettingKey]
   );
 
+  const handleInstallSmartPack = useCallback(async () => {
+    if (installingSmartPack) return;
+    playHudSound("click");
+    setInstallingSmartPack(true);
+    setActionBanner({
+      tone: "info",
+      text: "Đang cài trọn gói Plugin Antigravity thông minh...",
+    });
+    try {
+      const res = await fetch("/api/antigravity/plugins/install", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "install-smart-pack",
+          autoResolveConflicts: true,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) {
+        throw new Error(data.error || `Cài đặt thất bại (${res.status})`);
+      }
+      if (data.status && typeof data.status === "object") {
+        setPluginSummary({
+          loading: false,
+          plugins: Array.isArray(data.status.plugins) ? data.status.plugins : [],
+          smartPackIds: Array.isArray(data.status.smartPackIds) ? data.status.smartPackIds : [],
+          smartPackNote: data.status.smartPackNote || "",
+          installing: Boolean(data.status.installing),
+        });
+      }
+      playHudSound("confirm");
+      const msg = "Đã cài đặt xong gói Plugin Antigravity thông minh";
+      notify.success(msg);
+      setActionBanner({ tone: "success", text: msg });
+    } catch (err) {
+      const msg = err?.message || "Không thể cài gói Plugin Antigravity";
+      playHudSound("alert");
+      notify.error(msg);
+      setActionBanner({ tone: "error", text: msg });
+    } finally {
+      setInstallingSmartPack(false);
+    }
+  }, [installingSmartPack, notify]);
+
   const avgQuotaAccent =
     telemetrySummary.avgQuotaPct === null
       ? "cyan"
@@ -543,6 +620,20 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
       code: "RTK",
       desc: "Nén kết quả CLI/công cụ trước khi đưa vào ngữ cảnh Antigravity.",
       statusText: savers.rtkEnabled ? "ĐANG BẬT" : "ĐANG CHỜ",
+    },
+    {
+      key: "toonEnabled",
+      label: "Nén bảng TOON",
+      code: "TOON",
+      desc: "Chuyển mảng JSON đồng nhất trong tool output sang bảng cô đọng.",
+      statusText: savers.toonEnabled ? "ĐANG BẬT" : "ĐANG CHỜ",
+    },
+    {
+      key: "toolDedupEnabled",
+      label: "Khử lặp Tool (Dedup)",
+      code: "DEDUP",
+      desc: "Thay thế các lần đọc file / output trùng lặp bằng tham chiếu SHA-256.",
+      statusText: savers.toolDedupEnabled ? "ĐANG BẬT" : "ĐANG CHỜ",
     },
     {
       key: "headroomEnabled",
@@ -572,11 +663,17 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
     },
   ];
 
+  const installedPluginsCount = pluginSummary.plugins.filter((p) => p.installed).length;
+  const totalPluginsCount = pluginSummary.plugins.length;
+  const missingSmartCount = pluginSummary.smartPackIds.filter(
+    (id) => !pluginSummary.plugins.some((p) => p.id === id && p.installed)
+  ).length;
+
   const activeRatioPct =
     telemetrySummary.totalCount > 0
       ? Math.round((telemetrySummary.activeCount / telemetrySummary.totalCount) * 100)
       : 0;
-  const saverRatioPct = Math.round((telemetrySummary.armedSaversCount / 4) * 100);
+  const saverRatioPct = Math.round((telemetrySummary.armedSaversCount / 6) * 100);
 
   return (
     <div className="flex flex-col gap-5 pb-6">
@@ -775,7 +872,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="font-mono text-2xl font-bold text-cyan-600 dark:text-cyan-400 hud-telemetry-num">
-                <NumberTicker value={telemetrySummary.armedSaversCount} suffix="/4" />
+                <NumberTicker value={telemetrySummary.armedSaversCount} suffix="/6" />
               </span>
               <span className="font-mono text-xs text-text-muted">
                 {headroomStatus?.running ? "HEADROOM CHẠY" : "ĐÃ BẬT"}
@@ -1130,7 +1227,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                 Ma trận Tiết kiệm Token
               </h2>
               <p className="font-mono text-[10.5px] text-text-muted">
-                Đang bật {telemetrySummary.armedSaversCount}/4 lớp nén
+                Đang bật {telemetrySummary.armedSaversCount}/6 lớp nén
               </p>
             </div>
             <Link
@@ -1207,6 +1304,60 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
                 </div>
               );
             })}
+          </div>
+
+          {/* Compact Layer-2 Antigravity Plugin Pack Bar */}
+          <div className="mt-3.5 pt-3.5 border-t border-border-subtle">
+            <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.06] px-3 py-2.5">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[15px] text-cyan-600 dark:text-cyan-400">
+                    extension
+                  </span>
+                  <span className="text-xs font-bold text-text-main">
+                    Gói Plugin Antigravity
+                  </span>
+                  <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.2 font-mono text-[9.5px] font-bold text-cyan-700 dark:text-cyan-300">
+                    {pluginSummary.loading
+                      ? "ĐANG QUÉT…"
+                      : `${installedPluginsCount}/${totalPluginsCount || 6} ĐÃ CÀI`}
+                  </span>
+                </div>
+                <p className="mt-0.5 font-mono text-[10.5px] text-text-muted truncate">
+                  {pluginSummary.loading
+                    ? "Đang kiểm tra plugin tầng 2 (agy-dart / codegraph)…"
+                    : missingSmartCount === 0 && pluginSummary.smartPackIds.length > 0
+                      ? `Đã đủ Smart Pack (${pluginSummary.smartPackIds.join(" + ")})`
+                      : pluginSummary.smartPackIds.length > 0
+                        ? `Gợi ý: ${pluginSummary.smartPackIds.join(" + ")}`
+                        : "Cài đặt plugin tiết kiệm token cho Antigravity IDE"}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                {!pluginSummary.loading && missingSmartCount > 0 && (
+                  <Button
+                    variant="primary"
+                    size="xs"
+                    icon="bolt"
+                    loading={installingSmartPack || pluginSummary.installing}
+                    onClick={handleInstallSmartPack}
+                    data-cursor-target
+                  >
+                    Cài gói thông minh
+                  </Button>
+                )}
+                <Link
+                  href="/dashboard/token-saver#antigravity-plugins"
+                  data-cursor-target
+                  onClick={() => playHudSound("click")}
+                  className="inline-flex items-center gap-1 rounded-md border border-cyan-500/35 bg-surface/80 px-2 py-1 font-mono text-[10px] font-semibold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/15 transition-colors"
+                >
+                  <span>Chi tiết</span>
+                  <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
+                </Link>
+              </div>
+            </div>
           </div>
         </HudFrame>
       </div>

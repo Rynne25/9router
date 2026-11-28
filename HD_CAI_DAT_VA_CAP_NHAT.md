@@ -12,7 +12,7 @@ Người bạn của bạn **không cần cài Git**, **không cần build mã n
 Mở **PowerShell** hoặc **Command Prompt (CMD)** và dán lệnh sau:
 
 ```bash
-npm install -g https://github.com/Rynne25/9router/releases/download/v0.5.127/9router-0.5.127.tgz
+npm install -g https://github.com/Rynne25/9router/releases/download/v0.5.137/9router-0.5.137.tgz
 ```
 
 Sau khi cài đặt xong, gõ lệnh để khởi động:
@@ -24,11 +24,11 @@ Sau khi cài đặt xong, gõ lệnh để khởi động:
 ---
 
 ### 📦 Cách 2: Cài đặt từ file `.tgz` gửi trực tiếp (Zalo, Telegram, Google Drive)
-1. Bạn gửi file `9router-0.5.123.tgz` cho bạn của bạn.
+1. Bạn gửi file `9router-0.5.137.tgz` cho bạn của bạn.
 2. Bạn của bạn tải file về máy (ví dụ lưu tại thư mục `Downloads`).
 3. Mở Terminal / PowerShell tại thư mục chứa file và chạy:
    ```bash
-   npm install -g ./9router-0.5.123.tgz
+   npm install -g ./9router-0.5.137.tgz
    ```
 4. Khởi chạy ứng dụng:
    ```bash
@@ -91,22 +91,57 @@ Sau khi chạy xong:
 
 Mỗi khi bạn bổ sung tính năng mới hoặc sửa lỗi và muốn bạn bè nhận được thông báo cập nhật, bạn chỉ cần thực hiện 4 bước đơn giản:
 
-1. **Tăng số phiên bản** trong file `package.json` (ví dụ từ `0.5.119` lên `0.5.120`).
+1. **Tăng số phiên bản** trong file `package.json` (ví dụ từ `0.5.136` lên `0.5.137`).
 2. **Đóng gói bản build mới**:
    ```bash
    npm run cli:pack
    ```
-   *(Lệnh này sẽ tự động tạo file `9router-0.5.120.tgz` dung lượng ~17MB).*
+   *(Lệnh này sẽ tự động tạo file `9router-0.5.137.tgz` dung lượng ~17MB).*
 3. **Commit và đẩy code lên GitHub**:
    ```bash
    git add .
-   git commit -m "feat: release version 0.5.120"
+   git commit -m "feat: release version 0.5.137"
    git push origin master
    ```
 4. **Tạo Release trên GitHub**:
    - Truy cập: `https://github.com/Rynne25/9router/releases/new`
-   - Đặt Tag và Tên release: `v0.5.120`
-   - Kéo thả file `9router-0.5.120.tgz` vào ô đính kèm (**Attach binaries by dropping them here**).
+   - Đặt Tag và Tên release: `v0.5.137`
+   - Kéo thả file `9router-0.5.137.tgz` vào ô đính kèm (**Attach binaries by dropping them here**).
    - Nhấn **Publish release**.
 
 > 🎉 **Ngay sau khi bạn Publish Release**, tất cả máy bạn bè đang chạy 9Router sẽ tự động nhận được thông báo cập nhật phiên bản mới!
+
+---
+
+## ⚡ Phần 5: Bộ Siêu Tiết Kiệm Token 2 Tầng (9Router + Antigravity)
+
+Từ phiên bản `0.5.137`, 9Router tích hợp kiến trúc tiết kiệm token **2 tầng** chạy tự động, an toàn tuyệt đối (fail-open) và giữ nguyên Prompt Cache:
+
+### 🔹 Tầng 1: Bộ lọc tích hợp sẵn trong Proxy 9Router (0 dependency ngoài)
+Hoạt động trực tiếp trên luồng request trước khi gửi tới model (tương thích Antigravity, Claude, OpenAI, Kiro):
+1. **RTK Filter**: Lọc và nén output lệnh terminal (`git`, `grep`, `ls`, `pytest`, `cargo`, `logs`...) giúp giảm ~60–90% token đầu vào.
+2. **TOON (Tabular JSON Compressor)**: Tự động phát hiện các mảng JSON đồng nhất trong kết quả tool (từ 3 phần tử trở lên) và nén sang định dạng bảng `[TOON]` cô đọng, giảm ~30–60% token JSON.
+3. **Tool Dedup (SHA-256)**: Khử trùng lặp các lần đọc file hoặc output tool giống hệt nhau bằng tham chiếu ngắn SHA-256. Hỗ trợ 2 chế độ:
+   - **Cache-Safe (Mặc định)**: Giữ nguyên lần đọc đầu tiên để bảo toàn Prompt Cache prefix, chỉ thay thế các lần lặp lại phía sau.
+   - **Recency**: Giữ kết quả mới nhất ở cuối hội thoại và thay thế các bản cũ hơn.
+4. **Headroom + Caveman + Ponytail**: Nén ngữ cảnh hội thoại dài qua sidecar Headroom và định hướng model trả lời súc tích, viết code tối giản.
+5. **3 Smart Presets** trên trang `/dashboard/token-saver`:
+   - `Cân bằng & Giữ Cache` (`balanced`) — khuyên dùng hàng ngày.
+   - `Tiết kiệm tối đa` (`max`) — nén sâu tối đa với Dedup Recency & Caveman Ultra.
+   - `An toàn tuyệt đối` (`lossless`) — chỉ nén dữ liệu tool tầng 1, giữ 100% văn phong gốc của model.
+
+### 🔹 Tầng 2: Trung tâm Plugin Antigravity (Cài đặt 1-Click)
+Tự động nhận diện môi trường **Node.js / Python** trên máy bạn, cài đặt gói plugin + MCP server tối ưu cho Antigravity IDE và tự động xử lý xung đột giữa các plugin:
+- **Node >= 22.16**: Tự động chọn Smart Pack **`agy-dart` + `codegraph`** (`agy-dart` thay thế trọn vẹn `agy-fast` và `context-mode` mà không xung đột).
+- **Node 20.x**: Tự động chọn Smart Pack **`agy-fast` + `context-mode` + `codegraph`**.
+
+#### Cách cài đặt nhanh 1-Click:
+1. **Qua Web Dashboard**: Mở **Tiết kiệm Token → Trung tâm Plugin Antigravity** (`/dashboard/token-saver#antigravity-plugins`) và bấm **`⚡ Cài trọn gói thông minh (1-Click)`**.
+2. **Qua dòng lệnh CLI**:
+   ```bash
+   9router setup-saver --yes
+   ```
+   Các tùy chọn hữu ích khác:
+   - Xem trạng thái & kiểm tra xung đột: `9router setup-saver --status`
+   - Cài riêng từng plugin: `9router setup-saver --plugin agy-dart`
+   - Gỡ plugin: `9router setup-saver --uninstall agy-dart`

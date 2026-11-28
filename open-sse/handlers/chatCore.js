@@ -26,6 +26,8 @@ import { injectCaveman } from "../rtk/caveman.js";
 import { injectPonytail } from "../rtk/ponytail.js";
 import { injectCustomPrompt } from "../rtk/customPrompt.js";
 import { compressMessages, formatRtkLog } from "../rtk/index.js";
+import { compressToonInMessages, formatToonLog } from "../rtk/toon.js";
+import { dedupeToolResultsInMessages, formatToolDedupLog } from "../rtk/toolDedup.js";
 import { compressWithHeadroom, formatHeadroomLog, formatHeadroomSizeLog, isHeadroomPhantomSavings } from "../rtk/headroom.js";
 import { compressWithPxpipe } from "../rtk/pxpipe.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
@@ -61,7 +63,7 @@ export function stripContinuityFields(body) {
   return body;
 }
 
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, customPromptEnabled, customPrompt, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking, providerOverrides, claudeCacheTtl }) {
+export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, toonEnabled = false, toolDedupEnabled = false, toolDedupMode = "cache-safe", headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, customPromptEnabled, customPrompt, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking, providerOverrides, claudeCacheTtl }) {
   const { provider, model } = modelInfo;
   const requestStartTime = Date.now();
   // Stable per-session color so all lines of one CLI conversation share a tag
@@ -140,6 +142,16 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     : null;
   const preTranslateRtkLine = formatRtkLog(preTranslateRtk);
   if (preTranslateRtkLine) console.log(preTranslateRtkLine);
+  const preTranslateToon = provider === "cursor"
+    ? compressToonInMessages(body, { enabled: tokenSaverEnabled && toonEnabled })
+    : null;
+  const preTranslateToonLine = formatToonLog(preTranslateToon);
+  if (preTranslateToonLine) console.log(preTranslateToonLine);
+  const preTranslateDedup = provider === "cursor"
+    ? dedupeToolResultsInMessages(body, { enabled: tokenSaverEnabled && toolDedupEnabled, mode: toolDedupMode })
+    : null;
+  const preTranslateDedupLine = formatToolDedupLog(preTranslateDedup);
+  if (preTranslateDedupLine) console.log(preTranslateDedupLine);
 
   const clientRequestedStreaming = body.stream === true || sourceFormat === FORMATS.ANTIGRAVITY || sourceFormat === FORMATS.GEMINI || sourceFormat === FORMATS.GEMINI_CLI;
   const providerRequiresStreaming = PROVIDERS[provider]?.forceStream === true;
@@ -281,6 +293,12 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // RTK: compress tool_result content. Skipped when already done pre-translate.
   const rtkStats = preTranslateRtk || compressMessages(translatedBody, tokenSaverEnabled && rtkEnabled);
 
+  // TOON: compact uniform JSON arrays in tool results into tabular notation.
+  const toonStats = preTranslateToon || compressToonInMessages(translatedBody, { enabled: tokenSaverEnabled && toonEnabled });
+
+  // ToolDedup: collapse identical repeated tool results across turns.
+  const dedupStats = preTranslateDedup || dedupeToolResultsInMessages(translatedBody, { enabled: tokenSaverEnabled && toolDedupEnabled, mode: toolDedupMode });
+
   // Headroom: optional external proxy compression; fail open if proxy is absent.
   const headroomDiagnostics = {};
   const headroomStats = await compressWithHeadroom(translatedBody, { enabled: tokenSaverEnabled && headroomEnabled, url: headroomUrl, model: upstreamModel, format: finalFormat, compressUserMessages: headroomCompressUserMessages, timeoutMs: headroomTimeoutMs, diagnostics: headroomDiagnostics });
@@ -297,6 +315,8 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const xf = [];
 
   if (rtkStats?.hits?.length) xf.push(`RTK:${rtkStats.hits.length}`);
+  if (toonStats?.hits) xf.push(`TOON:${toonStats.hits}`);
+  if (dedupStats?.hits) xf.push(`DEDUP:${dedupStats.hits}(${toolDedupMode})`);
 
   // Caveman: inject terse-style system prompt
   if (tokenSaverEnabled && cavemanEnabled && cavemanLevel) {

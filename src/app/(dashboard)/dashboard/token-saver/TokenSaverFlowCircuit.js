@@ -6,11 +6,16 @@ import { cn } from "@/shared/utils/cn";
 
 /**
  * 5-stage Live Token Compression Pipeline for /dashboard/token-saver.
- * Clicking stage nodes toggles RTK, Headroom, and Caveman directly.
+ * Clicking stage nodes toggles Layer-1 (RTK/TOON/Dedup), Headroom, and Caveman directly.
  */
 export default function TokenSaverFlowCircuit({
   rtkEnabled = true,
   onToggleRtk,
+  toonEnabled = true,
+  onToggleToon,
+  toolDedupEnabled = true,
+  toolDedupMode = "cache-safe",
+  onToggleToolDedup,
   headroomEnabled = false,
   headroomRunning = false,
   onToggleHeadroom,
@@ -23,17 +28,42 @@ export default function TokenSaverFlowCircuit({
   claudeCacheTtl = "5m",
   motionPaused = false,
 }) {
-  let ratio = 100;
-  if (rtkEnabled) ratio *= 0.55;
+  let layer1Factor = 1;
+  if (rtkEnabled) layer1Factor *= 0.55;
+  if (toonEnabled) layer1Factor *= 0.85;
+  if (toolDedupEnabled) layer1Factor *= toolDedupMode === "recency" ? 0.85 : 0.88;
+
+  let ratio = 100 * layer1Factor;
   if (headroomEnabled) ratio *= 0.65;
   if (cavemanEnabled) ratio *= 0.5;
   else if (ponytailEnabled) ratio *= 0.72;
   if (customPromptEnabled) ratio *= 0.92;
 
-  const estimatedPct = Math.max(15, Math.round(ratio));
+  const estimatedPct = Math.max(12, Math.round(ratio));
   const savedPct = Math.max(0, 100 - estimatedPct);
+  const layer1SavedPct = Math.max(0, Math.round((1 - layer1Factor) * 100));
+  const layer1ActiveCount = [rtkEnabled, toonEnabled, toolDedupEnabled].filter(Boolean).length;
+  const layer1Active = layer1ActiveCount > 0;
   const outputEnabled = Boolean(cavemanEnabled || ponytailEnabled);
-  const activeCount = [rtkEnabled, headroomEnabled, cavemanEnabled, ponytailEnabled, customPromptEnabled].filter(Boolean).length;
+  const activeCount = [
+    rtkEnabled,
+    toonEnabled,
+    toolDedupEnabled,
+    headroomEnabled,
+    cavemanEnabled,
+    ponytailEnabled,
+    customPromptEnabled,
+  ].filter(Boolean).length;
+
+  const layer1Parts = [
+    rtkEnabled && "RTK",
+    toonEnabled && "TOON",
+    toolDedupEnabled && (toolDedupMode === "recency" ? "Dedup(R)" : "Dedup(C)"),
+  ].filter(Boolean);
+
+  const layer1Subtitle = layer1Parts.length > 0
+    ? layer1Parts.join(" + ")
+    : "Nhấp để kích hoạt";
 
   const outputSubtitle = cavemanEnabled && ponytailEnabled
     ? `Caveman (${cavemanLevel}) + Ponytail`
@@ -76,23 +106,23 @@ export default function TokenSaverFlowCircuit({
 
             <FlowBeam
               compact
-              active={rtkEnabled || activeCount > 0}
+              active={layer1Active || activeCount > 0}
               paused={motionPaused}
               highlighted={hoveredIndex === 0 || hoveredIndex === 1}
               dimmed={hoveredIndex !== null && hoveredIndex > 2}
-              accent={rtkEnabled ? "emerald" : "cyan"}
-              label={rtkEnabled ? "-45%" : ""}
+              accent={layer1Active ? "emerald" : "cyan"}
+              label={layer1SavedPct > 0 ? `-${layer1SavedPct}%` : ""}
             />
 
             <FlowNode
               step="02"
-              eyebrow="LỌC LỆNH"
-              title="RTK Filter"
-              subtitle={rtkEnabled ? "Đang lọc git/grep/logs" : "Nhấp để kích hoạt"}
+              eyebrow="LỌC TẦNG 1"
+              title="RTK · TOON · Dedup"
+              subtitle={layer1Subtitle}
               icon="terminal"
-              status={rtkEnabled ? "live" : "idle"}
-              badge={rtkEnabled ? "BẬT" : "TẮT"}
-              active={rtkEnabled}
+              status={layer1Active ? "live" : "idle"}
+              badge={`${layer1ActiveCount}/3 BẬT`}
+              active={layer1Active}
               highlighted={isHighlighted(1)}
               dimmed={isDimmed(1)}
               onHoverStart={() => setHoveredIndex(1)}
@@ -102,9 +132,32 @@ export default function TokenSaverFlowCircuit({
                 onToggleRtk?.(!rtkEnabled);
               }}
               footer={
-                <span className="text-cyan-600 dark:text-cyan-400 font-semibold whitespace-nowrap">
-                  {rtkEnabled ? "Đang giảm ~60–90% CLI" : "Nhấp để bật RTK"}
-                </span>
+                <div className="flex flex-wrap items-center gap-1">
+                  {[
+                    { key: "rtk", label: "RTK", enabled: rtkEnabled, toggle: onToggleRtk },
+                    { key: "toon", label: "TOON", enabled: toonEnabled, toggle: onToggleToon },
+                    { key: "dedup", label: "Dedup", enabled: toolDedupEnabled, toggle: onToggleToolDedup },
+                  ].map((pill) => (
+                    <button
+                      key={pill.key}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        playHudSound("toggle");
+                        pill.toggle?.(!pill.enabled);
+                      }}
+                      className={cn(
+                        "rounded border px-1.5 py-0.5 font-mono text-[9.5px] font-bold transition-colors cursor-pointer",
+                        pill.enabled
+                          ? "border-emerald-500/45 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                          : "border-border bg-surface text-text-muted hover:text-text-main"
+                      )}
+                      title={`Bật/tắt ${pill.label}`}
+                    >
+                      {pill.label}
+                    </button>
+                  ))}
+                </div>
               }
             />
 

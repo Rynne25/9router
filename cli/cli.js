@@ -115,6 +115,19 @@ if (args[0] === "connect" || args[0] === "show") {
   return;
 }
 
+// `9router setup-saver` installs/inspects Layer-2 Antigravity Token-Saver plugins
+// and MCP tools standalone without starting the local server.
+if (args[0] === "setup-saver") {
+  const { run } = require("./src/cli/commands/setupSaver");
+  run(args.slice(1))
+    .then((code) => process.exit(code))
+    .catch((err) => {
+      console.error(`❌ ${err?.message || err}`);
+      process.exit(1);
+    });
+  return;
+}
+
 // `9router update` stops any running 9router/MITM instances first to prevent
 // Windows EBUSY file locks, then runs npm install -g cleanly with auto-retry.
 if (args[0] === "update") {
@@ -299,6 +312,8 @@ Commands:
                       (npx 9router connect http://host:20128 — no install needed)
   show [tool…]        Show each CLI tool's current 9router config and models
                       (e.g. 9router show claude)
+  setup-saver         Install/manage Layer-2 Antigravity Token-Saver plugins & MCP
+                      (use --status, --yes, --pack smart|node20, --plugin <id>)
   xai video --prompt "..." --output video.mp4
                       Generate a Grok Imagine video via the running gateway
                       (see: ${APP_NAME} xai video --help)
@@ -772,6 +787,7 @@ async function showInterfaceMenu(latestVersion) {
     { label: "Web UI (Open in Browser)", icon: "🌐" },
     { label: "Terminal UI (Interactive CLI)", icon: "💻" },
     { label: "Hide to Tray (Background)", icon: "🔔" },
+    { label: "⚡ Setup Antigravity Token Saver Pack", icon: "⚡" },
     { label: "Exit", icon: "🚪" }
   );
 
@@ -783,6 +799,7 @@ async function showInterfaceMenu(latestVersion) {
   if (selected === offset) return "web";
   if (selected === offset + 1) return "terminal";
   if (selected === offset + 2) return "hide";
+  if (selected === offset + 3) return "setup-saver";
   return "exit";
 }
 
@@ -1027,6 +1044,13 @@ function startServer(updatePromise) {
           // cleanup() kills server so bgProcess can claim the port fresh
           cleanup();
           process.exit(0);
+        } else if (choice === "setup-saver") {
+          const { clearScreen } = require("./src/cli/utils/display");
+          const { pause } = require("./src/cli/utils/input");
+          const { run } = require("./src/cli/commands/setupSaver");
+          clearScreen();
+          await run([]);
+          await pause("\nPress Enter to go back to menu...");
         } else if (choice === "exit") {
           isShuttingDown = true;
           console.log("\nExiting...");

@@ -32,6 +32,28 @@ const MODULE_META = {
     description: "Nén đầu ra git/grep/ls/tree/logs trước khi nạp vào ngữ cảnh",
     compatibility: "antigravity",
   },
+  toon: {
+    id: "toon",
+    title: "Nén JSON dạng bảng TOON",
+    shortName: "TOON",
+    href: null,
+    icon: "table_chart",
+    savingsLabel: "-30–60% JSON",
+    description:
+      "Chuyển mảng JSON đồng nhất trong kết quả tool sang định dạng bảng [TOON] cô đọng (Pure-JS, fail-open)",
+    compatibility: "antigravity",
+  },
+  toolDedup: {
+    id: "toolDedup",
+    title: "Khử trùng lặp kết quả Tool",
+    shortName: "Tool Dedup",
+    href: null,
+    icon: "content_copy",
+    savingsLabel: "-15–40% lặp lại",
+    description:
+      "Thay thế các lần đọc file / output công cụ giống hệt nhau bằng tham chiếu ngắn SHA-256",
+    compatibility: "antigravity",
+  },
   headroom: {
     id: "headroom",
     title: "Nén ngữ cảnh hội thoại",
@@ -77,7 +99,107 @@ const MODULE_META = {
   },
 };
 
-const MODULE_ORDER = ["rtk", "headroom", "caveman", "ponytail", "customPrompt"];
+const MODULE_ORDER = [
+  "rtk",
+  "toon",
+  "toolDedup",
+  "headroom",
+  "caveman",
+  "ponytail",
+  "customPrompt",
+];
+
+const TOOL_DEDUP_MODES = [
+  {
+    id: "cache-safe",
+    label: "Giữ Cache (Cache-Safe)",
+    desc: "Giữ nguyên lần đọc đầu tiên để bảo toàn Prompt Cache prefix; thay thế các lần lặp sau.",
+  },
+  {
+    id: "recency",
+    label: "Ưu tiên mới nhất (Recency)",
+    desc: "Giữ kết quả mới nhất ở cuối hội thoại; thay thế các bản trùng lặp cũ hơn bằng tham chiếu.",
+  },
+];
+
+const SMART_PRESETS = [
+  {
+    id: "balanced",
+    label: "Cân bằng & Giữ Cache",
+    badge: "Khuyên dùng",
+    icon: "balance",
+    desc: "Bật đủ tầng 1 (RTK + TOON + Dedup Cache-Safe) + Caveman Full + Ponytail Full.",
+    patch: {
+      rtkEnabled: true,
+      toonEnabled: true,
+      toolDedupEnabled: true,
+      toolDedupMode: "cache-safe",
+      cavemanEnabled: true,
+      cavemanLevel: "full",
+      ponytailEnabled: true,
+      ponytailLevel: "full",
+    },
+  },
+  {
+    id: "max",
+    label: "Tiết kiệm tối đa",
+    badge: "Nén sâu nhất",
+    icon: "local_fire_department",
+    desc: "Dedup Recency + Caveman Ultra + Ponytail Full — cắt giảm tối đa token.",
+    patch: {
+      rtkEnabled: true,
+      toonEnabled: true,
+      toolDedupEnabled: true,
+      toolDedupMode: "recency",
+      cavemanEnabled: true,
+      cavemanLevel: "ultra",
+      ponytailEnabled: true,
+      ponytailLevel: "full",
+    },
+  },
+  {
+    id: "lossless",
+    label: "An toàn tuyệt đối",
+    badge: "0% đổi văn phong",
+    icon: "verified_user",
+    desc: "Chỉ bật RTK + TOON + Tool Dedup (Cache-Safe), tắt Caveman & Ponytail.",
+    patch: {
+      rtkEnabled: true,
+      toonEnabled: true,
+      toolDedupEnabled: true,
+      toolDedupMode: "cache-safe",
+      cavemanEnabled: false,
+      ponytailEnabled: false,
+    },
+  },
+];
+
+const PLUGIN_FALLBACK_DESC = {
+  "agy-dart": "Bộ tối ưu ngữ cảnh & token cho Antigravity trên Node >= 22.16 (thay thế agy-fast & context-mode).",
+  "agy-fast": "Plugin tăng tốc & nén ngữ cảnh Antigravity tương thích Node >= 20.",
+  "context-mode": "Nén và cô đọng context window cho Antigravity IDE.",
+  codegraph: "MCP Server lập chỉ mục đồ thị mã nguồn giúp giảm đọc file dư thừa.",
+  "codebase-memory-mcp": "MCP Server bộ nhớ codebase dạng đồ thị hiệu năng cao.",
+  mcptoon: "Cổng MCP nén payload JSON sang định dạng TOON (yêu cầu Python).",
+};
+
+function detectTokenSaverPreset(cfg) {
+  for (const preset of SMART_PRESETS) {
+    const p = preset.patch;
+    const matchesCore =
+      Boolean(cfg.rtkEnabled) === p.rtkEnabled &&
+      Boolean(cfg.toonEnabled) === p.toonEnabled &&
+      Boolean(cfg.toolDedupEnabled) === p.toolDedupEnabled &&
+      cfg.toolDedupMode === p.toolDedupMode &&
+      Boolean(cfg.cavemanEnabled) === p.cavemanEnabled &&
+      Boolean(cfg.ponytailEnabled) === p.ponytailEnabled;
+    if (!matchesCore) continue;
+    if (p.cavemanEnabled && cfg.cavemanLevel !== p.cavemanLevel) continue;
+    if (p.ponytailEnabled && cfg.ponytailLevel !== p.ponytailLevel) continue;
+    return preset.id;
+  }
+  return "custom";
+}
 
 function getHeadroomPortLabel(url) {
   try {
@@ -167,6 +289,20 @@ export default function TokenSaverClient({ initialSettings = null }) {
   const [rtkEnabled, setRtkEnabledState] = useState(() =>
     seedSettings ? seedSettings.rtkEnabled !== false : true
   );
+  const [toonEnabled, setToonEnabled] = useState(() =>
+    seedSettings ? seedSettings.toonEnabled !== false : true
+  );
+  const [toolDedupEnabled, setToolDedupEnabled] = useState(() =>
+    seedSettings ? seedSettings.toolDedupEnabled !== false : true
+  );
+  const [toolDedupMode, setToolDedupMode] = useState(() =>
+    seedSettings?.toolDedupMode === "recency" ? "recency" : "cache-safe"
+  );
+  const [tokenSaverPreset, setTokenSaverPreset] = useState(() =>
+    ["balanced", "max", "lossless", "custom"].includes(seedSettings?.tokenSaverPreset)
+      ? seedSettings.tokenSaverPreset
+      : "balanced"
+  );
   const [headroomEnabled, setHeadroomEnabled] = useState(() =>
     Boolean(seedSettings?.headroomEnabled)
   );
@@ -249,6 +385,19 @@ export default function TokenSaverClient({ initialSettings = null }) {
   const [extrasConfirm, setExtrasConfirm] = useState(null);
   const [restartingProxy, setRestartingProxy] = useState(false);
   const [promptSavedHint, setPromptSavedHint] = useState(false);
+  const [pluginState, setPluginState] = useState({
+    loading: true,
+    env: null,
+    smartPackIds: [],
+    smartPackNote: "",
+    plugins: [],
+    installing: false,
+    currentPluginId: null,
+    logTail: "",
+  });
+  const [pluginActionBusy, setPluginActionBusy] = useState(false);
+  const [pluginFeedback, setPluginFeedback] = useState(null);
+  const [showPluginLog, setShowPluginLog] = useState(false);
 
   const logPollRef = useRef(null);
   const logRequestRef = useRef(0);
@@ -314,25 +463,98 @@ export default function TokenSaverClient({ initialSettings = null }) {
     }
   }, [isWenyanLocale, cavemanLevel, patchSetting]);
 
+  const buildPresetPatch = useCallback(
+    (overrides) => {
+      const merged = {
+        rtkEnabled,
+        toonEnabled,
+        toolDedupEnabled,
+        toolDedupMode,
+        cavemanEnabled,
+        cavemanLevel,
+        ponytailEnabled,
+        ponytailLevel,
+        ...overrides,
+      };
+      const matchedPreset = detectTokenSaverPreset(merged);
+      setTokenSaverPreset(matchedPreset);
+      return { ...overrides, tokenSaverPreset: matchedPreset };
+    },
+    [
+      rtkEnabled,
+      toonEnabled,
+      toolDedupEnabled,
+      toolDedupMode,
+      cavemanEnabled,
+      cavemanLevel,
+      ponytailEnabled,
+      ponytailLevel,
+    ]
+  );
+
   const handleRtkEnabled = async (value) => {
     const prev = rtkEnabled;
+    const prevPreset = tokenSaverPreset;
     setRtkEnabledState(value);
-    const ok = await patchSetting({ rtkEnabled: value });
+    const ok = await patchSetting(buildPresetPatch({ rtkEnabled: value }));
     if (!ok) {
       setRtkEnabledState(prev);
+      setTokenSaverPreset(prevPreset);
     }
+  };
+
+  const handleToonEnabled = async (value) => {
+    const prev = toonEnabled;
+    const prevPreset = tokenSaverPreset;
+    setToonEnabled(value);
+    const ok = await patchSetting(buildPresetPatch({ toonEnabled: value }));
+    if (!ok) {
+      setToonEnabled(prev);
+      setTokenSaverPreset(prevPreset);
+    }
+  };
+
+  const handleToolDedupEnabled = async (value) => {
+    const prev = toolDedupEnabled;
+    const prevPreset = tokenSaverPreset;
+    setToolDedupEnabled(value);
+    const ok = await patchSetting(buildPresetPatch({ toolDedupEnabled: value }));
+    if (!ok) {
+      setToolDedupEnabled(prev);
+      setTokenSaverPreset(prevPreset);
+    }
+  };
+
+  const handleToolDedupMode = (mode) => {
+    const normalized = mode === "recency" ? "recency" : "cache-safe";
+    playHudSound("click");
+    setToolDedupMode(normalized);
+    patchSetting(buildPresetPatch({ toolDedupMode: normalized }));
+  };
+
+  const handleApplyPreset = async (preset) => {
+    playHudSound("confirm");
+    const p = preset.patch;
+    setRtkEnabledState(p.rtkEnabled);
+    setToonEnabled(p.toonEnabled);
+    setToolDedupEnabled(p.toolDedupEnabled);
+    setToolDedupMode(p.toolDedupMode);
+    setCavemanEnabled(p.cavemanEnabled);
+    if (p.cavemanLevel) setCavemanLevel(p.cavemanLevel);
+    setPonytailEnabled(p.ponytailEnabled);
+    if (p.ponytailLevel) setPonytailLevel(p.ponytailLevel);
+    setTokenSaverPreset(preset.id);
+    await patchSetting({ ...p, tokenSaverPreset: preset.id });
   };
 
   const handleCavemanEnabled = (value) => {
     setCavemanEnabled(value);
-    patchSetting({ cavemanEnabled: value });
+    patchSetting(buildPresetPatch({ cavemanEnabled: value }));
   };
 
   const handleEnableRecommended = () => {
-    playHudSound("confirm");
-    setRtkEnabledState(true);
-    setCavemanEnabled(true);
-    patchSetting({ rtkEnabled: true, cavemanEnabled: true });
+    const balanced = SMART_PRESETS[0];
+    handleApplyPreset(balanced);
   };
 
   const refreshHeadroomStatus = useCallback(async ({ force = false } = {}) => {
@@ -675,18 +897,18 @@ export default function TokenSaverClient({ initialSettings = null }) {
   const handleCavemanLevel = (level) => {
     playHudSound("click");
     setCavemanLevel(level);
-    patchSetting({ cavemanLevel: level });
+    patchSetting(buildPresetPatch({ cavemanLevel: level }));
   };
 
   const handlePonytailEnabled = (value) => {
     setPonytailEnabled(value);
-    patchSetting({ ponytailEnabled: value });
+    patchSetting(buildPresetPatch({ ponytailEnabled: value }));
   };
 
   const handlePonytailLevel = (level) => {
     playHudSound("click");
     setPonytailLevel(level);
-    patchSetting({ ponytailLevel: level });
+    patchSetting(buildPresetPatch({ ponytailLevel: level }));
   };
 
   const handleClaudeCacheTtl = (ttl) => {
@@ -715,11 +937,106 @@ export default function TokenSaverClient({ initialSettings = null }) {
     patchSetting({ headroomTimeoutMs: next });
   };
 
-  // Non-blocking mount: Headroom status + silent background /api/settings refresh
+  const refreshAntigravityPlugins = useCallback(async () => {
+    try {
+      const res = await fetch("/api/antigravity/plugins", {
+        headers: { "Cache-Control": "no-store" },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setPluginState({
+        loading: false,
+        env: data.env || null,
+        smartPackIds: Array.isArray(data.smartPackIds) ? data.smartPackIds : [],
+        smartPackNote: data.smartPackNote || "",
+        plugins: Array.isArray(data.plugins) ? data.plugins : [],
+        installing: Boolean(data.installing),
+        currentPluginId: data.currentPluginId || null,
+        logTail: typeof data.logTail === "string" ? data.logTail : "",
+      });
+    } catch {
+      setPluginState((s) => ({ ...s, loading: false }));
+    }
+  }, []);
+
+  const handlePluginAction = useCallback(
+    async (action, pluginId = null) => {
+      if (pluginActionBusy) return;
+      playHudSound("click");
+      setPluginActionBusy(true);
+      setPluginFeedback(null);
+      setShowPluginLog(true);
+      try {
+        const res = await fetch("/api/antigravity/plugins/install", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action,
+            ...(pluginId ? { pluginId } : {}),
+            autoResolveConflicts: true,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) {
+          throw new Error(data.error || `Thao tác thất bại (${res.status})`);
+        }
+        if (data.status && typeof data.status === "object") {
+          setPluginState({
+            loading: false,
+            env: data.status.env || null,
+            smartPackIds: Array.isArray(data.status.smartPackIds) ? data.status.smartPackIds : [],
+            smartPackNote: data.status.smartPackNote || "",
+            plugins: Array.isArray(data.status.plugins) ? data.status.plugins : [],
+            installing: Boolean(data.status.installing),
+            currentPluginId: data.status.currentPluginId || null,
+            logTail:
+              typeof data.logTail === "string"
+                ? data.logTail
+                : typeof data.status.logTail === "string"
+                  ? data.status.logTail
+                  : "",
+          });
+        } else {
+          await refreshAntigravityPlugins();
+        }
+        playHudSound("confirm");
+        const results = Array.isArray(data.results) ? data.results : [];
+        const summaryMsg =
+          action === "doctor"
+            ? "Đã hoàn tất kiểm tra sức khỏe (Doctor)"
+            : action === "install-smart-pack"
+              ? "Đã cài đặt xong gói Plugin thông minh"
+              : action === "uninstall"
+                ? `Đã gỡ cài đặt ${pluginId}`
+                : `Đã cài đặt ${pluginId}`;
+        setPluginFeedback({
+          ok: true,
+          message: summaryMsg,
+          results,
+        });
+      } catch (e) {
+        playHudSound("alert");
+        setPluginFeedback({
+          ok: false,
+          message: e?.message || "Lỗi xử lý plugin Antigravity",
+          results: [],
+        });
+        await refreshAntigravityPlugins();
+      } finally {
+        setPluginActionBusy(false);
+      }
+    },
+    [pluginActionBusy, refreshAntigravityPlugins]
+  );
+
+  // Non-blocking mount: Headroom status + Antigravity plugins + silent background /api/settings refresh
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
-      if (!cancelled) refreshHeadroomStatus();
+      if (!cancelled) {
+        refreshHeadroomStatus();
+        refreshAntigravityPlugins();
+      }
     });
 
     const loadSettings = async () => {
@@ -732,6 +1049,14 @@ export default function TokenSaverClient({ initialSettings = null }) {
         if (cancelled || !data || typeof data !== "object") return;
         setCachedData("/api/settings", data);
         setRtkEnabledState(data.rtkEnabled !== false);
+        setToonEnabled(data.toonEnabled !== false);
+        setToolDedupEnabled(data.toolDedupEnabled !== false);
+        setToolDedupMode(data.toolDedupMode === "recency" ? "recency" : "cache-safe");
+        setTokenSaverPreset(
+          ["balanced", "max", "lossless", "custom"].includes(data.tokenSaverPreset)
+            ? data.tokenSaverPreset
+            : "balanced"
+        );
         setHeadroomEnabled(Boolean(data.headroomEnabled));
         setHeadroomUrl(data.headroomUrl || "http://localhost:8787");
         if (typeof data.headroomTimeoutMs === "number") {
@@ -763,7 +1088,18 @@ export default function TokenSaverClient({ initialSettings = null }) {
     return () => {
       cancelled = true;
     };
-  }, [refreshHeadroomStatus]);
+  }, [refreshHeadroomStatus, refreshAntigravityPlugins]);
+
+  // Poll Antigravity plugin status & logTail while an install action is running
+  useEffect(() => {
+    if (!pluginActionBusy && !pluginState.installing) return;
+    const timer = setInterval(() => {
+      if (!document.hidden) {
+        refreshAntigravityPlugins();
+      }
+    }, 1500);
+    return () => clearInterval(timer);
+  }, [pluginActionBusy, pluginState.installing, refreshAntigravityPlugins]);
 
   const headroomRunning = Boolean(headroomStatus.running);
   const headroomLocalUrl = headroomStatus.localUrl !== false;
@@ -798,6 +1134,8 @@ export default function TokenSaverClient({ initialSettings = null }) {
 
   const moduleStateMap = {
     rtk: { enabled: rtkEnabled, onToggle: handleRtkEnabled },
+    toon: { enabled: toonEnabled, onToggle: handleToonEnabled },
+    toolDedup: { enabled: toolDedupEnabled, onToggle: handleToolDedupEnabled },
     headroom: { enabled: headroomEnabled, onToggle: handleHeadroomEnabled },
     caveman: { enabled: cavemanEnabled, onToggle: handleCavemanEnabled },
     ponytail: { enabled: ponytailEnabled, onToggle: handlePonytailEnabled },
@@ -1179,6 +1517,38 @@ export default function TokenSaverClient({ initialSettings = null }) {
             </div>
           )}
 
+          {moduleId === "toon" && (
+            <div className="pt-2.5 border-t border-cyan-500/12 space-y-1.5">
+              <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                Cơ chế nén bảng TOON
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-text-muted">
+                {["Mảng JSON ≥ 3 phần tử", "≥ 400 ký tự", "Fail-open an toàn"].map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded border border-cyan-500/20 bg-cyan-500/[0.06] px-2 py-0.5 text-cyan-700 dark:text-cyan-300"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {moduleId === "toolDedup" && (
+            <div className="pt-2.5 border-t border-cyan-500/12">
+              <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                Chế độ khử trùng lặp
+              </div>
+              <LevelSelectorPills
+                levels={TOOL_DEDUP_MODES}
+                value={toolDedupMode}
+                onChange={handleToolDedupMode}
+                compact={!isActive}
+              />
+            </div>
+          )}
+
           {moduleId === "headroom" && (
             <div className="pt-2.5 border-t border-cyan-500/12 space-y-2">
               {renderHeadroomControls()}
@@ -1272,7 +1642,20 @@ export default function TokenSaverClient({ initialSettings = null }) {
       ? "grid grid-cols-1 gap-3.5"
       : activeCompactModules.length === 2
         ? "grid grid-cols-1 md:grid-cols-2 gap-3.5"
-        : "grid grid-cols-1 md:grid-cols-3 gap-3.5";
+        : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5";
+
+  const nodeVersionLabel =
+    pluginState.env?.nodeVersion ||
+    pluginState.env?.node?.version ||
+    (typeof pluginState.env?.node === "string" ? pluginState.env.node : null);
+  const pythonVersionLabel =
+    pluginState.env?.pythonVersion ||
+    pluginState.env?.python?.version ||
+    (pluginState.env?.pythonAvailable ? "Sẵn sàng" : null);
+  const installedPluginIds = new Set(
+    pluginState.plugins.filter((p) => p.installed).map((p) => p.id)
+  );
+  const isPluginActionRunning = pluginActionBusy || pluginState.installing;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -1293,7 +1676,7 @@ export default function TokenSaverClient({ initialSettings = null }) {
                   MA TRẬN TIẾT KIỆM TOKEN
                 </span>
                 <span className="inline-flex items-center gap-1 rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-cyan-700 dark:text-cyan-300">
-                  5 MÔ-ĐUN ANTIGRAVITY
+                  {MODULE_ORDER.length} MÔ-ĐUN ANTIGRAVITY
                 </span>
               </div>
               <h1 className="text-base sm:text-lg font-bold text-text-main tracking-tight">
@@ -1312,7 +1695,7 @@ export default function TokenSaverClient({ initialSettings = null }) {
                 Mô-đun đang bật
               </div>
               <div className="text-sm font-bold text-cyan-700 dark:text-cyan-300 hud-telemetry-num">
-                <NumberTicker value={armedAgSaversCount} /> / 5
+                <NumberTicker value={armedAgSaversCount} /> / {MODULE_ORDER.length}
               </div>
             </div>
 
@@ -1371,10 +1754,80 @@ export default function TokenSaverClient({ initialSettings = null }) {
         </div>
       </HudFrame>
 
+      {/* 3 Smart Presets Strip */}
+      <section aria-label="Cấu hình mẫu thông minh" className="space-y-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-text-muted">
+              Cấu hình nhanh (Smart Presets)
+            </span>
+            {tokenSaverPreset === "custom" && (
+              <span className="rounded border border-amber-500/40 bg-amber-500/12 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-amber-700 dark:text-amber-300">
+                Tùy chỉnh
+              </span>
+            )}
+          </div>
+          <span className="text-xs text-text-muted">
+            Áp dụng đồng bộ cho RTK, TOON, Tool Dedup, Caveman &amp; Ponytail
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {SMART_PRESETS.map((preset) => {
+            const active = tokenSaverPreset === preset.id;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                data-cursor-target="true"
+                onClick={() => handleApplyPreset(preset)}
+                className={`text-left rounded-xl border p-3 transition-all cursor-pointer ${
+                  active
+                    ? "border-cyan-500/60 bg-cyan-500/10 shadow-[0_0_18px_rgba(6,182,212,0.16)]"
+                    : "border-border bg-surface-2/60 hover:border-cyan-500/35 hover:bg-surface-2"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={`material-symbols-outlined text-[18px] ${
+                        active ? "text-cyan-600 dark:text-cyan-300" : "text-text-muted"
+                      }`}
+                    >
+                      {preset.icon}
+                    </span>
+                    <span className="text-xs sm:text-sm font-bold text-text-main truncate">
+                      {preset.label}
+                    </span>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase ${
+                      active
+                        ? "border-emerald-500/45 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                        : "border-border bg-surface text-text-muted"
+                    }`}
+                  >
+                    {active ? "Đang chọn" : preset.badge}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[11.5px] text-text-muted leading-snug">
+                  {preset.desc}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       {/* Live Token Compression Pipeline Circuit */}
       <TokenSaverFlowCircuit
         rtkEnabled={rtkEnabled}
         onToggleRtk={handleRtkEnabled}
+        toonEnabled={toonEnabled}
+        onToggleToon={handleToonEnabled}
+        toolDedupEnabled={toolDedupEnabled}
+        toolDedupMode={toolDedupMode}
+        onToggleToolDedup={handleToolDedupEnabled}
         headroomEnabled={headroomEnabled}
         headroomRunning={headroomRunning}
         onToggleHeadroom={handleHeadroomEnabled}
@@ -1406,7 +1859,7 @@ export default function TokenSaverClient({ initialSettings = null }) {
               Đang kích hoạt
             </h2>
             <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[11px] font-bold text-cyan-700 dark:text-cyan-300">
-              {armedAgSaversCount} / 5 mô-đun
+              {armedAgSaversCount} / {MODULE_ORDER.length} mô-đun
             </span>
           </div>
           <p className="text-xs text-text-muted">
@@ -1533,6 +1986,297 @@ export default function TokenSaverClient({ initialSettings = null }) {
             </div>
           </HudFrame>
         </div>
+      </section>
+
+      {/* ZONE 3: Antigravity Plugin Center (Layer-2 1-Click Auto-Setup) */}
+      <section
+        id="antigravity-plugins"
+        aria-labelledby="antigravity-plugins-heading"
+        className="space-y-3 scroll-mt-6"
+      >
+        <HudFrame chamfer="md" accent="cyan" padding="md">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-cyan-500/15">
+              <div className="space-y-1.5 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="size-2 rounded-full bg-cyan-500" />
+                  <h2
+                    id="antigravity-plugins-heading"
+                    className="text-sm sm:text-base font-bold uppercase tracking-wider font-mono text-text-main"
+                  >
+                    TRUNG TÂM PLUGIN ANTIGRAVITY (1-CLICK AUTO-SETUP)
+                  </h2>
+                </div>
+                <p className="text-xs text-text-muted leading-relaxed">
+                  Tự động nhận diện môi trường, cài đặt các plugin &amp; MCP tiết kiệm token cho Antigravity IDE và tự động xử lý xung đột giữa các gói.
+                </p>
+
+                {/* Runtime & Smart Pack recommendation badges */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1 font-mono text-[10.5px]">
+                  <span className="inline-flex items-center gap-1 rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-semibold text-cyan-700 dark:text-cyan-300">
+                    <span className="material-symbols-outlined text-[13px]">memory</span>
+                    {nodeVersionLabel ? `Node v${String(nodeVersionLabel).replace(/^v/i, "")}` : "Đang dò Node…"}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 font-semibold ${
+                      pythonVersionLabel
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                        : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[13px]">code</span>
+                    {pythonVersionLabel
+                      ? `Python ${String(pythonVersionLabel).replace(/^Python\s+/i, "")}`
+                      : "Không có Python"}
+                  </span>
+                  {pluginState.smartPackIds.length > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded border border-emerald-500/35 bg-emerald-500/12 px-2 py-0.5 font-bold text-emerald-700 dark:text-emerald-300">
+                      Smart Pack: {pluginState.smartPackIds.join(" + ")}
+                    </span>
+                  )}
+                  {pluginState.smartPackNote && (
+                    <span className="text-[11px] font-sans text-text-muted">
+                      {pluginState.smartPackNote}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <MagneticButton data-cursor-target="true">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    loading={isPluginActionRunning}
+                    onClick={() => handlePluginAction("install-smart-pack")}
+                    data-cursor-target="true"
+                  >
+                    ⚡ Cài trọn gói thông minh (1-Click)
+                  </Button>
+                </MagneticButton>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon="health_and_safety"
+                  disabled={isPluginActionRunning}
+                  onClick={() => handlePluginAction("doctor")}
+                  data-cursor-target="true"
+                >
+                  Kiểm tra sức khỏe (Doctor)
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon="refresh"
+                  disabled={pluginState.loading || isPluginActionRunning}
+                  onClick={() => {
+                    playHudSound("click");
+                    refreshAntigravityPlugins();
+                  }}
+                  title="Làm mới trạng thái plugin"
+                />
+              </div>
+            </div>
+
+            {pluginFeedback && (
+              <div
+                className={`rounded-lg border px-3 py-2 text-xs font-mono ${
+                  pluginFeedback.ok
+                    ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                    : "border-rose-500/35 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                }`}
+              >
+                <div className="font-bold">{pluginFeedback.message}</div>
+                {Array.isArray(pluginFeedback.results) && pluginFeedback.results.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-2 text-[11px]">
+                    {pluginFeedback.results.map((r, idx) => (
+                      <span
+                        key={`${r.pluginId || r.id || idx}`}
+                        className="rounded border border-current/25 px-1.5 py-0.5"
+                      >
+                        {r.pluginId || r.id || "item"}: {r.ok === false ? `Lỗi (${r.error || "failed"})` : r.status || "OK"}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Plugin Cards */}
+            {pluginState.loading && pluginState.plugins.length === 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {[1, 2, 3].map((idx) => (
+                  <div
+                    key={idx}
+                    className="h-36 rounded-xl border border-border bg-surface-2/60 animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {pluginState.plugins.map((plugin) => {
+                  const isSmart = pluginState.smartPackIds.includes(plugin.id) || Boolean(plugin.recommended);
+                  const activeConflicts = Array.isArray(plugin.activeConflicts)
+                    ? plugin.activeConflicts
+                    : (plugin.conflictsWith || []).filter(
+                        (cid) => installedPluginIds.has(cid) && cid !== plugin.id
+                      );
+                  const isCurrentBusy =
+                    isPluginActionRunning && pluginState.currentPluginId === plugin.id;
+                  const missingPython = Boolean(plugin.requiresPython && !pythonVersionLabel);
+                  const incompatible = plugin.supported === false || missingPython;
+                  const desc =
+                    plugin.summary ||
+                    plugin.description ||
+                    PLUGIN_FALLBACK_DESC[plugin.id] ||
+                    "Plugin tối ưu ngữ cảnh & token cho Antigravity.";
+
+                  return (
+                    <div
+                      key={plugin.id}
+                      className={`flex flex-col justify-between gap-3 rounded-xl border p-3.5 transition-all ${
+                        plugin.installed
+                          ? "border-emerald-500/40 bg-emerald-500/[0.05]"
+                          : isSmart
+                            ? "border-cyan-500/35 bg-cyan-500/[0.04]"
+                            : "border-border bg-surface-2/50"
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <h3 className="font-mono text-xs sm:text-sm font-bold text-text-main truncate">
+                                {plugin.name || plugin.id}
+                              </h3>
+                              {plugin.installed && (
+                                <span className="rounded border border-emerald-500/40 bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase text-emerald-700 dark:text-emerald-300">
+                                  Đã cài
+                                </span>
+                              )}
+                              {isSmart && !plugin.installed && (
+                                <span className="rounded border border-cyan-500/40 bg-cyan-500/12 px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase text-cyan-700 dark:text-cyan-300">
+                                  Smart Pack
+                                </span>
+                              )}
+                            </div>
+                            {plugin.repo && (
+                              <p className="font-mono text-[10px] text-text-subtle truncate">
+                                {plugin.repo}
+                              </p>
+                            )}
+                          </div>
+
+                          {plugin.slot && (
+                            <span className="shrink-0 rounded border border-border bg-surface px-1.5 py-0.5 font-mono text-[9.5px] uppercase text-text-muted">
+                              {plugin.slot}
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-text-muted leading-snug">
+                          {desc}
+                        </p>
+
+                        <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-text-muted">
+                          {typeof plugin.stars === "number" && (
+                            <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-300">
+                              ★ {plugin.stars.toLocaleString()}
+                            </span>
+                          )}
+                          {plugin.license && (
+                            <span className="rounded border border-border bg-surface px-1.5 py-0.5">
+                              {plugin.license}
+                            </span>
+                          )}
+                          {plugin.version && (
+                            <span className="rounded border border-border bg-surface px-1.5 py-0.5">
+                              v{String(plugin.version).replace(/^v/i, "")}
+                            </span>
+                          )}
+                        </div>
+
+                        {activeConflicts.length > 0 && !plugin.installed && (
+                          <div className="rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-300">
+                            Xung đột với: <strong>{activeConflicts.join(", ")}</strong> (sẽ tự gỡ khi cài)
+                          </div>
+                        )}
+
+                        {incompatible && (
+                          <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[11px] text-rose-700 dark:text-rose-300">
+                            {missingPython
+                              ? "Yêu cầu Python để cài đặt"
+                              : plugin.unsupportedReason ||
+                                plugin.reason ||
+                                "Không tương thích phiên bản Node hiện tại"}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-end pt-2 border-t border-border-subtle">
+                        <Button
+                          size="xs"
+                          variant={plugin.installed ? "danger" : isSmart ? "primary" : "outline"}
+                          loading={isCurrentBusy}
+                          disabled={isPluginActionRunning || (!plugin.installed && incompatible)}
+                          onClick={() =>
+                            handlePluginAction(
+                              plugin.installed ? "uninstall" : "install",
+                              plugin.id
+                            )
+                          }
+                          data-cursor-target="true"
+                        >
+                          {plugin.installed ? "Gỡ cài đặt" : "Cài đặt"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Collapsible live logTail viewer */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  playHudSound("click");
+                  setShowPluginLog((v) => !v);
+                }}
+                className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold text-cyan-700 dark:text-cyan-300 hover:underline cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[15px]">
+                  {showPluginLog ? "expand_less" : "terminal"}
+                </span>
+                <span>
+                  {showPluginLog ? "Ẩn nhật ký cài đặt (logTail)" : "Xem nhật ký cài đặt (logTail)"}
+                </span>
+              </button>
+
+              {showPluginLog && (
+                <div className="mt-2 overflow-hidden rounded-lg border border-cyan-500/30 bg-[#050A15] shadow-inner">
+                  <div className="flex items-center justify-between border-b border-cyan-500/20 bg-[#0A1326] px-3 py-1 font-mono text-[10px] text-cyan-300">
+                    <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider">
+                      <span
+                        className={`size-1.5 rounded-full ${
+                          isPluginActionRunning ? "bg-emerald-400 animate-pulse" : "bg-cyan-400"
+                        }`}
+                      />
+                      ANTIGRAVITY PLUGINS // INSTALL LOG
+                    </span>
+                    <span className="text-cyan-400/70">
+                      {isPluginActionRunning ? "ĐANG CHẠY…" : "LOG TAIL"}
+                    </span>
+                  </div>
+                  <pre className="max-h-48 overflow-auto p-2.5 font-mono text-[10.5px] leading-relaxed text-cyan-100/90 whitespace-pre-wrap">
+                    {pluginState.logTail || "Chưa có nhật ký cài đặt nào."}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </HudFrame>
       </section>
 
       {/* Headroom Management / Setup Modal (100% Vietnamese) */}
