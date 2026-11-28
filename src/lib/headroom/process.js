@@ -156,17 +156,33 @@ async function startProxy({ url, port = DEFAULT_PORT, ...options }, command) {
   return { pid: child.pid, alreadyRunning: false };
 }
 
+// Kill process tree on Windows so child Python Uvicorn workers do not stay orphaned on :8787
+function killProcessTree(pid) {
+  if (process.platform === "win32" && !process.env.VITEST) {
+    try {
+      execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+        stdio: "ignore",
+        windowsHide: true,
+        timeout: 5000,
+      });
+      return;
+    } catch {
+      // Fall back to POSIX-style kill if process already exited or taskkill failed
+    }
+  }
+  process.kill(pid, "SIGTERM");
+  setTimeout(() => {
+    if (isPidAlive(pid)) {
+      try { process.kill(pid, "SIGKILL"); } catch { /* already gone */ }
+    }
+  }, 2000);
+}
+
 export function stopHeadroomProxy() {
   const pid = getManagedPid();
   if (!pid) return { stopped: false, reason: "not_running" };
   try {
-    process.kill(pid, "SIGTERM");
-    // Give it a moment, then force if still alive.
-    setTimeout(() => {
-      if (isPidAlive(pid)) {
-        try { process.kill(pid, "SIGKILL"); } catch { /* already gone */ }
-      }
-    }, 2000);
+    killProcessTree(pid);
     clearPid();
     return { stopped: true, pid };
   } catch (e) {
@@ -183,7 +199,7 @@ export async function restartHeadroomProxy(opts = {}) {
   const pid = getManagedPid();
   const command = pid ? getProxyCommand(opts) : null;
   if (pid) {
-    try { process.kill(pid, "SIGTERM"); } catch { /* already gone */ }
+    try { killProcessTree(pid); } catch { /* already gone */ }
     // Wait up to ~3s for graceful exit, force-kill if still alive.
     for (let i = 0; i < 30 && isPidAlive(pid); i++) {
       await new Promise((r) => setTimeout(r, 100));

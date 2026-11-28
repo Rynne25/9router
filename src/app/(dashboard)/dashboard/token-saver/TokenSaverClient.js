@@ -719,6 +719,7 @@ export default function TokenSaverClient({ initialSettings = null }) {
   const headroomLocalUrl = headroomStatus.localUrl !== false;
   const headroomCanStart = Boolean(headroomStatus.canStart);
   const headroomManaged = headroomLocalUrl && Boolean(headroomStatus.managedPid);
+  const headroomStarting = headroomLocalUrl && !headroomRunning && Boolean(headroomStatus.managedPid);
   const headroomPortLabel = getHeadroomPortLabel(headroomUrl);
   const headroomStatusLabel = headroomStatus.loading
     ? "Đang kiểm tra Proxy…"
@@ -726,11 +727,24 @@ export default function TokenSaverClient({ initialSettings = null }) {
       ? headroomManaged
         ? `Proxy ${headroomPortLabel} đang chạy (9Router)`
         : `Proxy ${headroomPortLabel} đang chạy (bên ngoài)`
-      : headroomLocalUrl && !headroomStatus.installed
-        ? "Chưa cài Headroom"
-        : headroomLocalUrl
-          ? `Proxy ${headroomPortLabel} đang tắt`
-          : `Proxy ngoài (${headroomPortLabel}) chưa kết nối`;
+      : headroomStarting
+        ? `Proxy ${headroomPortLabel} đang khởi động…`
+        : headroomLocalUrl && !headroomStatus.installed
+          ? "Chưa cài Headroom"
+          : headroomLocalUrl
+            ? `Proxy ${headroomPortLabel} đang tắt`
+            : `Proxy ngoài (${headroomPortLabel}) chưa kết nối`;
+
+  // Poll briefly while Headroom proxy spawns and loads ML/Tree-sitter models
+  useEffect(() => {
+    if (!headroomStarting) return;
+    const timer = setInterval(() => {
+      if (!document.hidden) {
+        refreshHeadroomStatus();
+      }
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [headroomStarting, refreshHeadroomStatus]);
 
   const moduleStateMap = {
     rtk: { enabled: rtkEnabled, onToggle: handleRtkEnabled },
@@ -987,7 +1001,7 @@ export default function TokenSaverClient({ initialSettings = null }) {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
                     className={`font-mono text-[11px] font-semibold px-2 py-0.5 rounded border ${
-                      headroomStatus.loading
+                      headroomStatus.loading || headroomStarting
                         ? "border-cyan-500/35 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
                         : headroomRunning
                           ? "border-emerald-500/35 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
@@ -996,10 +1010,30 @@ export default function TokenSaverClient({ initialSettings = null }) {
                   >
                     {headroomStatusLabel}
                   </span>
-                  {!headroomStatus.loading &&
-                    headroomLocalUrl &&
-                    headroomCanStart &&
-                    !headroomRunning && (
+                  {!headroomStatus.loading && (
+                    headroomRunning && headroomManaged ? (
+                      <Button
+                        size="xs"
+                        variant="danger"
+                        icon="stop_circle"
+                        loading={headroomActionLoading}
+                        onClick={handleHeadroomStop}
+                        data-cursor-target="true"
+                      >
+                        {headroomActionLoading ? "Đang dừng…" : "Dừng Proxy"}
+                      </Button>
+                    ) : headroomStarting ? (
+                      <Button
+                        size="xs"
+                        variant="danger"
+                        icon="cancel"
+                        loading={headroomActionLoading}
+                        onClick={handleHeadroomStop}
+                        data-cursor-target="true"
+                      >
+                        {headroomActionLoading ? "Đang hủy…" : "Hủy khởi động"}
+                      </Button>
+                    ) : !headroomRunning && headroomLocalUrl && headroomCanStart ? (
                       <Button
                         size="xs"
                         variant="primary"
@@ -1010,18 +1044,7 @@ export default function TokenSaverClient({ initialSettings = null }) {
                       >
                         {headroomActionLoading ? "Đang khởi động…" : "Khởi động Proxy"}
                       </Button>
-                    )}
-                  {!headroomStatus.loading && headroomManaged && (
-                    <Button
-                      size="xs"
-                      variant="danger"
-                      icon="stop_circle"
-                      loading={headroomActionLoading}
-                      onClick={handleHeadroomStop}
-                      data-cursor-target="true"
-                    >
-                      {headroomActionLoading ? "Đang dừng…" : "Dừng Proxy"}
-                    </Button>
+                    ) : null
                   )}
                   <MagneticButton data-cursor-target="true">
                     <button
@@ -1032,7 +1055,7 @@ export default function TokenSaverClient({ initialSettings = null }) {
                       }}
                       className="font-mono text-xs font-semibold text-primary underline hover:opacity-80 cursor-pointer"
                     >
-                      {headroomRunning ? "Quản lý proxy" : "Cài đặt / Cấu hình"}
+                      {headroomRunning || headroomStarting ? "Quản lý proxy" : "Cài đặt / Cấu hình"}
                     </button>
                   </MagneticButton>
                 </div>
@@ -1171,7 +1194,7 @@ export default function TokenSaverClient({ initialSettings = null }) {
               <div className="flex items-center gap-1.5 text-xs font-bold">
                 <span
                   className={`size-1.5 rounded-full shrink-0 ${
-                    headroomStatus.loading
+                    headroomStatus.loading || headroomStarting
                       ? "bg-cyan-500 animate-pulse"
                       : headroomRunning
                         ? `bg-emerald-500 ${motionPaused ? "" : "animate-pulse"}`
@@ -1180,7 +1203,7 @@ export default function TokenSaverClient({ initialSettings = null }) {
                 />
                 <span
                   className={
-                    headroomStatus.loading
+                    headroomStatus.loading || headroomStarting
                       ? "text-cyan-600 dark:text-cyan-400"
                       : headroomRunning
                         ? "text-emerald-600 dark:text-emerald-400"
@@ -1189,9 +1212,11 @@ export default function TokenSaverClient({ initialSettings = null }) {
                 >
                   {headroomStatus.loading
                     ? "ĐANG KIỂM TRA…"
-                    : headroomRunning
-                      ? "ĐANG CHẠY"
-                      : "ĐANG TẮT"}
+                    : headroomStarting
+                      ? "ĐANG KHỞI ĐỘNG…"
+                      : headroomRunning
+                        ? "ĐANG CHẠY"
+                        : "ĐANG TẮT"}
                 </span>
               </div>
             </div>
@@ -1386,7 +1411,11 @@ export default function TokenSaverClient({ initialSettings = null }) {
             <span>Trạng thái</span>
             <span
               className={`font-mono font-semibold ${
-                headroomRunning ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                headroomRunning
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : headroomStarting
+                    ? "text-cyan-600 dark:text-cyan-400"
+                    : "text-amber-600 dark:text-amber-400"
               }`}
             >
               {headroomStatusLabel}
@@ -1433,7 +1462,7 @@ export default function TokenSaverClient({ initialSettings = null }) {
             <p className="text-sm text-cyan-600 dark:text-cyan-400">
               Đang kiểm tra môi trường Python &amp; Headroom…
             </p>
-          ) : headroomManaged ? (
+          ) : headroomRunning && headroomManaged ? (
             <Button
               onClick={handleHeadroomStop}
               variant="ghost"
@@ -1442,6 +1471,20 @@ export default function TokenSaverClient({ initialSettings = null }) {
             >
               {headroomActionLoading ? "Đang dừng…" : "Dừng Headroom"}
             </Button>
+          ) : headroomStarting ? (
+            <div className="space-y-2">
+              <p className="text-sm text-cyan-600 dark:text-cyan-400">
+                Proxy đang nạp mô hình và mở cổng {headroomPortLabel}…
+              </p>
+              <Button
+                onClick={handleHeadroomStop}
+                variant="danger"
+                fullWidth
+                disabled={headroomActionLoading}
+              >
+                {headroomActionLoading ? "Đang hủy…" : "Hủy khởi động"}
+              </Button>
+            </div>
           ) : headroomRunning ? (
             <p className="text-sm text-emerald-600 dark:text-emerald-400">
               Headroom proxy đã kết nối. Bạn có thể bật tính năng tiết kiệm

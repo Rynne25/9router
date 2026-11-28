@@ -56,7 +56,7 @@ const EXTRA_BINS = IS_WIN
 const EXTENDED_PATH = [...EXTRA_BINS, process.env.PATH || ""].filter(Boolean).join(path.delimiter);
 const PYTHON_CANDIDATES = ["python3.13", "python3.12", "python3.11", "python3.10", "python3", "python"];
 const MIN_VERSION = [3, 10];
-const HEADROOM_HEALTH_TIMEOUT_MS = 600;
+const HEADROOM_HEALTH_TIMEOUT_MS = 1500;
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]", "0.0.0.0"]);
 
 export const DEFAULT_HEADROOM_URL = process.env.HEADROOM_URL || "http://localhost:8787";
@@ -154,10 +154,20 @@ export async function probeProxyRunning(url) {
   const base = String(url).replace(/\/$/, "");
   try {
     const res = await fetch(`${base}/health`, { signal: AbortSignal.timeout(HEADROOM_HEALTH_TIMEOUT_MS) });
-    return res.ok;
+    if (res.ok) return true;
   } catch {
-    return false;
+    // Retry loopback IPv4 when Windows localhost resolves ::1 slowly before proxy binds v4
+    if (/^https?:\/\/localhost(?::\d+)?$/i.test(base)) {
+      const ipv4Base = base.replace(/^(https?:\/\/)localhost/i, "$1127.0.0.1");
+      try {
+        const res = await fetch(`${ipv4Base}/health`, { signal: AbortSignal.timeout(HEADROOM_HEALTH_TIMEOUT_MS) });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    }
   }
+  return false;
 }
 
 export function isLoopbackHeadroomUrl(url) {

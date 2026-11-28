@@ -260,7 +260,10 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   const { title, icon, breadcrumbs } = pageInfo;
   const mitmLive = Boolean(mitmStatus?.running);
   const headroomLive = Boolean(headroomStatus?.running);
-  const showHeadroomPill = headroomLive || Boolean(headroomStatus?.installed && !headroomStatus?.running);
+  const headroomStarting = Boolean(
+    !headroomLive && headroomStatus?.managedPid && headroomStatus?.localUrl !== false
+  );
+  const showHeadroomPill = headroomLive || headroomStarting || Boolean(headroomStatus?.installed);
   const motionLabel = motionPaused ? "Bật hiệu ứng" : "Tạm dừng hiệu ứng";
   const soundLabel = soundEnabled ? "Tắt âm thanh HUD" : "Bật âm thanh HUD";
   const cursorMeta = CURSOR_PRESET_META[cursorPreset] || CURSOR_PRESET_META.reticle;
@@ -397,13 +400,17 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
               title={
                 headroomLive
                   ? "Headroom Proxy đang chạy trên :8787"
-                  : "Headroom Proxy :8787 đang tắt — bấm để cấu hình"
+                  : headroomStarting
+                    ? "Headroom Proxy :8787 đang khởi động…"
+                    : "Headroom Proxy :8787 đang tắt — bấm để cấu hình"
               }
               className={cn(
                 "inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border text-[11px] font-mono font-semibold tracking-tight transition-all",
                 headroomLive
                   ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:border-emerald-400/60 shadow-[0_0_12px_-4px_rgba(16,185,129,0.45)]"
-                  : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:border-amber-400/55"
+                  : headroomStarting
+                    ? "border-cyan-500/35 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 hover:border-cyan-400/55"
+                    : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:border-amber-400/55"
               )}
             >
               <span
@@ -411,12 +418,18 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
                   "size-1.5 rounded-full",
                   headroomLive
                     ? cn("bg-emerald-500", !motionPaused && "animate-pulse")
-                    : "bg-amber-500/80"
+                    : headroomStarting
+                      ? cn("bg-cyan-500", !motionPaused && "animate-pulse")
+                      : "bg-amber-500/80"
                 )}
                 aria-hidden="true"
               />
               <span className="hud-telemetry-num">
-                {headroomLive ? ":8787 CHẠY" : ":8787 TẮT"}
+                {headroomLive
+                  ? ":8787 CHẠY"
+                  : headroomStarting
+                    ? ":8787 ĐANG MỞ"
+                    : ":8787 TẮT"}
               </span>
             </Link>
           )}
