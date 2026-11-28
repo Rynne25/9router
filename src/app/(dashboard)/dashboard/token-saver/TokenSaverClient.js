@@ -826,118 +826,127 @@ export default function TokenSaverClient({ initialSettings = null }) {
     if (!headroomStatus.installed) return null;
 
     return (
-      <div className="mt-3 pt-3 border-t border-cyan-500/15 space-y-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-mono text-[11px] font-semibold text-text-muted">
-            Gói nén mở rộng
-            {headroomExtras.version ? ` · v${headroomExtras.version}` : ""}:
-          </span>
-          {headroomExtras.available.map((extra) => {
-            const installed = Boolean(headroomExtras.extras[extra]);
-            const pending = pendingExtras.includes(extra);
-            const extraTitle =
-              extra === "code"
-                ? "Nén AST bằng tree-sitter cho phản hồi code"
-                : "Mô hình Kompress-v2 HF cho văn bản dài/agent (~+1GB)";
+      <div className="rounded-xl border border-cyan-500/18 bg-black/[0.025] dark:bg-[#050A15]/70 p-3 space-y-2.5">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+              Gói mở rộng{headroomExtras.version ? ` · v${headroomExtras.version}` : ""}
+            </span>
+            {headroomExtras.available.map((extra) => {
+              const installed = Boolean(headroomExtras.extras[extra]);
+              const pending = pendingExtras.includes(extra);
+              const extraTitle =
+                extra === "code"
+                  ? "Nén AST bằng tree-sitter cho phản hồi code (tự restart proxy khi bật/tắt)"
+                  : "Mô hình Kompress-v2 HF cho văn bản dài/agent ~1 GB (tự restart proxy khi bật/tắt)";
 
-            if (installed) {
-              const active = extra === "code" ? codeAware : kompress;
+              if (installed) {
+                const active = extra === "code" ? codeAware : kompress;
+                return (
+                  <div
+                    key={extra}
+                    className="inline-flex items-center gap-1.5 text-xs pl-2 pr-1.5 py-0.5 rounded-md border border-emerald-500/35 bg-emerald-500/10 text-text-main"
+                    title={extraTitle}
+                  >
+                    <Toggle
+                      size="sm"
+                      checked={active}
+                      disabled={restartingProxy}
+                      onChange={() => toggleExtraActive(extra, !active)}
+                    />
+                    <span className="font-mono text-[11px] font-semibold">[{extra}]</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveExtra(extra)}
+                      disabled={removingExtra === extra}
+                      className="inline-flex items-center justify-center size-4 rounded text-rose-600/80 dark:text-rose-400/80 hover:text-rose-500 hover:bg-rose-500/15 disabled:opacity-50 cursor-pointer transition-colors"
+                      aria-label={`Gỡ cài đặt [${extra}]`}
+                      title={`Gỡ cài đặt [${extra}]`}
+                    >
+                      <span className="material-symbols-outlined text-[13px]">
+                        {removingExtra === extra ? "progress_activity" : "close"}
+                      </span>
+                    </button>
+                  </div>
+                );
+              }
+
               return (
-                <div
+                <label
                   key={extra}
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-text-main"
+                  className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-md border cursor-pointer transition-colors ${
+                    pending
+                      ? "border-cyan-500 bg-cyan-500/12 text-cyan-700 dark:text-cyan-300"
+                      : "border-border text-text-muted hover:bg-surface-2"
+                  }`}
                   title={extraTitle}
                 >
-                  <Toggle
-                    size="sm"
-                    checked={active}
-                    disabled={restartingProxy}
-                    onChange={() => toggleExtraActive(extra, !active)}
+                  <input
+                    type="checkbox"
+                    className="w-3 h-3"
+                    checked={pending}
+                    onChange={() => togglePendingExtra(extra)}
                   />
-                  <span className="font-mono font-semibold">[{extra}]</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveExtra(extra)}
-                    disabled={removingExtra === extra}
-                    className="ml-1 font-mono text-[11px] text-rose-600 dark:text-rose-400 underline hover:opacity-80 disabled:opacity-50 cursor-pointer"
-                    title={`Gỡ cài đặt [${extra}]`}
-                  >
-                    {removingExtra === extra ? "Đang gỡ…" : "Gỡ bỏ"}
-                  </button>
-                </div>
+                  <span className="font-mono text-[11px] font-semibold">[{extra}]</span>
+                </label>
               );
-            }
-
-            return (
-              <label
-                key={extra}
-                className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border cursor-pointer transition-colors ${
-                  pending
-                    ? "border-cyan-500 bg-cyan-500/12 text-cyan-700 dark:text-cyan-300"
-                    : "border-border text-text-muted hover:bg-surface-2"
-                }`}
-                title={extraTitle}
-              >
-                <input
-                  type="checkbox"
-                  className="w-3 h-3"
-                  checked={pending}
-                  onChange={() => togglePendingExtra(extra)}
-                />
-                <span className="font-mono font-semibold">[{extra}]</span>
-                <span className="opacity-70">chưa cài</span>
-              </label>
-            );
-          })}
+            })}
+          </div>
           {pendingExtras.length > 0 && (
             <MagneticButton data-cursor-target="true">
               <button
                 type="button"
                 onClick={handleInstallExtras}
                 disabled={extrasActionLoading}
-                className="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-primary text-white hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                className="font-mono text-[11px] font-bold px-2.5 py-1 rounded-md bg-primary text-white hover:opacity-90 disabled:opacity-50 cursor-pointer"
               >
                 {extrasActionLoading
                   ? "Đang cài…"
-                  : `Cài đặt [proxy,${pendingExtras.join(",")}]`}
+                  : `Cài [proxy,${pendingExtras.join(",")}]`}
               </button>
             </MagneticButton>
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-mono text-[11px] font-semibold text-text-muted">
-            Chế độ nén:
-          </span>
-          <div className="inline-flex items-center rounded-md border border-cyan-500/25 bg-black/[0.03] dark:bg-black/35 p-0.5 gap-0.5">
-            {[
-              { id: "cache", label: "Cache (mặc định)", title: "Giữ prefix-cache tối đa cho lượt trước" },
-              { id: "token", label: "Token (nén sâu)", title: "Nén lại các lượt trước để giảm tối đa token (--mode token)" },
-            ].map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                disabled={restartingProxy}
-                onClick={() => handleHeadroomMode(opt.id)}
-                title={opt.title}
-                data-cursor-target="true"
-                className={`px-2 py-0.5 rounded font-mono text-[11px] font-semibold transition-all cursor-pointer disabled:opacity-50 ${
-                  headroomMode === opt.id
-                    ? "bg-primary text-white shadow-2xs"
-                    : "text-text-muted hover:text-text-main hover:bg-white/40 dark:hover:bg-white/[0.06]"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          {headroomTargetRatio && (
-            <span className="font-mono text-[11px] text-cyan-700 dark:text-cyan-300">
-              tỉ lệ: {headroomTargetRatio}
+        <div className="flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-cyan-500/10">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+              Chế độ
             </span>
-          )}
-          <span className="font-mono text-[10.5px] text-emerald-700 dark:text-emerald-400">
-            · Beacon tắt mặc định
+            <div className="inline-flex items-center rounded-md border border-cyan-500/25 bg-black/[0.03] dark:bg-black/35 p-0.5 gap-0.5">
+              {[
+                { id: "cache", label: "Cache (mặc định)", title: "Giữ prefix-cache tối đa cho lượt trước" },
+                { id: "token", label: "Token (nén sâu)", title: "Nén lại các lượt trước để giảm tối đa token (--mode token)" },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={restartingProxy}
+                  onClick={() => handleHeadroomMode(opt.id)}
+                  title={opt.title}
+                  data-cursor-target="true"
+                  className={`px-2 py-0.5 rounded font-mono text-[11px] font-semibold transition-all cursor-pointer disabled:opacity-50 ${
+                    headroomMode === opt.id
+                      ? "bg-primary text-white shadow-2xs"
+                      : "text-text-muted hover:text-text-main hover:bg-white/40 dark:hover:bg-white/[0.06]"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {headroomTargetRatio && (
+              <span className="font-mono text-[11px] text-cyan-700 dark:text-cyan-300">
+                ratio {headroomTargetRatio}
+              </span>
+            )}
+          </div>
+          <span
+            className="inline-flex items-center gap-1 rounded border border-emerald-500/25 bg-emerald-500/8 px-2 py-0.5 font-mono text-[10px] font-semibold text-emerald-700 dark:text-emerald-400"
+            title="HEADROOM_BEACON=off & HEADROOM_TELEMETRY=off"
+          >
+            <span className="material-symbols-outlined text-[12px]">verified_user</span>
+            Beacon tắt mặc định
           </span>
         </div>
 
@@ -965,12 +974,6 @@ export default function TokenSaverClient({ initialSettings = null }) {
             </pre>
           </div>
         )}
-        <p className="text-[11.5px] text-text-muted leading-relaxed">
-          Cài đặt chỉ tải gói; gạt nút <code>bật</code>/<code>tắt</code> để
-          kích hoạt (tự khởi động lại proxy). Mặc định chỉ có{" "}
-          <code>[proxy]</code> (SmartCrusher JSON); thêm <code>[code]</code> để
-          nén AST mã nguồn và <code>[ml]</code> cho mô hình Kompress-v2 (~1 GB).
-        </p>
       </div>
     );
   };
@@ -980,19 +983,163 @@ export default function TokenSaverClient({ initialSettings = null }) {
     const { enabled, onToggle } = moduleStateMap[moduleId];
     const isEmerald = isActive && moduleId === "headroom" && headroomRunning;
     const accent = isEmerald ? "emerald" : "cyan";
-
-    const spanClass =
-      moduleId === "customPrompt" && isActive
-        ? "md:col-span-2 xl:col-span-3"
-        : moduleId === "headroom" && isActive && headroomStatus.installed
-          ? "md:col-span-2"
-          : "";
+    const isHorizontalHeadroom = isActive && moduleId === "headroom";
 
     const activeGlowClass = isActive
       ? isEmerald
         ? "hud-glow-emerald"
         : "hud-glow-cyan"
       : "";
+
+    const renderHeadroomControls = () => (
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className={`font-mono text-[11px] font-semibold px-2 py-0.5 rounded border ${
+              headroomStatus.loading || headroomStarting
+                ? "border-cyan-500/35 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
+                : headroomRunning
+                  ? "border-emerald-500/35 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+                  : "border-amber-500/35 bg-amber-500/12 text-amber-700 dark:text-amber-300"
+            }`}
+          >
+            {headroomStatusLabel}
+          </span>
+          {!headroomStatus.loading && (
+            headroomRunning && headroomManaged ? (
+              <Button
+                size="xs"
+                variant="danger"
+                icon="stop_circle"
+                loading={headroomActionLoading}
+                onClick={handleHeadroomStop}
+                data-cursor-target="true"
+              >
+                {headroomActionLoading ? "Đang dừng…" : "Dừng Proxy"}
+              </Button>
+            ) : headroomStarting ? (
+              <Button
+                size="xs"
+                variant="danger"
+                icon="cancel"
+                loading={headroomActionLoading}
+                onClick={handleHeadroomStop}
+                data-cursor-target="true"
+              >
+                {headroomActionLoading ? "Đang hủy…" : "Hủy khởi động"}
+              </Button>
+            ) : !headroomRunning && headroomLocalUrl && headroomCanStart ? (
+              <Button
+                size="xs"
+                variant="primary"
+                icon="play_arrow"
+                loading={headroomActionLoading}
+                onClick={handleHeadroomStart}
+                data-cursor-target="true"
+              >
+                {headroomActionLoading ? "Đang khởi động…" : "Khởi động Proxy"}
+              </Button>
+            ) : null
+          )}
+          <MagneticButton data-cursor-target="true">
+            <button
+              type="button"
+              onClick={() => {
+                playHudSound("click");
+                setShowHeadroomInstallModal(true);
+              }}
+              className="font-mono text-xs font-semibold text-primary underline hover:opacity-80 cursor-pointer"
+            >
+              {headroomRunning || headroomStarting ? "Quản lý proxy" : "Cài đặt / Cấu hình"}
+            </button>
+          </MagneticButton>
+        </div>
+        {headroomActionError && (
+          <p className="text-xs text-rose-600 dark:text-rose-400">
+            {headroomActionError}
+          </p>
+        )}
+      </div>
+    );
+
+    const renderCardHeader = () => (
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+          <div
+            className={`size-9 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 ${
+              isActive
+                ? isEmerald
+                  ? "border-emerald-500/40 bg-emerald-500/12 text-emerald-600 dark:text-emerald-300"
+                  : "border-cyan-500/40 bg-cyan-500/12 text-cyan-600 dark:text-cyan-300"
+                : "border-border bg-surface-2 text-text-muted"
+            }`}
+          >
+            <span className="material-symbols-outlined text-[19px]">
+              {meta.icon}
+            </span>
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-sm sm:text-[15px] text-text-main leading-snug">
+              {meta.title}{" "}
+              {meta.href ? (
+                <a
+                  href={meta.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-mono font-normal text-primary underline hover:opacity-80"
+                >
+                  ({meta.shortName})
+                </a>
+              ) : null}
+            </h3>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+              <SavingsBadge
+                label={meta.savingsLabel}
+                active={isActive}
+                emerald={isEmerald}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="shrink-0 pt-0.5" data-cursor-target="true">
+          <Toggle
+            checked={enabled}
+            onChange={(nextVal) => onToggle(nextVal)}
+          />
+        </div>
+      </div>
+    );
+
+    if (isHorizontalHeadroom) {
+      return (
+        <HudFrame
+          key={moduleId}
+          chamfer="sm"
+          accent={accent}
+          padding="md"
+          borderBeam={true}
+          data-cursor-target="true"
+          className={activeGlowClass}
+        >
+          <div className="flex flex-col gap-3">
+            {renderCardHeader()}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-center">
+              <div className="lg:col-span-5 space-y-2.5">
+                <p className="text-xs sm:text-[13px] text-text-muted leading-relaxed">
+                  {meta.description}
+                </p>
+                {renderHeadroomControls()}
+              </div>
+              <div className="lg:col-span-7">
+                {renderHeadroomExtras()}
+              </div>
+            </div>
+          </div>
+        </HudFrame>
+      );
+    }
 
     return (
       <HudFrame
@@ -1004,232 +1151,128 @@ export default function TokenSaverClient({ initialSettings = null }) {
         borderBeam={isActive}
         tilt={isActive}
         data-cursor-target={isActive ? "true" : undefined}
-        className={`h-full ${spanClass} ${activeGlowClass}`}
+        className={`h-full ${activeGlowClass}`}
       >
-        <div className="flex h-full flex-col justify-between gap-3">
-          <div className="space-y-3">
-            {/* Header row */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                <div
-                  className={`size-9 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 ${
-                    isActive
-                      ? isEmerald
-                        ? "border-emerald-500/40 bg-emerald-500/12 text-emerald-600 dark:text-emerald-300"
-                        : "border-cyan-500/40 bg-cyan-500/12 text-cyan-600 dark:text-cyan-300"
-                      : "border-border bg-surface-2 text-text-muted"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[19px]">
-                    {meta.icon}
-                  </span>
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-sm sm:text-[15px] text-text-main leading-snug">
-                      {meta.title}{" "}
-                      {meta.href ? (
-                        <a
-                          href={meta.href}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs font-mono font-normal text-primary underline hover:opacity-80"
-                        >
-                          ({meta.shortName})
-                        </a>
-                      ) : null}
-                    </h3>
-                  </div>
-
-                  <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                    <SavingsBadge
-                      label={meta.savingsLabel}
-                      active={isActive}
-                      emerald={isEmerald}
-                    />
-                    <CompatibilityBadge type={meta.compatibility} />
-                    {isActive && (
-                      <span
-                        className={`inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                          isEmerald
-                            ? "text-emerald-700 dark:text-emerald-300 bg-emerald-500/10"
-                            : "text-cyan-700 dark:text-cyan-300 bg-cyan-500/10"
-                        }`}
-                      >
-                        <span
-                          className={`size-1.5 rounded-full ${
-                            isEmerald ? "bg-emerald-500" : "bg-cyan-500"
-                          } ${motionPaused ? "" : "animate-pulse"}`}
-                        />
-                        ĐANG BẬT
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="shrink-0 pt-0.5" data-cursor-target="true">
-                <Toggle
-                  checked={enabled}
-                  onChange={(nextVal) => onToggle(nextVal)}
-                />
-              </div>
-            </div>
-
+        <div className="flex h-full flex-col justify-between gap-3.5">
+          <div className="space-y-2.5">
+            {renderCardHeader()}
             <p className="text-xs sm:text-[13px] text-text-muted leading-relaxed">
               {meta.description}
             </p>
-
-            {/* Module-specific inline controls */}
-            {moduleId === "headroom" && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span
-                    className={`font-mono text-[11px] font-semibold px-2 py-0.5 rounded border ${
-                      headroomStatus.loading || headroomStarting
-                        ? "border-cyan-500/35 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
-                        : headroomRunning
-                          ? "border-emerald-500/35 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-                          : "border-amber-500/35 bg-amber-500/12 text-amber-700 dark:text-amber-300"
-                    }`}
-                  >
-                    {headroomStatusLabel}
-                  </span>
-                  {!headroomStatus.loading && (
-                    headroomRunning && headroomManaged ? (
-                      <Button
-                        size="xs"
-                        variant="danger"
-                        icon="stop_circle"
-                        loading={headroomActionLoading}
-                        onClick={handleHeadroomStop}
-                        data-cursor-target="true"
-                      >
-                        {headroomActionLoading ? "Đang dừng…" : "Dừng Proxy"}
-                      </Button>
-                    ) : headroomStarting ? (
-                      <Button
-                        size="xs"
-                        variant="danger"
-                        icon="cancel"
-                        loading={headroomActionLoading}
-                        onClick={handleHeadroomStop}
-                        data-cursor-target="true"
-                      >
-                        {headroomActionLoading ? "Đang hủy…" : "Hủy khởi động"}
-                      </Button>
-                    ) : !headroomRunning && headroomLocalUrl && headroomCanStart ? (
-                      <Button
-                        size="xs"
-                        variant="primary"
-                        icon="play_arrow"
-                        loading={headroomActionLoading}
-                        onClick={handleHeadroomStart}
-                        data-cursor-target="true"
-                      >
-                        {headroomActionLoading ? "Đang khởi động…" : "Khởi động Proxy"}
-                      </Button>
-                    ) : null
-                  )}
-                  <MagneticButton data-cursor-target="true">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        playHudSound("click");
-                        setShowHeadroomInstallModal(true);
-                      }}
-                      className="font-mono text-xs font-semibold text-primary underline hover:opacity-80 cursor-pointer"
-                    >
-                      {headroomRunning || headroomStarting ? "Quản lý proxy" : "Cài đặt / Cấu hình"}
-                    </button>
-                  </MagneticButton>
-                </div>
-                {headroomActionError && (
-                  <p className="text-xs text-rose-600 dark:text-rose-400">
-                    {headroomActionError}
-                  </p>
-                )}
-                {renderHeadroomExtras()}
-              </div>
-            )}
-
-            {moduleId === "caveman" && (
-              <div className="pt-1">
-                <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted">
-                  Mức độ nén đầu ra
-                </div>
-                <LevelSelectorPills
-                  levels={visibleCavemanLevels}
-                  value={cavemanLevel}
-                  onChange={handleCavemanLevel}
-                  compact={!isActive}
-                />
-              </div>
-            )}
-
-            {moduleId === "ponytail" && (
-              <div className="pt-1">
-                <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted">
-                  Mức độ tối giản code
-                </div>
-                <LevelSelectorPills
-                  levels={PONYTAIL_LEVELS}
-                  value={ponytailLevel}
-                  onChange={handlePonytailLevel}
-                  compact={!isActive}
-                />
-              </div>
-            )}
-
-            {moduleId === "customPrompt" && (
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between gap-2">
-                  <label
-                    htmlFor={`custom-prompt-${isActive ? "active" : "idle"}`}
-                    className="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted"
-                  >
-                    Nội dung chỉ thị hệ thống
-                  </label>
-                  <div className="flex items-center gap-2">
-                    {promptSavedHint && (
-                      <span className="font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                        Đã lưu
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        playHudSound("confirm");
-                        handleCustomPromptSave();
-                      }}
-                      className="font-mono text-[11px] font-semibold text-primary underline hover:opacity-80 cursor-pointer"
-                    >
-                      Lưu nhanh
-                    </button>
-                  </div>
-                </div>
-                <textarea
-                  id={`custom-prompt-${isActive ? "active" : "idle"}`}
-                  aria-label="System prompt tùy chỉnh"
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  onBlur={handleCustomPromptSave}
-                  rows={isActive ? 4 : 3}
-                  placeholder="Ví dụ: Ưu tiên sửa trực tiếp file hiện có thay vì tạo file mới."
-                  className="w-full rounded-lg border border-cyan-500/25 bg-white/60 dark:bg-[#060C19]/80 p-2.5 font-mono text-xs text-text-main focus:outline-none focus:border-cyan-500"
-                />
-                <p className="text-[11.5px] text-text-muted">
-                  Áp dụng cho mọi nhà cung cấp và model. Tự động lưu khi rời ô
-                  hoặc nhấn Lưu nhanh.
-                </p>
-              </div>
-            )}
           </div>
+
+          {moduleId === "rtk" && (
+            <div className="pt-2.5 border-t border-cyan-500/12 space-y-1.5">
+              <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                Bộ lọc đang bật (20)
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-text-muted">
+                {["Git", "Pytest / Cargo / Go", "TS / Mypy / Ruff", "Logs"].map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded border border-cyan-500/20 bg-cyan-500/[0.06] px-2 py-0.5 text-cyan-700 dark:text-cyan-300"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {moduleId === "headroom" && (
+            <div className="pt-2.5 border-t border-cyan-500/12 space-y-2">
+              {renderHeadroomControls()}
+              {renderHeadroomExtras()}
+            </div>
+          )}
+
+          {moduleId === "caveman" && (
+            <div className="pt-2.5 border-t border-cyan-500/12">
+              <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                Mức độ nén đầu ra
+              </div>
+              <LevelSelectorPills
+                levels={visibleCavemanLevels}
+                value={cavemanLevel}
+                onChange={handleCavemanLevel}
+                compact={!isActive}
+              />
+            </div>
+          )}
+
+          {moduleId === "ponytail" && (
+            <div className="pt-2.5 border-t border-cyan-500/12">
+              <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                Mức độ tối giản code
+              </div>
+              <LevelSelectorPills
+                levels={PONYTAIL_LEVELS}
+                value={ponytailLevel}
+                onChange={handlePonytailLevel}
+                compact={!isActive}
+              />
+            </div>
+          )}
+
+          {moduleId === "customPrompt" && (
+            <div className="space-y-1.5 pt-2.5 border-t border-cyan-500/12">
+              <div className="flex items-center justify-between gap-2">
+                <label
+                  htmlFor={`custom-prompt-${isActive ? "active" : "idle"}`}
+                  className="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted"
+                >
+                  Nội dung chỉ thị hệ thống
+                </label>
+                <div className="flex items-center gap-2">
+                  {promptSavedHint && (
+                    <span className="font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                      Đã lưu
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playHudSound("confirm");
+                      handleCustomPromptSave();
+                    }}
+                    className="font-mono text-[11px] font-semibold text-primary underline hover:opacity-80 cursor-pointer"
+                  >
+                    Lưu nhanh
+                  </button>
+                </div>
+              </div>
+              <textarea
+                id={`custom-prompt-${isActive ? "active" : "idle"}`}
+                aria-label="System prompt tùy chỉnh"
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                onBlur={handleCustomPromptSave}
+                rows={isActive ? 4 : 3}
+                placeholder="Ví dụ: Ưu tiên sửa trực tiếp file hiện có thay vì tạo file mới."
+                className="w-full rounded-lg border border-cyan-500/25 bg-white/60 dark:bg-[#060C19]/80 p-2.5 font-mono text-xs text-text-main focus:outline-none focus:border-cyan-500"
+              />
+              <p className="text-[11.5px] text-text-muted">
+                Áp dụng cho mọi nhà cung cấp và model. Tự động lưu khi rời ô
+                hoặc nhấn Lưu nhanh.
+              </p>
+            </div>
+          )}
         </div>
       </HudFrame>
     );
   };
+
+  const hasActiveHeadroom = activeModules.includes("headroom");
+  const hasActiveCustomPrompt = activeModules.includes("customPrompt");
+  const activeCompactModules = activeModules.filter(
+    (id) => id !== "headroom" && id !== "customPrompt"
+  );
+  const compactGridClass =
+    activeCompactModules.length === 1
+      ? "grid grid-cols-1 gap-3.5"
+      : activeCompactModules.length === 2
+        ? "grid grid-cols-1 md:grid-cols-2 gap-3.5"
+        : "grid grid-cols-1 md:grid-cols-3 gap-3.5";
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -1395,8 +1438,14 @@ export default function TokenSaverClient({ initialSettings = null }) {
             </div>
           </HudFrame>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {activeModules.map((id) => renderModuleCard(id, true))}
+          <div className="space-y-3.5">
+            {hasActiveHeadroom && renderModuleCard("headroom", true)}
+            {activeCompactModules.length > 0 && (
+              <div className={compactGridClass}>
+                {activeCompactModules.map((id) => renderModuleCard(id, true))}
+              </div>
+            )}
+            {hasActiveCustomPrompt && renderModuleCard("customPrompt", true)}
           </div>
         )}
       </section>
