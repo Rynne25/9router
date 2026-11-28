@@ -42,6 +42,11 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
+  onDemandEntries: {
+    // Keep compiled dev pages in memory longer to avoid recompiling on tab switches
+    maxInactiveAge: 1000 * 60 * 30,
+    pagesBufferLength: 30,
+  },
   env: {},
   experimental: {
     // #1529/#1572: LLM clients can send long context or base64 image payloads through /v1 rewrites.
@@ -49,12 +54,16 @@ const nextConfig = {
     // Cache fetch responses across HMR refreshes for faster dev reloads.
     serverComponentsHmrCache: true,
     // Tree-shake heavy barrel imports to cut compile + bundle size
-    optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable", "material-symbols", "marked"],
+    optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable", "material-symbols", "marked", "recharts"],
     // Smart packaging memory optimizations (1 page at a time to prevent RAM spikes)
     webpackMemoryOptimizations: true,
     staticGenerationMaxConcurrency: 1,
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
+    // Fast dev rebuilds without giant source maps
+    if (dev && !isServer) {
+      config.devtool = "eval";
+    }
     // Ignore fs/path modules in browser bundle
     if (!isServer) {
       config.resolve.fallback = {
@@ -67,9 +76,25 @@ const nextConfig = {
     config.watchOptions = {
       ...config.watchOptions,
       aggregateTimeout: 300,
-      ignored: /[\\/](node_modules|\.git|logs|\.next|\.next-cli-build|gitbook|cli|open-sse\.old|tests|docs)[\\/]/,
+      ignored: /[\\/](node_modules|\.git|logs|\.next|\.next-verify|\.next-cli-build|gitbook|cli|open-sse\.old|tests|docs)[\\/]/,
     };
     return config;
+  },
+  async headers() {
+    return [
+      {
+        source: "/providers/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
+        source: "/favicon.svg",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
+        source: "/i18n/literals/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=86400" }],
+      },
+    ];
   },
   async rewrites() {
     return [

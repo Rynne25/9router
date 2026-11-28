@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardSkeleton, ConfirmModal } from "@/shared/components";
+import Card from "@/shared/components/Card";
+import { CardSkeleton } from "@/shared/components/Loading";
+import { ConfirmModal } from "@/shared/components/Modal";
 import { useNotificationStore } from "@/store/notificationStore";
 import { useProxyPools } from "./hooks/useProxyPools";
 import { useProxyHealthCheck } from "./hooks/useProxyHealthCheck";
@@ -17,16 +19,17 @@ export default function ProxyPoolsPage() {
   const [showBatchImportModal, setShowBatchImportModal] = useState(false);
 
   const pools = useProxyPools({ notify });
+  const refreshProxyPools = () => pools.fetchProxyPools(true);
   const healthCheck = useProxyHealthCheck({
     visiblePools: pools.visiblePools,
     selectedIds: pools.selectedIds,
-    fetchProxyPools: pools.fetchProxyPools,
+    fetchProxyPools: refreshProxyPools,
     setBulkBusy: pools.setBulkBusy,
     setConfirmState: pools.setConfirmState,
     notify,
   });
   const relayDeploy = useRelayDeploy({
-    onSuccess: pools.fetchProxyPools,
+    onSuccess: refreshProxyPools,
     notify,
   });
 
@@ -96,7 +99,7 @@ export default function ProxyPoolsPage() {
         isOpen={showBatchImportModal}
         onClose={() => setShowBatchImportModal(false)}
         proxyPools={pools.proxyPools}
-        onSuccess={pools.fetchProxyPools}
+        onSuccess={refreshProxyPools}
       />
 
       <RelayDeployModal

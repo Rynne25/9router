@@ -412,13 +412,14 @@ function ConnectionRow({
   return (
     <div
       style={
-        isLongList
+        isLongList && !showProxyDropdown && !showBlockedModal
           ? { contentVisibility: "auto", containIntrinsicSize: "auto 76px" }
           : undefined
       }
       className={cn(
         "group relative flex min-w-0 flex-col gap-3 rounded-xl border border-transparent p-2.5 transition-all duration-200 sm:flex-row sm:items-center sm:justify-between",
         "hover:border-cyan-500/30 hover:bg-cyan-500/[0.03] dark:hover:border-cyan-400/30 dark:hover:bg-cyan-400/[0.04]",
+        showProxyDropdown && "z-30",
         connection.isActive === false && "opacity-60"
       )}
     >

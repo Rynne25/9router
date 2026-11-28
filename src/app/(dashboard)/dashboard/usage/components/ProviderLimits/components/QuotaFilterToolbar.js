@@ -231,7 +231,7 @@ export default function QuotaFilterToolbar({
           <span className="material-symbols-outlined text-[15px]">
             {autoRefresh ? "toggle_on" : "toggle_off"}
           </span>
-          <span className="hidden sm:inline">Auto</span>
+          <span className="hidden sm:inline">Tự động</span>
           {autoRefresh && (
             <span className="rounded-md bg-primary/15 px-1 py-0.2 text-[9.5px] font-bold tabular-nums">
               {countdown}s

@@ -1,8 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Button, Input, Modal, Toggle, ConfirmModal } from "@/shared/components";
-import { HudFrame, NumberTicker, MagneticButton } from "@/shared/components/hud";
+import Button from "@/shared/components/Button";
+import Input from "@/shared/components/Input";
+import Modal, { ConfirmModal } from "@/shared/components/Modal";
+import Toggle from "@/shared/components/Toggle";
+import HudFrame from "@/shared/components/hud/HudFrame";
+import NumberTicker from "@/shared/components/hud/NumberTicker";
+import MagneticButton from "@/shared/components/hud/MagneticButton";
 import { useHudPrefs } from "@/shared/hooks/useHudPrefs";
 import { playHudSound } from "@/shared/utils/hudAudio";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
@@ -73,6 +78,16 @@ const MODULE_META = {
 };
 
 const MODULE_ORDER = ["rtk", "headroom", "caveman", "ponytail", "customPrompt"];
+
+function getHeadroomPortLabel(url) {
+  try {
+    const parsed = new URL(url || "http://localhost:8787");
+    const port = parsed.port || (parsed.protocol === "https:" ? "443" : "8787");
+    return `:${port}`;
+  } catch {
+    return ":8787";
+  }
+}
 
 function CompatibilityBadge({ type }) {
   if (type === "claude") {
@@ -193,21 +208,30 @@ export default function TokenSaverClient({ initialSettings = null }) {
     seedSettings?.claudeCacheTtl === "1h" ? "1h" : "5m"
   );
 
-  const [headroomStatus, setHeadroomStatus] = useState({
-    installed: false,
-    running: false,
-    python: null,
-    loading: true,
+  const [headroomStatus, setHeadroomStatus] = useState(() => {
+    const cached = getCachedData("/api/headroom/status");
+    if (cached && typeof cached === "object") {
+      return { ...cached, loading: false };
+    }
+    return {
+      installed: false,
+      running: false,
+      python: null,
+      loading: true,
+    };
   });
   const [showHeadroomInstallModal, setShowHeadroomInstallModal] =
     useState(false);
   const [headroomActionLoading, setHeadroomActionLoading] = useState(false);
   const [headroomActionError, setHeadroomActionError] = useState("");
-  const [headroomExtras, setHeadroomExtras] = useState({
-    version: null,
-    extras: { code: false, ml: false },
-    available: ["code", "ml"],
-    loading: false,
+  const [headroomExtras, setHeadroomExtras] = useState(() => {
+    const cached = getCachedData("/api/headroom/status");
+    return {
+      version: cached?.version ?? null,
+      extras: cached?.extras || { code: false, ml: false },
+      available: ["code", "ml"],
+      loading: false,
+    };
   });
   const [pendingExtras, setPendingExtras] = useState([]);
   const [extrasActionLoading, setExtrasActionLoading] = useState(false);
@@ -296,13 +320,6 @@ export default function TokenSaverClient({ initialSettings = null }) {
     patchSetting({ cavemanEnabled: value });
   };
 
-  const handleHeadroomEnabled = (value) => {
-    const nextUrl = headroomUrl.trim() || "http://localhost:8787";
-    setHeadroomUrl(nextUrl);
-    setHeadroomEnabled(value);
-    patchSetting({ headroomEnabled: value, headroomUrl: nextUrl });
-  };
-
   const handleEnableRecommended = () => {
     playHudSound("confirm");
     setRtkEnabledState(true);
@@ -310,13 +327,16 @@ export default function TokenSaverClient({ initialSettings = null }) {
     patchSetting({ rtkEnabled: true, cavemanEnabled: true });
   };
 
-  const refreshHeadroomStatus = useCallback(async () => {
-    setHeadroomStatus((s) => (s.loading ? s : { ...s, loading: true }));
+  const refreshHeadroomStatus = useCallback(async ({ force = false } = {}) => {
+    if (force || !getCachedData("/api/headroom/status")) {
+      setHeadroomStatus((s) => (s.loading ? s : { ...s, loading: true }));
+    }
     try {
-      const res = await fetch("/api/headroom/status", {
+      const res = await fetch(`/api/headroom/status${force ? "?refresh=1" : ""}`, {
         headers: { "Cache-Control": "no-store" },
       });
       const data = await res.json();
+      setCachedData("/api/headroom/status", data);
       setHeadroomStatus({ ...data, loading: false });
       if (!data?.installed) {
         setHeadroomExtras({
@@ -328,8 +348,19 @@ export default function TokenSaverClient({ initialSettings = null }) {
         setPendingExtras([]);
         return;
       }
+      if (data.extras && typeof data.extras === "object") {
+        setHeadroomExtras((s) => ({
+          ...s,
+          version: data.version ?? null,
+          extras: data.extras,
+          available: ["code", "ml"],
+          loading: false,
+        }));
+        setPendingExtras([]);
+        return;
+      }
       try {
-        const er = await fetch("/api/headroom/extras", {
+        const er = await fetch(`/api/headroom/extras${force ? "?refresh=1" : ""}`, {
           headers: { "Cache-Control": "no-store" },
         });
         if (!er.ok) throw new Error("extras status failed");
@@ -368,13 +399,6 @@ export default function TokenSaverClient({ initialSettings = null }) {
     }
   }, []);
 
-  const handleHeadroomUrlBlur = async () => {
-    const next = headroomUrl.trim() || "http://localhost:8787";
-    setHeadroomUrl(next);
-    await patchSetting({ headroomUrl: next });
-    refreshHeadroomStatus();
-  };
-
   const handleHeadroomStart = useCallback(async () => {
     setHeadroomActionError("");
     setHeadroomActionLoading(true);
@@ -383,7 +407,7 @@ export default function TokenSaverClient({ initialSettings = null }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Không thể khởi động proxy");
       playHudSound("confirm");
-      await refreshHeadroomStatus();
+      await refreshHeadroomStatus({ force: true });
     } catch (e) {
       playHudSound("alert");
       setHeadroomActionError(e.message);
@@ -393,15 +417,41 @@ export default function TokenSaverClient({ initialSettings = null }) {
   }, [refreshHeadroomStatus]);
 
   const handleHeadroomStop = useCallback(async () => {
+    setHeadroomActionError("");
     setHeadroomActionLoading(true);
     try {
-      await fetch("/api/headroom/stop", { method: "POST" });
+      const res = await fetch("/api/headroom/stop", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Không thể dừng proxy");
       playHudSound("toggle");
-      await refreshHeadroomStatus();
+      await refreshHeadroomStatus({ force: true });
+    } catch (e) {
+      playHudSound("alert");
+      setHeadroomActionError(e.message);
     } finally {
       setHeadroomActionLoading(false);
     }
   }, [refreshHeadroomStatus]);
+
+  const handleHeadroomEnabled = async (value) => {
+    const nextUrl = headroomUrl.trim() || "http://localhost:8787";
+    setHeadroomUrl(nextUrl);
+    setHeadroomEnabled(value);
+    await patchSetting({ headroomEnabled: value, headroomUrl: nextUrl });
+    const isLocal = headroomStatus.localUrl !== false;
+    const canStart = Boolean(headroomStatus.canStart);
+    const isRunning = Boolean(headroomStatus.running);
+    if (value === true && isLocal && canStart && !isRunning && !headroomActionLoading) {
+      await handleHeadroomStart();
+    }
+  };
+
+  const handleHeadroomUrlBlur = async () => {
+    const next = headroomUrl.trim() || "http://localhost:8787";
+    setHeadroomUrl(next);
+    await patchSetting({ headroomUrl: next });
+    refreshHeadroomStatus();
+  };
 
   const togglePendingExtra = (extra) => {
     playHudSound("click");
@@ -669,17 +719,18 @@ export default function TokenSaverClient({ initialSettings = null }) {
   const headroomLocalUrl = headroomStatus.localUrl !== false;
   const headroomCanStart = Boolean(headroomStatus.canStart);
   const headroomManaged = headroomLocalUrl && Boolean(headroomStatus.managedPid);
+  const headroomPortLabel = getHeadroomPortLabel(headroomUrl);
   const headroomStatusLabel = headroomStatus.loading
-    ? "Đang kiểm tra…"
+    ? "Đang kiểm tra Proxy…"
     : headroomRunning
       ? headroomManaged
-        ? "Đang chạy (9Router quản lý)"
-        : "Đang chạy (bên ngoài)"
+        ? `Proxy ${headroomPortLabel} đang chạy (9Router)`
+        : `Proxy ${headroomPortLabel} đang chạy (bên ngoài)`
       : headroomLocalUrl && !headroomStatus.installed
-        ? "Chưa cài đặt"
+        ? "Chưa cài Headroom"
         : headroomLocalUrl
-          ? "Đang tắt"
-          : "Bên ngoài";
+          ? `Proxy ${headroomPortLabel} đang tắt`
+          : `Proxy ngoài (${headroomPortLabel}) chưa kết nối`;
 
   const moduleStateMap = {
     rtk: { enabled: rtkEnabled, onToggle: handleRtkEnabled },
@@ -945,6 +996,33 @@ export default function TokenSaverClient({ initialSettings = null }) {
                   >
                     {headroomStatusLabel}
                   </span>
+                  {!headroomStatus.loading &&
+                    headroomLocalUrl &&
+                    headroomCanStart &&
+                    !headroomRunning && (
+                      <Button
+                        size="xs"
+                        variant="primary"
+                        icon="play_arrow"
+                        loading={headroomActionLoading}
+                        onClick={handleHeadroomStart}
+                        data-cursor-target="true"
+                      >
+                        {headroomActionLoading ? "Đang khởi động…" : "Khởi động Proxy"}
+                      </Button>
+                    )}
+                  {!headroomStatus.loading && headroomManaged && (
+                    <Button
+                      size="xs"
+                      variant="danger"
+                      icon="stop_circle"
+                      loading={headroomActionLoading}
+                      onClick={handleHeadroomStop}
+                      data-cursor-target="true"
+                    >
+                      {headroomActionLoading ? "Đang dừng…" : "Dừng Proxy"}
+                    </Button>
+                  )}
                   <MagneticButton data-cursor-target="true">
                     <button
                       type="button"
@@ -958,6 +1036,11 @@ export default function TokenSaverClient({ initialSettings = null }) {
                     </button>
                   </MagneticButton>
                 </div>
+                {headroomActionError && (
+                  <p className="text-xs text-rose-600 dark:text-rose-400">
+                    {headroomActionError}
+                  </p>
+                )}
                 {renderHeadroomExtras()}
               </div>
             )}
@@ -1346,7 +1429,11 @@ export default function TokenSaverClient({ initialSettings = null }) {
               Giới hạn thời gian chờ mỗi yêu cầu (mili-giây). Mặc định 3000 ms.
             </p>
           </div>
-          {headroomManaged ? (
+          {headroomStatus.loading ? (
+            <p className="text-sm text-cyan-600 dark:text-cyan-400">
+              Đang kiểm tra môi trường Python &amp; Headroom…
+            </p>
+          ) : headroomManaged ? (
             <Button
               onClick={handleHeadroomStop}
               variant="ghost"
@@ -1406,7 +1493,7 @@ export default function TokenSaverClient({ initialSettings = null }) {
           )}
           <div className="flex gap-2">
             <Button
-              onClick={() => refreshHeadroomStatus()}
+              onClick={() => refreshHeadroomStatus({ force: true })}
               variant="ghost"
               fullWidth
             >

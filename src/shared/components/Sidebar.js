@@ -17,6 +17,7 @@ import HeaderLanguage from "./HeaderLanguage";
 import HeaderMenu from "./HeaderMenu";
 
 const VISIBLE_MEDIA_KINDS = ["embedding", "image", "video", "tts", "stt", "systemone"];
+const IS_DEV = process.env.NODE_ENV === "development";
 const COMBINED_WEB_ITEM = {
   id: "web",
   label: "Web Fetch & Search",
@@ -209,6 +210,7 @@ function Sidebar({ onClose }) {
 
   const prefetchRoute = useCallback(
     (href) => {
+      if (IS_DEV) return;
       try {
         router.prefetch(href);
       } catch {
@@ -228,8 +230,8 @@ function Sidebar({ onClose }) {
       <Link
         key={item.href}
         href={item.href}
-        prefetch={true}
-        onMouseEnter={() => prefetchRoute(item.href)}
+        prefetch={IS_DEV ? false : true}
+        onMouseEnter={IS_DEV ? undefined : () => prefetchRoute(item.href)}
         onClick={handleNavClick}
         title={isCollapsed ? item.label : undefined}
         className={cn(
@@ -284,6 +286,7 @@ function Sidebar({ onClose }) {
         >
           <Link
             href="/dashboard"
+            prefetch={IS_DEV ? false : undefined}
             onClick={handleNavClick}
             title={isCollapsed ? `${APP_CONFIG.name} v${APP_CONFIG.version}` : undefined}
             className={cn("flex items-center gap-2 min-w-0", isCollapsed && "justify-center")}
@@ -433,6 +436,7 @@ function Sidebar({ onClose }) {
                 {isCollapsed ? (
                   <Link
                     href="/dashboard/media-providers/embedding"
+                    prefetch={IS_DEV ? false : undefined}
                     onClick={handleNavClick}
                     title="Media Providers"
                     className={cn(
@@ -476,6 +480,7 @@ function Sidebar({ onClose }) {
                             <Link
                               key={kind.id}
                               href={`/dashboard/media-providers/${kind.id}`}
+                              prefetch={IS_DEV ? false : undefined}
                               onClick={handleNavClick}
                               className={cn(
                                 "flex items-center gap-2 h-7 px-2 rounded-md text-xs transition-colors",
@@ -492,6 +497,7 @@ function Sidebar({ onClose }) {
                         <Link
                           key={COMBINED_WEB_ITEM.id}
                           href={COMBINED_WEB_ITEM.href}
+                          prefetch={IS_DEV ? false : undefined}
                           onClick={handleNavClick}
                           className={cn(
                             "flex items-center gap-2 h-7 px-2 rounded-md text-xs transition-colors",
@@ -525,8 +531,8 @@ function Sidebar({ onClose }) {
         >
           <Link
             href="/dashboard/profile"
-            prefetch={true}
-            onMouseEnter={() => prefetchRoute("/dashboard/profile")}
+            prefetch={IS_DEV ? false : true}
+            onMouseEnter={IS_DEV ? undefined : () => prefetchRoute("/dashboard/profile")}
             onClick={handleNavClick}
             title={isCollapsed ? "Settings" : undefined}
             className={cn(

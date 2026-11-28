@@ -355,8 +355,6 @@ export function FlowBeam({
   const isPaused = Boolean(paused || motionPaused);
   const gradId = useId();
   const vertGradId = useId();
-  const filterId = useId();
-  const vertFilterId = useId();
 
   const colors = BEAM_COLORS[accent] || BEAM_COLORS.cyan;
   const viewWidth = compact ? 56 : 84;
@@ -387,13 +385,6 @@ export function FlowBeam({
               <stop offset="50%" stopColor={colors.secondary} stopOpacity="1" />
               <stop offset="100%" stopColor={colors.primary} stopOpacity="0.38" />
             </linearGradient>
-            <filter id={filterId} x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="2" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
           </defs>
 
           <path
@@ -426,10 +417,9 @@ export function FlowBeam({
               d={topCurve}
               fill="none"
               stroke={colors.primary}
-              strokeOpacity={highlighted ? "0.4" : "0.26"}
+              strokeOpacity={highlighted ? "0.35" : "0.22"}
               strokeWidth={highlighted ? "5.5" : "4.5"}
               strokeLinecap="round"
-              filter={`url(#${filterId})`}
             />
           )}
 
@@ -440,7 +430,6 @@ export function FlowBeam({
             strokeWidth={active || highlighted ? "2.5" : "1.45"}
             strokeLinecap="round"
             strokeDasharray="12 16"
-            filter={active || highlighted ? `url(#${filterId})` : undefined}
             className={cn(
               (active || highlighted) && !isPaused ? "hud-flow-beam-active" : "opacity-35"
             )}
@@ -459,10 +448,10 @@ export function FlowBeam({
 
           {(active || highlighted) && !isPaused && (
             <g className="hud-flow-packet">
-              <circle r="4.2" fill={colors.primary} fillOpacity="0.28">
+              <circle r="4.5" fill={colors.primary} fillOpacity="0.24">
                 <animateMotion dur={packetDur} repeatCount="indefinite" path={topCurve} />
               </circle>
-              <circle r="2.2" fill={colors.secondary} filter={`url(#${filterId})`}>
+              <circle r="2.2" fill={colors.secondary}>
                 <animateMotion dur={packetDur} repeatCount="indefinite" path={topCurve} />
               </circle>
               <circle r="1.5" fill={colors.primary} fillOpacity="0.82">
@@ -508,13 +497,6 @@ export function FlowBeam({
               <stop offset="50%" stopColor={colors.secondary} stopOpacity="1" />
               <stop offset="100%" stopColor={colors.primary} stopOpacity="0.38" />
             </linearGradient>
-            <filter id={vertFilterId} x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="1.8" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
           </defs>
           <path
             d={vertLeft}
@@ -535,10 +517,9 @@ export function FlowBeam({
               d={vertLeft}
               fill="none"
               stroke={colors.primary}
-              strokeOpacity="0.25"
+              strokeOpacity="0.22"
               strokeWidth="4.2"
               strokeLinecap="round"
-              filter={`url(#${vertFilterId})`}
             />
           )}
           <path
@@ -548,17 +529,16 @@ export function FlowBeam({
             strokeWidth={active || highlighted ? "2.3" : "1.4"}
             strokeLinecap="round"
             strokeDasharray="10 12"
-            filter={active || highlighted ? `url(#${vertFilterId})` : undefined}
             className={cn(
               (active || highlighted) && !isPaused ? "hud-flow-beam-active" : "opacity-35"
             )}
           />
           {(active || highlighted) && !isPaused && (
             <g className="hud-flow-packet">
-              <circle r="3.8" fill={colors.primary} fillOpacity="0.28">
+              <circle r="4" fill={colors.primary} fillOpacity="0.24">
                 <animateMotion dur="1.45s" repeatCount="indefinite" path={vertLeft} />
               </circle>
-              <circle r="2" fill={colors.secondary} filter={`url(#${vertFilterId})`}>
+              <circle r="2" fill={colors.secondary}>
                 <animateMotion dur="1.45s" repeatCount="indefinite" path={vertLeft} />
               </circle>
             </g>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { fetchWithCache, fetchJson } from "@/shared/utils/swrCache";
+import useSettingsStore from "@/store/settingsStore";
 import {
   CONNECTIONS_PAGE_SIZE,
   QUOTA_CACHE_KEY,
@@ -9,6 +11,8 @@ import {
   getSafeTotals,
   getPaginationPageValue,
   getProviderOptions,
+  QUOTA_FRESH_TTL_MS,
+  isQuotaCacheFresh,
   getQuotaCache,
   setQuotaCache,
   getQuotaVisibilityKey,
@@ -20,6 +24,21 @@ import {
   sortConnectionsEnhanced,
   computeQuotaSummaryStats,
 } from "../utils";
+
+async function runQuotaQueue(items, concurrency, signal, worker) {
+  if (!Array.isArray(items) || items.length === 0) return;
+  let index = 0;
+  const workerCount = Math.min(concurrency, items.length);
+  const runners = Array.from({ length: workerCount }, async () => {
+    while (index < items.length) {
+      if (signal?.aborted) return;
+      const current = items[index];
+      index += 1;
+      await worker(current);
+    }
+  });
+  await Promise.all(runners);
+}
 
 function toggleProviderHiddenQuota(previous, provider, quota, shouldHide) {
   const key = getQuotaVisibilityKey(quota);
@@ -199,7 +218,8 @@ export function useProviderLimitsData({ providerFilter }) {
     [accountFilter, page, pageSize, providerFilter],
   );
 
-  const fetchQuota = useCallback(async (connectionId, provider, { force = false, silent = false } = {}) => {
+  const fetchQuota = useCallback(async (connectionId, provider, { force = false, silent = false, signal } = {}) => {
+    if (signal?.aborted) return;
     if (!silent) {
       setLoading((prev) => ({ ...prev, [connectionId]: true }));
     }
@@ -207,7 +227,7 @@ export function useProviderLimitsData({ providerFilter }) {
 
     try {
       const url = `/api/usage/${connectionId}${force ? "?force=1" : ""}`;
-      const response = await fetch(url);
+      const response = await fetch(url, { signal });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -238,6 +258,7 @@ export function useProviderLimitsData({ providerFilter }) {
       setQuotaData((prev) => ({ ...prev, [connectionId]: quotaEntry }));
       setQuotaCache(connectionId, quotaEntry);
     } catch (error) {
+      if (error?.name === "AbortError") return;
       setErrors((prev) => ({
         ...prev,
         [connectionId]: error.message || "Không thể tải hạn mức",
@@ -292,8 +313,9 @@ export function useProviderLimitsData({ providerFilter }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/proxy-pools?isActive=true", { cache: "no-store" })
-      .then((res) => res.json())
+    fetchWithCache("/api/proxy-pools?isActive=true", () => fetchJson("/api/proxy-pools?isActive=true"), {
+      ttlMs: 30000,
+    })
       .then((data) => {
         if (!cancelled && data?.proxyPools) {
           setProxyPools(data.proxyPools);
@@ -307,8 +329,9 @@ export function useProviderLimitsData({ providerFilter }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/settings", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : {}))
+    useSettingsStore
+      .getState()
+      .fetchSettings()
       .then((s) => {
         if (cancelled) return;
         setAutoPingConfigs({
@@ -325,6 +348,7 @@ export function useProviderLimitsData({ providerFilter }) {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
 
     const initializeData = async () => {
       // Hydrate synchronously from memory or localStorage SWR cache before network fetch
@@ -352,7 +376,7 @@ export function useProviderLimitsData({ providerFilter }) {
       }
 
       const visibleConnections = await fetchConnections(page);
-      if (cancelled) return;
+      if (cancelled || controller.signal.aborted) return;
 
       setConnectionsLoading(false);
       setIsRevalidating(false);
@@ -363,11 +387,16 @@ export function useProviderLimitsData({ providerFilter }) {
 
       const nextCachedQuotaData = {};
       const needsLoading = {};
+      const staleConnections = [];
       for (const conn of visibleConnections) {
-        if (quotaCache[conn.id]) {
-          nextCachedQuotaData[conn.id] = quotaCache[conn.id];
+        const cachedEntry = quotaCache[conn.id];
+        if (cachedEntry) {
+          nextCachedQuotaData[conn.id] = cachedEntry;
         } else {
           needsLoading[conn.id] = true;
+        }
+        if (!isQuotaCacheFresh(cachedEntry, QUOTA_FRESH_TTL_MS)) {
+          staleConnections.push(conn);
         }
       }
       if (Object.keys(nextCachedQuotaData).length > 0) {
@@ -375,13 +404,18 @@ export function useProviderLimitsData({ providerFilter }) {
       }
       setLoading(needsLoading);
 
-      // Fetch live quotas in parallel (silently for cards already showing cached quota)
-      await Promise.all(
-        visibleConnections.map((conn) =>
-          fetchQuota(conn.id, conn.provider, { silent: Boolean(quotaCache[conn.id]) }),
-        ),
+      if (staleConnections.length === 0) {
+        return;
+      }
+
+      // Cap concurrency at 3 with AbortController so HTTP/1.1 navigation sockets stay free
+      await runQuotaQueue(staleConnections, 3, controller.signal, (conn) =>
+        fetchQuota(conn.id, conn.provider, {
+          silent: Boolean(quotaCache[conn.id]),
+          signal: controller.signal,
+        }),
       );
-      if (!cancelled) {
+      if (!cancelled && !controller.signal.aborted) {
         markUpdated();
       }
     };
@@ -389,6 +423,7 @@ export function useProviderLimitsData({ providerFilter }) {
     initializeData();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [cacheKey, fetchConnections, fetchQuota, markUpdated, page, pageSize]);
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/shared/utils/cn";
 import { playHudSound } from "@/shared/utils/hudAudio";
 import Button from "./Button";
@@ -48,10 +49,10 @@ export default function Modal({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === "undefined") return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
       {/* Overlay */}
       <div
         className="absolute inset-0 bg-slate-950/65 backdrop-blur-sm fade-in"
@@ -121,7 +122,8 @@ export default function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

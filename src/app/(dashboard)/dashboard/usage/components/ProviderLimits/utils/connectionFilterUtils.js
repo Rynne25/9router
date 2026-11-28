@@ -206,6 +206,14 @@ export async function reconcileConnectionsPage(fetchConnections, targetPage) {
   return await fetchConnections(targetPage);
 }
 
+export const QUOTA_FRESH_TTL_MS = 60_000;
+
+export function isQuotaCacheFresh(entry, ttlMs = QUOTA_FRESH_TTL_MS) {
+  if (!entry?.cachedAt) return false;
+  const cachedMs = Date.parse(entry.cachedAt);
+  return Number.isFinite(cachedMs) && Date.now() - cachedMs < ttlMs;
+}
+
 export function getQuotaCache() {
   if (typeof window === "undefined") return {};
   try {

@@ -5,9 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useNotificationStore } from "@/store/notificationStore";
 import { fetchWithCache, fetchJson } from "@/shared/utils/swrCache";
 import useSettingsStore from "@/store/settingsStore";
-import { OrbitalShaderBg, CommandPalette, CursorEngine } from "@/shared/components/hud";
+import OrbitalShaderBg from "../hud/OrbitalShaderBg";
+import CommandPalette from "../hud/CommandPalette";
+import CursorEngine from "../hud/CursorEngine";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
+
+const IS_DEV = process.env.NODE_ENV === "development";
 
 const PREFETCH_ROUTES = [
   "/dashboard/endpoint",
@@ -65,22 +69,30 @@ export default function DashboardLayout({ children }) {
   // Preload heavy usage charts, route chunks, and shared API data in background when browser is idle
   useEffect(() => {
     const preload = () => {
-      for (const route of PREFETCH_ROUTES) {
-        try {
-          router.prefetch(route);
-        } catch {
-          /* ignore prefetch error */
+      // Avoid queuing 10+ synchronous Webpack compiles during dev; keep prod 0ms prefetch intact
+      if (!IS_DEV) {
+        for (const route of PREFETCH_ROUTES) {
+          try {
+            router.prefetch(route);
+          } catch {
+            /* ignore prefetch error */
+          }
         }
+        import("@/shared/components/UsageStats").catch(() => {});
+        import("@/app/(dashboard)/dashboard/usage/components/UsageChart").catch(() => {});
+        import("@/app/(dashboard)/dashboard/usage/components/ProviderBarChart").catch(() => {});
+        import("@/app/(dashboard)/dashboard/usage/components/TopModelsChart").catch(() => {});
+        fetchWithCache("/api/settings", () => fetchJson("/api/settings"), { ttlMs: 30000 }).catch(() => {});
+        fetchWithCache("/api/provider-nodes", () => fetchJson("/api/provider-nodes"), { ttlMs: 30000 }).catch(() => {});
+        fetchWithCache("/api/proxy-pools?isActive=true", () => fetchJson("/api/proxy-pools?isActive=true"), { ttlMs: 30000 }).catch(() => {});
+        fetchWithCache("/api/keys", () => fetchJson("/api/keys"), { ttlMs: 30000 }).catch(() => {});
+        fetchWithCache("/api/combos", () => fetchJson("/api/combos"), { ttlMs: 30000 }).catch(() => {});
+        fetchWithCache("/api/cli-tools/all-statuses", () => fetchJson("/api/cli-tools/all-statuses"), { ttlMs: 30000 }).catch(() => {});
+        fetchWithCache("/api/proxy-pools?includeUsage=true", () => fetchJson("/api/proxy-pools?includeUsage=true"), { ttlMs: 30000 }).catch(() => {});
+        fetchWithCache("/api/headroom/status", () => fetchJson("/api/headroom/status"), { ttlMs: 60000 }).catch(() => {});
       }
       useSettingsStore.getState().fetchSettings().catch(() => {});
-      fetchWithCache("/api/settings", () => fetchJson("/api/settings"), { ttlMs: 30000 }).catch(() => {});
       fetchWithCache("/api/providers", () => fetchJson("/api/providers"), { ttlMs: 30000 }).catch(() => {});
-      fetchWithCache("/api/keys", () => fetchJson("/api/keys"), { ttlMs: 30000 }).catch(() => {});
-      fetchWithCache("/api/combos", () => fetchJson("/api/combos"), { ttlMs: 30000 }).catch(() => {});
-      import("@/shared/components/UsageStats").catch(() => {});
-      import("@/app/(dashboard)/dashboard/usage/components/UsageChart").catch(() => {});
-      import("@/app/(dashboard)/dashboard/usage/components/ProviderBarChart").catch(() => {});
-      import("@/app/(dashboard)/dashboard/usage/components/TopModelsChart").catch(() => {});
     };
     if (typeof window !== "undefined") {
       if ("requestIdleCallback" in window) {
@@ -169,9 +181,9 @@ export default function DashboardLayout({ children }) {
       <main className="flex flex-col flex-1 h-full min-w-0 relative z-10 bg-transparent transition-colors duration-200 isolate">
         <Header onMenuClick={() => setSidebarOpen(true)} />
         <div
-          className={`flex-1 min-h-0 overscroll-contain touch-pan-y custom-scrollbar ${
+          className={`flex-1 min-h-0 custom-scrollbar ${
             isBasicChat ? "" : "p-3 sm:p-4 lg:p-5"
-          } ${isBoundedViewport ? "flex flex-col overflow-hidden" : "overflow-y-auto"}`}
+          } ${isBoundedViewport ? "flex flex-col overflow-hidden" : "overflow-auto"}`}
         >
           <div
             className={

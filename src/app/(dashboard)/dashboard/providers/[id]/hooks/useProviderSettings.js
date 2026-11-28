@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import useSettingsStore from "@/store/settingsStore";
 import { AUTO_PING_SETTINGS_KEYS } from "../utils/providerMeta";
 
 /**
@@ -9,10 +10,24 @@ import { AUTO_PING_SETTINGS_KEYS } from "../utils/providerMeta";
  * @param {{ providerId: string }} params
  */
 export function useProviderSettings({ providerId }) {
-  const [providerStrategy, setProviderStrategy] = useState(null);
-  const [providerStickyLimit, setProviderStickyLimit] = useState("");
-  const [thinkingMode, setThinkingMode] = useState("auto");
-  const [autoPing, setAutoPing] = useState({ enabled: false, connections: {}, schedules: {} });
+  const initialSettings = useSettingsStore.getState().settings;
+  const initialOverride = (initialSettings?.providerStrategies || {})[providerId] || {};
+  const initialThinking = (initialSettings?.providerThinking || {})[providerId] || {};
+  const initialAutoPingKey = AUTO_PING_SETTINGS_KEYS[providerId];
+  const initialApCfg = initialAutoPingKey ? initialSettings?.[initialAutoPingKey] || {} : {};
+
+  const [providerStrategy, setProviderStrategy] = useState(
+    () => initialOverride.fallbackStrategy || null
+  );
+  const [providerStickyLimit, setProviderStickyLimit] = useState(() =>
+    initialOverride.stickyRoundRobinLimit != null ? String(initialOverride.stickyRoundRobinLimit) : "1"
+  );
+  const [thinkingMode, setThinkingMode] = useState(() => initialThinking.mode || "auto");
+  const [autoPing, setAutoPing] = useState(() => ({
+    enabled: initialApCfg.enabled === true,
+    connections: initialApCfg.connections || {},
+    schedules: initialApCfg.schedules || {},
+  }));
 
   const syncSettingsFromData = useCallback((settingsData) => {
     const override = (settingsData.providerStrategies || {})[providerId] || {};

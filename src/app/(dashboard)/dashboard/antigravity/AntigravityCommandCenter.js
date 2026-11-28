@@ -19,6 +19,8 @@ import { parseQuotaData } from "@/app/(dashboard)/dashboard/usage/components/Pro
 import {
   getQuotaCache,
   setQuotaCache,
+  isQuotaCacheFresh,
+  QUOTA_FRESH_TTL_MS,
 } from "@/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils/connectionFilterUtils";
 import {
   getConnectionAverageRemaining,
@@ -57,12 +59,13 @@ const DEFAULT_SAVERS = {
   ponytailEnabled: false,
 };
 
-async function runWithConcurrency(items, concurrency, worker) {
+async function runWithConcurrency(items, concurrency, worker, signal) {
   if (!Array.isArray(items) || items.length === 0) return;
   let index = 0;
   const workerCount = Math.min(concurrency, items.length);
   const runners = Array.from({ length: workerCount }, async () => {
     while (index < items.length) {
+      if (signal?.aborted) return;
       const current = items[index];
       index += 1;
       await worker(current);
@@ -159,37 +162,44 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
     [connections]
   );
 
-  const fetchQuotasForConnections = useCallback(async (agList, { force = false } = {}) => {
-    const targets = agList.filter((c) => c.isActive !== false);
-    if (targets.length === 0) return;
+  const fetchQuotasForConnections = useCallback(async (agList, { force = false, signal } = {}) => {
+    const activeTargets = agList.filter((c) => c.isActive !== false);
+    if (activeTargets.length === 0 || signal?.aborted) return;
 
     const cachedQuotaMap = getQuotaCache();
     const initialMap = {};
     const needLoading = {};
+    const staleTargets = [];
     for (const conn of agList) {
-      if (cachedQuotaMap[conn.id]) {
-        initialMap[conn.id] = cachedQuotaMap[conn.id];
+      const cachedEntry = cachedQuotaMap[conn.id];
+      if (cachedEntry) {
+        initialMap[conn.id] = cachedEntry;
       } else if (conn.isActive !== false) {
         needLoading[conn.id] = true;
+      }
+      if (conn.isActive !== false && (force || !isQuotaCacheFresh(cachedEntry, QUOTA_FRESH_TTL_MS))) {
+        staleTargets.push(conn);
       }
     }
     if (Object.keys(initialMap).length > 0) {
       setQuotaData((prev) => ({ ...initialMap, ...prev }));
     }
+    if (staleTargets.length === 0) return;
+
     if (Object.keys(needLoading).length > 0 || force) {
       setQuotaLoadingIds((prev) => {
         const next = { ...prev };
-        for (const t of targets) {
+        for (const t of staleTargets) {
           if (force || !cachedQuotaMap[t.id]) next[t.id] = true;
         }
         return next;
       });
     }
 
-    await runWithConcurrency(targets, 4, async (conn) => {
+    await runWithConcurrency(staleTargets, 3, async (conn) => {
       try {
         const url = `/api/usage/${conn.id}${force ? "?force=1" : ""}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal });
         if (!res.ok) {
           const errBody = await res.json().catch(() => ({}));
           const msg = errBody.error || res.statusText;
@@ -220,6 +230,7 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
           return next;
         });
       } catch (err) {
+        if (err?.name === "AbortError") return;
         setQuotaErrors((prev) => ({ ...prev, [conn.id]: err?.message || "Không thể tải quota" }));
       } finally {
         setQuotaLoadingIds((prev) => {
@@ -229,11 +240,11 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
           return next;
         });
       }
-    });
+    }, signal);
   }, []);
 
   const loadAllTelemetry = useCallback(
-    async ({ force = false } = {}) => {
+    async ({ force = false, signal } = {}) => {
       try {
         const [providersRes, mitmRes, settingsRes, headroomRes] = await Promise.allSettled([
           fetchWithCache(PROVIDERS_CACHE_KEY, () => fetchJson(PROVIDERS_CACHE_KEY), {
@@ -253,13 +264,14 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
             force,
           }),
         ]);
+        if (signal?.aborted) return;
 
         if (providersRes.status === "fulfilled" && providersRes.value) {
           const allConns = providersRes.value.connections || [];
           setConnections(allConns);
           setProvidersLoading(false);
           const agOnly = allConns.filter((c) => c.provider === "antigravity");
-          fetchQuotasForConnections(agOnly, { force });
+          fetchQuotasForConnections(agOnly, { force, signal });
         } else {
           setProvidersLoading(false);
         }
@@ -291,15 +303,23 @@ export default function AntigravityCommandCenter({ machineId = "" }) {
   );
 
   useEffect(() => {
+    const controller = new AbortController();
     const cachedQuotaMap = getQuotaCache();
     if (Object.keys(cachedQuotaMap).length > 0) {
       queueMicrotask(() => {
-        setQuotaData((prev) => ({ ...cachedQuotaMap, ...prev }));
+        if (!controller.signal.aborted) {
+          setQuotaData((prev) => ({ ...cachedQuotaMap, ...prev }));
+        }
       });
     }
     queueMicrotask(() => {
-      loadAllTelemetry();
+      if (!controller.signal.aborted) {
+        loadAllTelemetry({ signal: controller.signal });
+      }
     });
+    return () => {
+      controller.abort();
+    };
   }, [loadAllTelemetry]);
 
   const telemetrySummary = useMemo(() => {

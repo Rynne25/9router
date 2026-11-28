@@ -79,6 +79,8 @@ export function CursorEngine() {
     let prevPointerY = 0;
     let isPressed = false;
     let hoveredTarget = null;
+    let hoveredRect = null;
+    let lastReticleOpacity = -1;
 
     // Reticle state
     let dotX = 0;
@@ -105,9 +107,19 @@ export function CursorEngine() {
     const ctx = canvas && cursorPreset !== "reticle" ? canvas.getContext("2d") : null;
     let dpr = 1;
 
+    const refreshHoveredRect = () => {
+      if (isInteractiveTarget(hoveredTarget)) {
+        hoveredRect = hoveredTarget.getBoundingClientRect();
+      } else {
+        hoveredTarget = null;
+        hoveredRect = null;
+      }
+    };
+
     const resizeCanvas = () => {
+      if (hoveredTarget) refreshHoveredRect();
       if (!canvas || !ctx) return;
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const w = Math.max(1, Math.floor(window.innerWidth * dpr));
       const h = Math.max(1, Math.floor(window.innerHeight * dpr));
       if (canvas.width !== w || canvas.height !== h) {
@@ -122,6 +134,8 @@ export function CursorEngine() {
     }
 
     const setReticleOpacity = (val) => {
+      if (lastReticleOpacity === val) return;
+      lastReticleOpacity = val;
       const opacity = String(val);
       if (tlRef.current) tlRef.current.style.opacity = opacity;
       if (trRef.current) trRef.current.style.opacity = opacity;
@@ -176,8 +190,8 @@ export function CursorEngine() {
       let tR;
       let tB;
 
-      if (isInteractiveTarget(hoveredTarget)) {
-        const rect = hoveredTarget.getBoundingClientRect();
+      if (hoveredRect && isInteractiveTarget(hoveredTarget)) {
+        const rect = hoveredRect;
         const pad = isPressed ? 1 : 3;
         tL = rect.left - pad;
         tT = rect.top - pad;
@@ -185,6 +199,7 @@ export function CursorEngine() {
         tB = rect.bottom + pad;
       } else {
         hoveredTarget = null;
+        hoveredRect = null;
         const half = isPressed ? 8 : 11;
         tL = pointerX - half;
         tT = pointerY - half;
@@ -346,8 +361,8 @@ export function CursorEngine() {
       let targetRadius = targetW / 2;
       let locked = false;
 
-      if (isInteractiveTarget(hoveredTarget)) {
-        const rect = hoveredTarget.getBoundingClientRect();
+      if (hoveredRect && isInteractiveTarget(hoveredTarget)) {
+        const rect = hoveredRect;
         const pad = isPressed ? 4 : 10;
         targetX = rect.left + rect.width / 2;
         targetY = rect.top + rect.height / 2;
@@ -357,6 +372,7 @@ export function CursorEngine() {
         locked = true;
       } else {
         hoveredTarget = null;
+        hoveredRect = null;
       }
 
       magX += (targetX - magX) * haloFactor;
@@ -492,7 +508,11 @@ export function CursorEngine() {
 
       if (cursorPreset === "reticle" || cursorPreset === "magnetic") {
         const rawTarget = e.target instanceof Element ? e.target.closest(TARGET_SELECTOR) : null;
-        hoveredTarget = isInteractiveTarget(rawTarget) ? rawTarget : null;
+        const nextTarget = isInteractiveTarget(rawTarget) ? rawTarget : null;
+        if (nextTarget !== hoveredTarget) {
+          hoveredTarget = nextTarget;
+          hoveredRect = nextTarget ? nextTarget.getBoundingClientRect() : null;
+        }
       } else if (cursorPreset === "fluid") {
         const dx = pointerX - prevPointerX;
         const dy = pointerY - prevPointerY;
@@ -525,6 +545,7 @@ export function CursorEngine() {
       isPressed = true;
       pointerX = e.clientX;
       pointerY = e.clientY;
+      if (hoveredTarget) refreshHoveredRect();
 
       if (cursorPreset === "fluid") {
         if (ripples.length >= 8) ripples.shift();
@@ -547,6 +568,7 @@ export function CursorEngine() {
     const handlePointerLeave = () => {
       pointerVisible = false;
       hoveredTarget = null;
+      hoveredRect = null;
       isPressed = false;
       if (cursorPreset === "reticle") {
         setReticleOpacity(0);
@@ -555,6 +577,7 @@ export function CursorEngine() {
 
     const handleScroll = () => {
       if (!hoveredTarget && !pointerVisible) return;
+      if (hoveredTarget) refreshHoveredRect();
       lastActivity = performance.now();
       wakeLoop();
     };

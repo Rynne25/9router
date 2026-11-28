@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { filterProxyPools, getVisibleProxyPoolSelection, updateProxyPoolSelection } from "@/shared/utils/proxyPoolSelection";
+import { getCachedData, setCachedData, fetchWithCache, fetchJson } from "@/shared/utils/swrCache";
+
+const PROXY_POOLS_URL = "/api/proxy-pools?includeUsage=true";
+const PROXY_POOLS_TTL_MS = 30000;
 
 export function normalizeFormData(data = {}) {
   return {
@@ -14,8 +18,9 @@ export function normalizeFormData(data = {}) {
 }
 
 export function useProxyPools({ notify } = {}) {
-  const [proxyPools, setProxyPools] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cachedProxyPools = getCachedData(PROXY_POOLS_URL);
+  const [proxyPools, setProxyPools] = useState(() => cachedProxyPools?.proxyPools || []);
+  const [loading, setLoading] = useState(() => cachedProxyPools === undefined);
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPoolIds, setSelectedPoolIds] = useState([]);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -50,11 +55,14 @@ export function useProxyPools({ notify } = {}) {
     [proxyPools]
   );
 
-  const fetchProxyPools = useCallback(async () => {
+  const fetchProxyPools = useCallback(async (force = false) => {
     try {
-      const res = await fetch("/api/proxy-pools?includeUsage=true", { cache: "no-store" });
-      const data = await res.json();
-      if (res.ok) {
+      const data = await fetchWithCache(
+        PROXY_POOLS_URL,
+        () => fetchJson(PROXY_POOLS_URL),
+        { ttlMs: PROXY_POOLS_TTL_MS, force }
+      );
+      if (data) {
         setProxyPools(data.proxyPools || []);
       }
     } catch (error) {
@@ -66,7 +74,7 @@ export function useProxyPools({ notify } = {}) {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchProxyPools();
+    fetchProxyPools(false);
   }, [fetchProxyPools]);
 
   const toggleSelect = useCallback((id, checked, shiftKey) => {
@@ -135,7 +143,7 @@ export function useProxyPools({ notify } = {}) {
       });
 
       if (res.ok) {
-        await fetchProxyPools();
+        await fetchProxyPools(true);
         closeFormModal();
         notify?.success?.(editingProxyPool ? "Proxy pool updated" : "Proxy pool created");
       } else {
@@ -160,6 +168,7 @@ export function useProxyPools({ notify } = {}) {
           if (res.ok) {
             setProxyPools((prev) => prev.filter((item) => item.id !== proxyPool.id));
             setSelectedPoolIds((prev) => prev.filter((id) => id !== proxyPool.id));
+            await fetchProxyPools(true);
             notify?.success?.("Proxy pool deleted");
             return;
           }
@@ -178,7 +187,7 @@ export function useProxyPools({ notify } = {}) {
         }
       },
     });
-  }, [notify]);
+  }, [fetchProxyPools, notify]);
 
   const handleToggleActive = useCallback(async (pool) => {
     const next = !pool.isActive;
@@ -192,6 +201,14 @@ export function useProxyPools({ notify } = {}) {
       if (!res.ok) {
         setProxyPools((prev) => prev.map((p) => (p.id === pool.id ? { ...p, isActive: pool.isActive } : p)));
         notify?.error?.("Failed to update active state");
+      } else {
+        const cached = getCachedData(PROXY_POOLS_URL);
+        if (cached?.proxyPools) {
+          setCachedData(PROXY_POOLS_URL, {
+            ...cached,
+            proxyPools: cached.proxyPools.map((p) => (p.id === pool.id ? { ...p, isActive: next } : p)),
+          });
+        }
       }
     } catch (error) {
       console.log("Error toggling active:", error);
@@ -210,7 +227,7 @@ export function useProxyPools({ notify } = {}) {
         return;
       }
 
-      await fetchProxyPools();
+      await fetchProxyPools(true);
       notify?.success?.(data.ok ? "Proxy test passed" : "Proxy test failed");
     } catch (error) {
       console.log("Error testing proxy pool:", error);
@@ -240,7 +257,7 @@ export function useProxyPools({ notify } = {}) {
           failed += 1;
         }
       }
-      await fetchProxyPools();
+      await fetchProxyPools(true);
       notify?.success?.(`${isActive ? "Activated" : "Deactivated"} ${ok}${failed ? `, failed ${failed}` : ""}`);
     } finally {
       setBulkBusy(false);
@@ -270,7 +287,7 @@ export function useProxyPools({ notify } = {}) {
               failed += 1;
             }
           }
-          await fetchProxyPools();
+          await fetchProxyPools(true);
           clearSelection();
           notify?.success?.(
             `Deleted ${ok}${blocked ? `, ${blocked} bound` : ""}${failed ? `, ${failed} failed` : ""}`

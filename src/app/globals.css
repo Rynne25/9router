@@ -275,8 +275,8 @@ dialog::backdrop {
 }
 
 .custom-scrollbar {
-  overscroll-behavior-y: contain;
-  touch-action: pan-y;
+  overscroll-behavior: auto;
+  touch-action: auto;
   -webkit-overflow-scrolling: touch;
 }
 

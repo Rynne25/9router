@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { HudFrame } from "@/shared/components/hud";
 import { cn } from "@/shared/utils/cn";
 import {
@@ -32,7 +33,7 @@ const HUD_ACCENT_BY_HEALTH = {
   loading: "cyan",
 };
 
-export default function ProviderLimitCard({
+function ProviderLimitCard({
   conn,
   quota,
   isLoading,
@@ -82,10 +83,10 @@ export default function ProviderLimitCard({
       accent={HUD_ACCENT_BY_HEALTH[ringKey] || "cyan"}
       padding="none"
       spotlight={true}
-      tilt={true}
-      borderBeam={isAntigravity && isHealthy}
+      tilt={false}
+      borderBeam={false}
       className={cn(
-        "min-w-0 transition-all duration-200 flex flex-col [&>div:last-child]:flex-1 [&>div:last-child]:flex [&>div:last-child]:flex-col",
+        "min-w-0 [content-visibility:auto] [contain-intrinsic-size:auto_220px] transition-colors duration-200 flex flex-col [&>div:last-child]:flex-1 [&>div:last-child]:flex [&>div:last-child]:flex-col",
         isAntigravity && !isInactive && "bg-cyan-500/[0.02] dark:bg-cyan-500/[0.03]",
         CARD_RING_BY_HEALTH[ringKey] || "",
       )}
@@ -156,3 +157,5 @@ export default function ProviderLimitCard({
     </HudFrame>
   );
 }
+
+export default memo(ProviderLimitCard);

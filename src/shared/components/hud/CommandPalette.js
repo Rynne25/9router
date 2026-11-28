@@ -6,26 +6,40 @@ import { cn } from "@/shared/utils/cn";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { useHudPrefs } from "@/shared/hooks/useHudPrefs";
 import { playHudSound } from "@/shared/utils/hudAudio";
+import { setCachedData, invalidateCache } from "@/shared/utils/swrCache";
 
 const ROUTE_ITEMS = [
-  { id: "nav-dashboard", label: "Trung tâm Antigravity", hint: "/dashboard", icon: "radar", group: "Điều hướng", path: "/dashboard" },
-  { id: "nav-mitm", label: "Proxy MITM", hint: "/dashboard/mitm", icon: "security", group: "Điều hướng", path: "/dashboard/mitm" },
-  { id: "nav-quota", label: "Bảng Quota", hint: "/dashboard/quota", icon: "speed", group: "Điều hướng", path: "/dashboard/quota" },
-  { id: "nav-antigravity", label: "Tài khoản Antigravity", hint: "/dashboard/providers/antigravity", icon: "satellite_alt", group: "Điều hướng", path: "/dashboard/providers/antigravity" },
-  { id: "nav-token-saver", label: "Tiết kiệm Token", hint: "/dashboard/token-saver", icon: "compress", group: "Điều hướng", path: "/dashboard/token-saver" },
-  { id: "nav-endpoint", label: "Endpoint & Khóa API", hint: "/dashboard/endpoint", icon: "api", group: "Điều hướng", path: "/dashboard/endpoint" },
-  { id: "nav-providers", label: "Nhà cung cấp", hint: "/dashboard/providers", icon: "dns", group: "Điều hướng", path: "/dashboard/providers" },
-  { id: "nav-combos", label: "Kết hợp Model", hint: "/dashboard/combos", icon: "hub", group: "Điều hướng", path: "/dashboard/combos" },
-  { id: "nav-console", label: "Nhật ký Console", hint: "/dashboard/console-log", icon: "terminal", group: "Điều hướng", path: "/dashboard/console-log" },
-  { id: "nav-usage", label: "Thống kê sử dụng", hint: "/dashboard/usage", icon: "monitoring", group: "Điều hướng", path: "/dashboard/usage" },
+  { id: "nav-dashboard", label: "Trung tâm Antigravity", hint: "/dashboard", icon: "radar", group: "Điều hướng", path: "/dashboard", shortcut: "G D" },
+  { id: "nav-mitm", label: "Proxy MITM", hint: "/dashboard/mitm", icon: "security", group: "Điều hướng", path: "/dashboard/mitm", shortcut: "G M" },
+  { id: "nav-quota", label: "Bảng Quota", hint: "/dashboard/quota", icon: "speed", group: "Điều hướng", path: "/dashboard/quota", shortcut: "G Q" },
+  { id: "nav-antigravity", label: "Tài khoản Antigravity", hint: "/dashboard/providers/antigravity", icon: "satellite_alt", group: "Điều hướng", path: "/dashboard/providers/antigravity", shortcut: "G A" },
+  { id: "nav-token-saver", label: "Tiết kiệm Token", hint: "/dashboard/token-saver", icon: "compress", group: "Điều hướng", path: "/dashboard/token-saver", shortcut: "G T" },
+  { id: "nav-endpoint", label: "Endpoint & Khóa API", hint: "/dashboard/endpoint", icon: "api", group: "Điều hướng", path: "/dashboard/endpoint", shortcut: "G E" },
+  { id: "nav-providers", label: "Nhà cung cấp", hint: "/dashboard/providers", icon: "dns", group: "Điều hướng", path: "/dashboard/providers", shortcut: "G P" },
+  { id: "nav-combos", label: "Kết hợp Model", hint: "/dashboard/combos", icon: "hub", group: "Điều hướng", path: "/dashboard/combos", shortcut: "G C" },
+  { id: "nav-console", label: "Nhật ký Console", hint: "/dashboard/console-log", icon: "terminal", group: "Điều hướng", path: "/dashboard/console-log", shortcut: "G L" },
+  { id: "nav-usage", label: "Thống kê sử dụng", hint: "/dashboard/usage", icon: "monitoring", group: "Điều hướng", path: "/dashboard/usage", shortcut: "G U" },
   { id: "nav-cli-tools", label: "Công cụ CLI", hint: "/dashboard/cli-tools", icon: "build", group: "Điều hướng", path: "/dashboard/cli-tools" },
+  { id: "nav-proxy-pools", label: "Proxy Pool", hint: "/dashboard/proxy-pools", icon: "lan", group: "Điều hướng", path: "/dashboard/proxy-pools" },
+  { id: "nav-skills", label: "Kỹ năng Agent", hint: "/dashboard/skills", icon: "extension", group: "Điều hướng", path: "/dashboard/skills" },
+  { id: "nav-profile", label: "Cài đặt", hint: "/dashboard/profile", icon: "settings", group: "Điều hướng", path: "/dashboard/profile" },
 ];
+
+const CHORD_ROUTE_MAP = ROUTE_ITEMS.reduce((acc, item) => {
+  if (item.shortcut?.startsWith("G ")) {
+    const secondKey = item.shortcut.slice(2).trim().toLowerCase();
+    if (secondKey) acc[secondKey] = item.path;
+  }
+  return acc;
+}, {});
 
 export function CommandPalette() {
   const router = useRouter();
   const dialogRef = useRef(null);
   const inputRef = useRef(null);
   const pointerDownOutsideRef = useRef(false);
+  const gChordArmedRef = useRef(false);
+  const gChordTimerRef = useRef(null);
 
   const { isDark, toggleTheme } = useTheme();
   const {
@@ -52,18 +66,74 @@ export function CommandPalette() {
     closeCommandPalette();
   }, [closeCommandPalette]);
 
-  // Global Ctrl+K / Cmd+K shortcut
+  // Global Ctrl+K / Cmd+K shortcut + G two-key chord navigation
   useEffect(() => {
+    const clearGChord = () => {
+      gChordArmedRef.current = false;
+      if (gChordTimerRef.current) {
+        clearTimeout(gChordTimerRef.current);
+        gChordTimerRef.current = null;
+      }
+    };
+
     const handleGlobalKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        clearGChord();
         playHudSound("click");
         setCommandPaletteOpen((prev) => !prev);
+        return;
+      }
+
+      if (commandPaletteOpen) {
+        clearGChord();
+        return;
+      }
+
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        clearGChord();
+        return;
+      }
+
+      const target = e.target;
+      const isEditable =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable);
+      if (isEditable) {
+        clearGChord();
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      if (gChordArmedRef.current) {
+        const dest = CHORD_ROUTE_MAP[key];
+        clearGChord();
+        if (dest) {
+          e.preventDefault();
+          playHudSound("click");
+          router.push(dest);
+        }
+        return;
+      }
+
+      if (key === "g") {
+        gChordArmedRef.current = true;
+        gChordTimerRef.current = setTimeout(() => {
+          gChordArmedRef.current = false;
+          gChordTimerRef.current = null;
+        }, 800);
       }
     };
+
     window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [setCommandPaletteOpen]);
+    return () => {
+      clearGChord();
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+    };
+  }, [commandPaletteOpen, router, setCommandPaletteOpen]);
 
   // Sync native <dialog> top-layer state
   useEffect(() => {
@@ -126,6 +196,38 @@ export function CommandPalette() {
 
   const items = useMemo(() => {
     const actionItems = [
+      {
+        id: "act-headroom-proxy",
+        label: "Bật / Tắt Headroom Proxy (:8787)",
+        hint: "POST /api/headroom/start | stop",
+        icon: "power_settings_new",
+        group: "Thao tác",
+        type: "headroom-proxy",
+      },
+      {
+        id: "act-headroom-setting",
+        label: "Bật / Tắt nén ngữ cảnh Headroom",
+        hint: "PATCH /api/settings (headroomEnabled)",
+        icon: "compress",
+        group: "Thao tác",
+        type: "headroom-setting",
+      },
+      {
+        id: "act-quota-refresh",
+        label: "Làm mới toàn bộ Quota ngay",
+        hint: "Xóa cache & tải lại /dashboard/quota",
+        icon: "refresh",
+        group: "Thao tác",
+        type: "quota-refresh",
+      },
+      {
+        id: "act-copy-endpoint",
+        label: "Sao chép URL API Endpoint local (/v1)",
+        hint: "Sao chép đường dẫn OpenAI-compatible /v1",
+        icon: "content_copy",
+        group: "Thao tác",
+        type: "copy-endpoint",
+      },
       {
         id: "act-mitm-dns",
         label: "Bật / Tắt DNS Antigravity MITM",
@@ -275,16 +377,16 @@ export function CommandPalette() {
           });
           const patchData = await patchRes.json().catch(() => ({}));
           if (!patchRes.ok) {
-            throw new Error(patchData.error || "Failed to toggle Antigravity MITM DNS");
+            throw new Error(patchData.error || "Không thể bật/tắt DNS Antigravity MITM");
           }
           playHudSound("confirm");
           setFeedback({
             ok: true,
-            text: `Antigravity MITM DNS ${action === "enable" ? "enabled" : "disabled"}.`,
+            text: `Đã ${action === "enable" ? "bật" : "tắt"} DNS Antigravity MITM.`,
           });
         } catch (err) {
           playHudSound("alert");
-          setFeedback({ ok: false, text: err.message || "MITM DNS toggle failed" });
+          setFeedback({ ok: false, text: err.message || "Đổi trạng thái MITM DNS thất bại" });
         } finally {
           setBusyId(null);
         }
@@ -302,18 +404,155 @@ export function CommandPalette() {
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            throw new Error(data.error || "Antigravity warmup failed");
+            throw new Error(data.error || "Làm nóng tài khoản Antigravity thất bại");
           }
           playHudSound("confirm");
           setFeedback({
             ok: true,
-            text: data.message || `Warmup complete (${data.activatedCount ?? 0} activated).`,
+            text: `Đã làm nóng xong (${data.activatedCount ?? 0} tài khoản được kích hoạt).`,
           });
         } catch (err) {
           playHudSound("alert");
-          setFeedback({ ok: false, text: err.message || "Warmup failed" });
+          setFeedback({ ok: false, text: err.message || "Làm nóng thất bại" });
         } finally {
           setBusyId(null);
+        }
+        return;
+      }
+
+      if (item.type === "headroom-proxy") {
+        setBusyId(item.id);
+        setFeedback(null);
+        try {
+          const statusRes = await fetch("/api/headroom/status", {
+            headers: { "Cache-Control": "no-store" },
+          });
+          const statusData = await statusRes.json().catch(() => ({}));
+          const isRunning = Boolean(statusData?.running);
+          const endpoint = isRunning ? "/api/headroom/stop" : "/api/headroom/start";
+          const actionRes = await fetch(endpoint, { method: "POST" });
+          const actionData = await actionRes.json().catch(() => ({}));
+          if (!actionRes.ok) {
+            throw new Error(
+              actionData.error ||
+                (isRunning
+                  ? "Không thể dừng Headroom Proxy"
+                  : "Không thể khởi động Headroom Proxy")
+            );
+          }
+          const freshRes = await fetch("/api/headroom/status?refresh=1", {
+            headers: { "Cache-Control": "no-store" },
+          });
+          const freshStatus = await freshRes.json().catch(() => null);
+          if (freshStatus && typeof freshStatus === "object") {
+            setCachedData("/api/headroom/status", freshStatus);
+          }
+          playHudSound(freshStatus?.running ? "confirm" : "toggle");
+          setFeedback({
+            ok: true,
+            text: freshStatus?.running
+              ? "Đã khởi động Headroom Proxy (:8787)."
+              : "Đã dừng Headroom Proxy (:8787).",
+          });
+        } catch (err) {
+          playHudSound("alert");
+          setFeedback({ ok: false, text: err.message || "Thao tác Headroom Proxy thất bại" });
+        } finally {
+          setBusyId(null);
+        }
+        return;
+      }
+
+      if (item.type === "headroom-setting") {
+        setBusyId(item.id);
+        setFeedback(null);
+        try {
+          const settingsRes = await fetch("/api/settings", {
+            headers: { "Cache-Control": "no-store" },
+          });
+          const settingsData = await settingsRes.json().catch(() => ({}));
+          if (!settingsRes.ok) {
+            throw new Error("Không thể đọc cấu hình Headroom");
+          }
+          const nextEnabled = !Boolean(settingsData?.headroomEnabled);
+          const patchRes = await fetch("/api/settings", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ headroomEnabled: nextEnabled }),
+          });
+          const updated = await patchRes.json().catch(() => null);
+          if (!patchRes.ok) {
+            throw new Error(updated?.error || "Không thể cập nhật nén ngữ cảnh Headroom");
+          }
+          if (updated && typeof updated === "object") {
+            setCachedData("/api/settings", updated);
+          }
+          let autoStarted = false;
+          if (nextEnabled) {
+            const statusRes = await fetch("/api/headroom/status", {
+              headers: { "Cache-Control": "no-store" },
+            });
+            const statusData = await statusRes.json().catch(() => ({}));
+            if (statusData?.localUrl !== false && !statusData?.running && statusData?.canStart) {
+              const startRes = await fetch("/api/headroom/start", { method: "POST" });
+              if (startRes.ok) {
+                autoStarted = true;
+                const freshRes = await fetch("/api/headroom/status?refresh=1", {
+                  headers: { "Cache-Control": "no-store" },
+                });
+                const freshStatus = await freshRes.json().catch(() => null);
+                if (freshStatus && typeof freshStatus === "object") {
+                  setCachedData("/api/headroom/status", freshStatus);
+                }
+              }
+            }
+          }
+          playHudSound("confirm");
+          setFeedback({
+            ok: true,
+            text: nextEnabled
+              ? autoStarted
+                ? "Đã bật nén ngữ cảnh Headroom và khởi động Proxy (:8787)."
+                : "Đã bật nén ngữ cảnh Headroom."
+              : "Đã tắt nén ngữ cảnh Headroom.",
+          });
+        } catch (err) {
+          playHudSound("alert");
+          setFeedback({ ok: false, text: err.message || "Cập nhật cấu hình Headroom thất bại" });
+        } finally {
+          setBusyId(null);
+        }
+        return;
+      }
+
+      if (item.type === "quota-refresh") {
+        invalidateCache("/api/providers");
+        invalidateCache("/api/usage/", { prefix: true });
+        playHudSound("confirm");
+        router.push("/dashboard/quota");
+        router.refresh();
+        setFeedback({
+          ok: true,
+          text: "Đã xóa cache và làm mới dữ liệu Quota.",
+        });
+        return;
+      }
+
+      if (item.type === "copy-endpoint") {
+        try {
+          const endpointUrl = `${window.location.origin}/v1`;
+          await navigator.clipboard.writeText(endpointUrl);
+          playHudSound("confirm");
+          setFeedback({
+            ok: true,
+            text: `Đã sao chép URL Endpoint: ${endpointUrl}`,
+          });
+        } catch {
+          playHudSound("alert");
+          setFeedback({
+            ok: false,
+            text: "Không thể sao chép vào clipboard.",
+          });
         }
       }
     },
@@ -445,9 +684,16 @@ export function CommandPalette() {
                     </div>
                   </div>
                 </div>
-                <span className="shrink-0 px-2 py-0.5 rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] font-mono text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
-                  {item.group}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {item.shortcut && (
+                    <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] font-mono text-[10px] text-[var(--color-text-muted)]">
+                      {item.shortcut}
+                    </kbd>
+                  )}
+                  <span className="px-2 py-0.5 rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] font-mono text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+                    {item.group}
+                  </span>
+                </div>
               </button>
             );
           })
@@ -459,6 +705,7 @@ export function CommandPalette() {
         <div className="flex items-center gap-3">
           <span>↑↓ Di chuyển</span>
           <span>↵ Thực thi</span>
+          <span className="hidden sm:inline">G + phím tắt</span>
         </div>
         <span>Ctrl/Cmd + K</span>
       </div>

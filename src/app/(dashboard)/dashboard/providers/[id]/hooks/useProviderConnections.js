@@ -2,8 +2,33 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { getAntigravityEffectiveTier } from "@/shared/utils/antigravityTier";
+import {
+  getCachedData,
+  setCachedData,
+  fetchWithCache,
+  fetchJson,
+  invalidateCache,
+} from "@/shared/utils/swrCache";
+import useSettingsStore from "@/store/settingsStore";
 import { getProviderMeta } from "../utils/providerMeta";
 import { useProviderSettings } from "./useProviderSettings";
+
+const PROVIDERS_CACHE_KEY = "/api/providers";
+const NODES_CACHE_KEY = "/api/provider-nodes";
+const PROXY_POOLS_CACHE_KEY = "/api/proxy-pools?isActive=true";
+const PROVIDER_DETAIL_TTL_MS = 15000;
+
+function patchCachedProviderConnections(providerId, transformProviderList) {
+  const cached = getCachedData(PROVIDERS_CACHE_KEY);
+  if (!cached || !Array.isArray(cached.connections)) return;
+  const others = cached.connections.filter((c) => c.provider !== providerId);
+  const currentForProvider = cached.connections.filter((c) => c.provider === providerId);
+  const updatedForProvider = transformProviderList(currentForProvider);
+  setCachedData(PROVIDERS_CACHE_KEY, {
+    ...cached,
+    connections: [...others, ...updatedForProvider],
+  });
+}
 
 /**
  * Manage provider connections, compatible node config, Antigravity tier filtering,
@@ -11,10 +36,18 @@ import { useProviderSettings } from "./useProviderSettings";
  * @param {{ providerId: string }} params
  */
 export function useProviderConnections({ providerId }) {
-  const [connections, setConnections] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [providerNode, setProviderNode] = useState(null);
-  const [proxyPools, setProxyPools] = useState([]);
+  const cachedProviders = getCachedData(PROVIDERS_CACHE_KEY);
+  const cachedNodes = getCachedData(NODES_CACHE_KEY);
+  const cachedProxyPools = getCachedData(PROXY_POOLS_CACHE_KEY);
+
+  const [connections, setConnections] = useState(() =>
+    (cachedProviders?.connections || []).filter((c) => c.provider === providerId)
+  );
+  const [loading, setLoading] = useState(() => cachedProviders === undefined);
+  const [providerNode, setProviderNode] = useState(() =>
+    (cachedNodes?.nodes || []).find((entry) => entry.id === providerId) || null
+  );
+  const [proxyPools, setProxyPools] = useState(() => cachedProxyPools?.proxyPools || []);
   const [antigravityTierFilter, setAntigravityTierFilter] = useState("all");
   const [rawSelectedIds, setRawSelectedIds] = useState([]);
   const [confirmState, setConfirmState] = useState(null);
@@ -28,38 +61,51 @@ export function useProviderConnections({ providerId }) {
   );
   const { isCompatible } = providerMeta;
 
-  const fetchConnections = useCallback(async () => {
+  const fetchConnections = useCallback(async (options = {}) => {
+    const force =
+      options && typeof options === "object" && "force" in options
+        ? Boolean(options.force)
+        : true;
+
     try {
-      const [connectionsRes, nodesRes, proxyPoolsRes, settingsRes] = await Promise.all([
-        fetch("/api/providers", { cache: "no-store" }),
-        fetch("/api/provider-nodes", { cache: "no-store" }),
-        fetch("/api/proxy-pools?isActive=true", { cache: "no-store" }),
-        fetch("/api/settings", { cache: "no-store" }),
+      const [connectionsData, nodesData, proxyPoolsData, settingsData] = await Promise.all([
+        fetchWithCache(PROVIDERS_CACHE_KEY, () => fetchJson(PROVIDERS_CACHE_KEY), {
+          ttlMs: PROVIDER_DETAIL_TTL_MS,
+          force,
+        }).catch(() => null),
+        fetchWithCache(NODES_CACHE_KEY, () => fetchJson(NODES_CACHE_KEY), {
+          ttlMs: PROVIDER_DETAIL_TTL_MS,
+          force,
+        }).catch(() => null),
+        fetchWithCache(PROXY_POOLS_CACHE_KEY, () => fetchJson(PROXY_POOLS_CACHE_KEY), {
+          ttlMs: PROVIDER_DETAIL_TTL_MS,
+          force,
+        }).catch(() => null),
+        useSettingsStore.getState().fetchSettings({ force }).catch(() => null),
       ]);
-      const connectionsData = await connectionsRes.json();
-      const nodesData = await nodesRes.json();
-      const proxyPoolsData = await proxyPoolsRes.json();
-      const settingsData = settingsRes.ok ? await settingsRes.json() : {};
 
-      if (connectionsRes.ok) {
-        setConnections((connectionsData.connections || []).filter((c) => c.provider === providerId));
+      if (connectionsData?.connections) {
+        setConnections(connectionsData.connections.filter((c) => c.provider === providerId));
       }
-      if (proxyPoolsRes.ok) {
-        setProxyPools(proxyPoolsData.proxyPools || []);
+      if (proxyPoolsData?.proxyPools) {
+        setProxyPools(proxyPoolsData.proxyPools);
       }
 
-      syncSettingsFromData(settingsData);
+      syncSettingsFromData(settingsData || {});
 
-      if (nodesRes.ok) {
-        let node = (nodesData.nodes || []).find((entry) => entry.id === providerId) || null;
+      if (nodesData?.nodes) {
+        let node = nodesData.nodes.find((entry) => entry.id === providerId) || null;
         if (!node && isCompatible) {
           for (let attempt = 0; attempt < 3; attempt += 1) {
             await new Promise((resolve) => setTimeout(resolve, 150));
             const retryRes = await fetch("/api/provider-nodes", { cache: "no-store" });
             if (!retryRes.ok) continue;
             const retryData = await retryRes.json();
-            node = (retryData.nodes || []).find((entry) => entry.id === providerId) || null;
-            if (node) break;
+            if (retryData?.nodes) {
+              setCachedData(NODES_CACHE_KEY, retryData);
+              node = retryData.nodes.find((entry) => entry.id === providerId) || null;
+              if (node) break;
+            }
           }
         }
         setProviderNode(node);
@@ -74,7 +120,7 @@ export function useProviderConnections({ providerId }) {
   useEffect(() => {
     let cancelled = false;
     Promise.resolve().then(() => {
-      if (!cancelled) fetchConnections();
+      if (!cancelled) fetchConnections({ force: false });
     });
     return () => {
       cancelled = true;
@@ -91,7 +137,8 @@ export function useProviderConnections({ providerId }) {
       const data = await res.json();
       if (res.ok) {
         setProviderNode(data.node);
-        await fetchConnections();
+        invalidateCache(NODES_CACHE_KEY);
+        await fetchConnections({ force: true });
         return true;
       }
     } catch (error) {
@@ -108,7 +155,10 @@ export function useProviderConnections({ providerId }) {
         setConfirmState(null);
         try {
           const res = await fetch(`/api/provider-nodes/${providerId}`, { method: "DELETE" });
-          if (res.ok) onDeleted();
+          if (res.ok) {
+            invalidateCache(NODES_CACHE_KEY);
+            onDeleted();
+          }
         } catch (error) {
           console.log("Error deleting provider node:", error);
         }
@@ -124,13 +174,16 @@ export function useProviderConnections({ providerId }) {
         setConfirmState(null);
         try {
           const res = await fetch(`/api/providers/${id}`, { method: "DELETE" });
-          if (res.ok) setConnections((prev) => prev.filter((c) => c.id !== id));
+          if (res.ok) {
+            setConnections((prev) => prev.filter((c) => c.id !== id));
+            patchCachedProviderConnections(providerId, (list) => list.filter((c) => c.id !== id));
+          }
         } catch (error) {
           console.log("Error deleting connection:", error);
         }
       },
     });
-  }, []);
+  }, [providerId]);
 
   const selectedConnectionIds = useMemo(() => {
     const validSet = new Set(connections.map((c) => c.id));
@@ -157,11 +210,14 @@ export function useProviderConnections({ providerId }) {
           }
         }
         setConnections((prev) => prev.filter((c) => !idsToDelete.includes(c.id)));
+        patchCachedProviderConnections(providerId, (list) =>
+          list.filter((c) => !idsToDelete.includes(c.id))
+        );
         setRawSelectedIds([]);
         if (failed > 0) alert(`Deleted ${idsToDelete.length - failed} connection(s), ${failed} failed.`);
       },
     });
-  }, [selectedConnectionIds]);
+  }, [providerId, selectedConnectionIds]);
 
   const handleSaveApiKey = useCallback(async (formData) => {
     try {
@@ -172,7 +228,8 @@ export function useProviderConnections({ providerId }) {
       });
       const data = await res.json().catch(() => null);
       if (res.ok) {
-        await fetchConnections();
+        invalidateCache(PROVIDERS_CACHE_KEY);
+        await fetchConnections({ force: true });
         return { ok: true, error: "" };
       }
       return { ok: false, error: data?.error || "Failed to save connection" };
@@ -190,7 +247,8 @@ export function useProviderConnections({ providerId }) {
         body: JSON.stringify(formData),
       });
       if (res.ok) {
-        await fetchConnections();
+        invalidateCache(PROVIDERS_CACHE_KEY);
+        await fetchConnections({ force: true });
         return true;
       }
     } catch (error) {
@@ -207,12 +265,14 @@ export function useProviderConnections({ providerId }) {
         body: JSON.stringify({ isActive }),
       });
       if (res.ok) {
-        setConnections((prev) => prev.map((c) => (c.id === id ? { ...c, isActive } : c)));
+        const updater = (list) => list.map((c) => (c.id === id ? { ...c, isActive } : c));
+        setConnections(updater);
+        patchCachedProviderConnections(providerId, updater);
       }
     } catch (error) {
       console.log("Error updating connection status:", error);
     }
-  }, []);
+  }, [providerId]);
 
   const handleUpdateConnectionProxy = useCallback(async (id, proxyPoolId) => {
     try {
@@ -222,24 +282,26 @@ export function useProviderConnections({ providerId }) {
         body: JSON.stringify({ proxyPoolId: proxyPoolId || null }),
       });
       if (res.ok) {
-        setConnections((prev) =>
-          prev.map((c) =>
+        const updater = (list) =>
+          list.map((c) =>
             c.id === id
               ? { ...c, providerSpecificData: { ...c.providerSpecificData, proxyPoolId: proxyPoolId || null } }
               : c
-          )
-        );
+          );
+        setConnections(updater);
+        patchCachedProviderConnections(providerId, updater);
       }
     } catch (error) {
       console.log("Error updating proxy:", error);
     }
-  }, []);
+  }, [providerId]);
 
   const handleSwapPriority = useCallback(async (index1, index2) => {
     const newConnections = [...connections];
     newConnections[index1] = { ...connections[index2], priority: index1 };
     newConnections[index2] = { ...connections[index1], priority: index2 };
     setConnections(newConnections);
+    patchCachedProviderConnections(providerId, () => newConnections);
 
     try {
       await Promise.all([
@@ -256,9 +318,9 @@ export function useProviderConnections({ providerId }) {
       ]);
     } catch (error) {
       console.log("Error swapping priority:", error);
-      await fetchConnections();
+      await fetchConnections({ force: true });
     }
-  }, [connections, fetchConnections]);
+  }, [connections, providerId, fetchConnections]);
 
   const tierCounts = useMemo(() => {
     const counts = { all: connections.length, pro: 0, plus: 0, pro_jiro: 0, ultra: 0, enterprise: 0, free: 0 };

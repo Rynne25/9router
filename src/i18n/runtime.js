@@ -5,7 +5,32 @@ import { DEFAULT_LOCALE, LOCALE_COOKIE, normalizeLocale } from "./config";
 let translationMap = {};
 let currentLocale = DEFAULT_LOCALE;
 let reloadCallbacks = [];
+let i18nInitialized = false;
+let i18nDomReady = false;
 const localeCache = new Map();
+
+function waitForHydrationReady() {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return Promise.resolve();
+  }
+  const settleFrames = () =>
+    new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+
+  if (document.readyState === "complete") {
+    return settleFrames();
+  }
+  return new Promise((resolve) => {
+    window.addEventListener(
+      "load",
+      () => {
+        settleFrames().then(resolve);
+      },
+      { once: true }
+    );
+  });
+}
 
 // Read locale from cookie
 function getLocaleFromCookie() {
@@ -91,15 +116,6 @@ function processTextNode(node) {
     return;
   }
 
-  // Skip if parent or any ancestor has data-i18n-skip attribute
-  let element = parent;
-  while (element) {
-    if (element.hasAttribute && element.hasAttribute('data-i18n-skip')) {
-      return;
-    }
-    element = element.parentElement;
-  }
-
   const tagName = parent.tagName?.toLowerCase();
 
   // Skip elements that don't allow text nodes
@@ -159,15 +175,17 @@ function processElement(element) {
 
 // Initialize runtime i18n
 export async function initRuntimeI18n() {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || i18nInitialized) return;
+  i18nInitialized = true;
   
   currentLocale = getLocaleFromCookie();
   if (typeof document !== "undefined" && document.documentElement) {
     document.documentElement.lang = currentLocale === "vi" ? "vi" : currentLocale || "en";
   }
-  await loadTranslations(currentLocale);
-  
-  // Process existing DOM
+  await Promise.all([loadTranslations(currentLocale), waitForHydrationReady()]);
+  i18nDomReady = true;
+
+  // Process existing DOM after React Suspense boundaries finish hydrating
   processElement(document.body);
   
   // Watch for new nodes AND in-place text rewrites. React reuses text nodes on
@@ -228,11 +246,18 @@ export async function initRuntimeI18n() {
   });
 }
 
-// Fast route-change pass: avoid re-fetching translation JSON or scanning full body when English
+// Fast route-change pass: avoid re-fetching translation JSON or blocking paint frame
 export function translateRouteChange() {
-  if (typeof document === "undefined" || currentLocale === "en") return;
-  const target = document.querySelector("main") || document.body;
-  processElement(target);
+  if (typeof document === "undefined" || !i18nDomReady || currentLocale === "en") return;
+  const run = () => {
+    const target = document.querySelector("main") || document.body;
+    processElement(target);
+  };
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    window.requestIdleCallback(run, { timeout: 250 });
+  } else {
+    setTimeout(run, 16);
+  }
 }
 
 // Reload translations when locale changes

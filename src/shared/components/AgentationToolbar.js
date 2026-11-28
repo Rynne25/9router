@@ -1,29 +1,38 @@
 "use client";
 
-import { Agentation } from "agentation";
 import { useEffect, useState } from "react";
 
 export function AgentationToolbar() {
-  const [mounted, setMounted] = useState(false);
+  const [LoadedComponent, setLoadedComponent] = useState(null);
 
   useEffect(() => {
-    setMounted(true);
+    if (typeof window === "undefined") return;
+    const isLocalHost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+    const isEnabled =
+      process.env.NODE_ENV === "development" ||
+      window.localStorage.getItem("enable-agentation") === "1";
+
+    if (!isLocalHost || !isEnabled) return;
+
+    let active = true;
+    import("agentation")
+      .then((mod) => {
+        if (active && mod?.Agentation) {
+          setLoadedComponent(() => mod.Agentation);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  if (!mounted) {
+  if (!LoadedComponent) {
     return null;
   }
 
-  // Allow toolbar on localhost / dev
-  const isLocal =
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1" ||
-      process.env.NODE_ENV === "development");
-
-  if (!isLocal) {
-    return null;
-  }
-
-  return <Agentation endpoint="http://localhost:4747" />;
+  return <LoadedComponent endpoint="http://localhost:4747" />;
 }

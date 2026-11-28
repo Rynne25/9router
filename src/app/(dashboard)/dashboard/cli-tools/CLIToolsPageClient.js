@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CardSkeleton } from "@/shared/components";
+import { CardSkeleton } from "@/shared/components/Loading";
 import { CLI_TOOLS, MITM_TOOLS } from "@/shared/constants/cliTools";
 import { getCachedData, fetchWithCache, fetchJson } from "@/shared/utils/swrCache";
 import { MitmLinkCard } from "./components";

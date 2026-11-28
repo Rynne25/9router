@@ -16,6 +16,18 @@ export const EXTRA_MARKERS = {
 };
 
 const HEADROOM_PIP_TIMEOUT_MS = 8000;
+const ENV_CACHE_TTL_MS = 5 * 60 * 1000;
+
+let envCache = null;
+
+export function invalidateHeadroomEnvCache() {
+  envCache = null;
+}
+
+function isEnvCacheValid() {
+  if (process.env.VITEST) return false;
+  return Boolean(envCache && Date.now() - envCache.updatedAt < ENV_CACHE_TTL_MS);
+}
 
 const IS_WIN = process.platform === "win32";
 const WHICH_CMD = IS_WIN ? "where" : "which";
@@ -44,7 +56,7 @@ const EXTRA_BINS = IS_WIN
 const EXTENDED_PATH = [...EXTRA_BINS, process.env.PATH || ""].filter(Boolean).join(path.delimiter);
 const PYTHON_CANDIDATES = ["python3.13", "python3.12", "python3.11", "python3.10", "python3", "python"];
 const MIN_VERSION = [3, 10];
-const HEADROOM_HEALTH_TIMEOUT_MS = 1500;
+const HEADROOM_HEALTH_TIMEOUT_MS = 600;
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]", "0.0.0.0"]);
 
 export const DEFAULT_HEADROOM_URL = process.env.HEADROOM_URL || "http://localhost:8787";
@@ -75,20 +87,32 @@ export function findHeadroomBinary() {
 // bare names resolved via PATH.
 function pythonCandidates() {
   const list = [];
+  const seen = new Set();
+  const addCandidate = (candidate) => {
+    if (!candidate || seen.has(candidate)) return;
+    seen.add(candidate);
+    list.push(candidate);
+  };
+
   const bin = findHeadroomBinary();
   if (bin) {
-    // pipx exposes a symlink in ~/.local/bin; Python lives beside its target.
+    // pipx exposes a symlink in ~/.local/bin; Python lives beside its target
+    // (or in the parent directory of Scripts\headroom.exe on Windows).
     let resolvedBin = bin;
     try { resolvedBin = realpathSync(bin); } catch { /* keep searching if it disappeared */ }
     const dir = path.dirname(resolvedBin);
+    const parentDir = path.dirname(dir);
     const names = IS_WIN ? ["python.exe", "python3.exe"] : ["python3", "python3.13", "python"];
-    for (const n of names) list.push(path.join(dir, n));
+    for (const n of names) addCandidate(path.join(dir, n));
+    if (IS_WIN && parentDir && parentDir !== dir) {
+      for (const n of names) addCandidate(path.join(parentDir, n));
+    }
   }
   for (const dir of EXTRA_BINS) {
     if (!dir) continue;
-    for (const n of PYTHON_CANDIDATES) list.push(path.join(dir, IS_WIN ? `${n}.exe` : n));
+    for (const n of PYTHON_CANDIDATES) addCandidate(path.join(dir, IS_WIN ? `${n}.exe` : n));
   }
-  list.push(...PYTHON_CANDIDATES);
+  for (const n of PYTHON_CANDIDATES) addCandidate(n);
   return list;
 }
 
@@ -146,22 +170,44 @@ export function isLoopbackHeadroomUrl(url) {
 }
 
 // Aggregate status for the dashboard: installed, running, python interpreter.
-export async function getHeadroomStatus(url) {
-  const path = findHeadroomBinary();
-  const python = findPython310();
-  const installed = Boolean(path);
-  const running = await probeProxyRunning(url);
+export async function getHeadroomStatus(url, { refresh = false } = {}) {
+  if (refresh) invalidateHeadroomEnvCache();
+
+  const runningPromise = probeProxyRunning(url);
+  let cached = !refresh && isEnvCacheValid() ? envCache : null;
+
+  if (!cached) {
+    const binPath = findHeadroomBinary();
+    const python = findPython310();
+    const installed = Boolean(binPath);
+    const extrasStatus = installed
+      ? getInstalledHeadroomExtras(python, { refresh: true })
+      : { installed: false, version: null, extras: { code: false, ml: false } };
+
+    cached = {
+      installed,
+      path: binPath,
+      python,
+      version: extrasStatus.version,
+      extras: extrasStatus.extras,
+      updatedAt: Date.now(),
+    };
+    if (!process.env.VITEST) {
+      envCache = cached;
+    }
+  }
+
+  const running = await runningPromise;
   const localUrl = isLoopbackHeadroomUrl(url);
-  const extrasStatus = installed ? getInstalledHeadroomExtras(python) : { installed: false, version: null, extras: { code: false, ml: false } };
   return {
-    installed,
-    path,
+    installed: cached.installed,
+    path: cached.path,
     running,
-    python,
+    python: cached.python,
     localUrl,
-    canStart: installed && localUrl,
-    version: extrasStatus.version,
-    extras: extrasStatus.extras,
+    canStart: cached.installed && localUrl,
+    version: cached.version,
+    extras: cached.extras,
   };
 }
 
@@ -170,7 +216,14 @@ export async function getHeadroomStatus(url) {
 // call is enough to answer both questions.
 //
 // Returns: { installed: bool, version: string|null, extras: { code, ml } }
-export function getInstalledHeadroomExtras(python) {
+export function getInstalledHeadroomExtras(python, { refresh = false } = {}) {
+  if (!refresh && isEnvCacheValid() && envCache.version !== undefined) {
+    return {
+      installed: envCache.installed,
+      version: envCache.version,
+      extras: envCache.extras,
+    };
+  }
   const py = python || findPython310();
   if (!py) return { installed: false, version: null, extras: { code: false, ml: false } };
   try {

@@ -172,16 +172,18 @@ export default function OrbitalShaderBg() {
     gl.enableVertexAttribArray(posLocation);
     gl.vertexAttribPointer(posLocation, 2, gl.FLOAT, false, 0, 0);
 
+    const FRAME_INTERVAL_MS = 66;
     let rafId = null;
     let disposed = false;
     let accumulatedTime = 0;
     let lastTimestamp = performance.now();
+    let lastDrawTime = 0;
 
     const resize = () => {
       if (disposed) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-      const width = Math.max(1, Math.floor(window.innerWidth * dpr));
-      const height = Math.max(1, Math.floor(window.innerHeight * dpr));
+      // 0.5x CSS resolution preserves smooth ambient gradients while cutting GPU fragment & blur cost
+      const width = Math.max(1, Math.floor(window.innerWidth * 0.5));
+      const height = Math.max(1, Math.floor(window.innerHeight * 0.5));
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;
         canvas.height = height;
@@ -211,10 +213,13 @@ export default function OrbitalShaderBg() {
         rafId = null;
         return;
       }
-      const dt = Math.min(0.1, Math.max(0, (now - lastTimestamp) / 1000));
-      lastTimestamp = now;
-      accumulatedTime += dt;
-      drawFrame();
+      if (now - lastDrawTime >= FRAME_INTERVAL_MS) {
+        const dt = Math.min(0.15, Math.max(0, (now - lastTimestamp) / 1000));
+        lastTimestamp = now;
+        lastDrawTime = now;
+        accumulatedTime += dt;
+        drawFrame();
+      }
       rafId = requestAnimationFrame(tick);
     };
 

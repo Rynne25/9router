@@ -22,7 +22,9 @@ const CURSOR_PRESET_META = {
 };
 
 const MITM_STATUS_KEY = "/api/cli-tools/antigravity-mitm";
-const MITM_STATUS_TTL_MS = 15000;
+const MITM_STATUS_TTL_MS = 30000;
+const HEADROOM_STATUS_KEY = "/api/headroom/status";
+const HEADROOM_STATUS_TTL_MS = 60000;
 
 const getPageInfo = (pathname) => {
   if (!pathname) return { title: "", description: "", breadcrumbs: [] };
@@ -203,6 +205,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
     openCommandPalette,
   } = useHudPrefs();
   const [mitmStatus, setMitmStatus] = useState(null);
+  const [headroomStatus, setHeadroomStatus] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -217,16 +220,38 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         .catch(() => {});
     };
 
+    const loadHeadroom = (force = false) => {
+      fetchWithCache(HEADROOM_STATUS_KEY, () => fetchJson(HEADROOM_STATUS_KEY), {
+        ttlMs: HEADROOM_STATUS_TTL_MS,
+        force,
+      })
+        .then((data) => {
+          if (mounted && data) setHeadroomStatus(data);
+        })
+        .catch(() => {});
+    };
+
     loadMitm(false);
-    const unsub = subscribeCache(MITM_STATUS_KEY, (data) => {
+    loadHeadroom(false);
+    const unsubMitm = subscribeCache(MITM_STATUS_KEY, (data) => {
       if (mounted) setMitmStatus(data);
     });
-    const timer = setInterval(() => loadMitm(true), MITM_STATUS_TTL_MS);
+    const unsubHeadroom = subscribeCache(HEADROOM_STATUS_KEY, (data) => {
+      if (mounted) setHeadroomStatus(data);
+    });
+    const mitmTimer = setInterval(() => {
+      if (!document.hidden) loadMitm(true);
+    }, MITM_STATUS_TTL_MS);
+    const headroomTimer = setInterval(() => {
+      if (!document.hidden) loadHeadroom(true);
+    }, HEADROOM_STATUS_TTL_MS);
 
     return () => {
       mounted = false;
-      unsub();
-      clearInterval(timer);
+      unsubMitm();
+      unsubHeadroom();
+      clearInterval(mitmTimer);
+      clearInterval(headroomTimer);
     };
   }, []);
 
@@ -234,6 +259,8 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   const pageInfo = useMemo(() => getPageInfo(pathname), [pathname]);
   const { title, icon, breadcrumbs } = pageInfo;
   const mitmLive = Boolean(mitmStatus?.running);
+  const headroomLive = Boolean(headroomStatus?.running);
+  const showHeadroomPill = headroomLive || Boolean(headroomStatus?.installed && !headroomStatus?.running);
   const motionLabel = motionPaused ? "Bật hiệu ứng" : "Tạm dừng hiệu ứng";
   const soundLabel = soundEnabled ? "Tắt âm thanh HUD" : "Bật âm thanh HUD";
   const cursorMeta = CURSOR_PRESET_META[cursorPreset] || CURSOR_PRESET_META.reticle;
@@ -361,6 +388,38 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
             />
             <span className="hud-telemetry-num">{mitmLive ? ":443 ĐANG CHẠY" : ":443 CHỜ"}</span>
           </Link>
+
+          {/* Live Headroom :8787 Status Pill */}
+          {showHeadroomPill && (
+            <Link
+              href="/dashboard/token-saver"
+              onClick={() => playHudSound("click")}
+              title={
+                headroomLive
+                  ? "Headroom Proxy đang chạy trên :8787"
+                  : "Headroom Proxy :8787 đang tắt — bấm để cấu hình"
+              }
+              className={cn(
+                "inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border text-[11px] font-mono font-semibold tracking-tight transition-all",
+                headroomLive
+                  ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:border-emerald-400/60 shadow-[0_0_12px_-4px_rgba(16,185,129,0.45)]"
+                  : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:border-amber-400/55"
+              )}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  headroomLive
+                    ? cn("bg-emerald-500", !motionPaused && "animate-pulse")
+                    : "bg-amber-500/80"
+                )}
+                aria-hidden="true"
+              />
+              <span className="hud-telemetry-num">
+                {headroomLive ? ":8787 CHẠY" : ":8787 TẮT"}
+              </span>
+            </Link>
+          )}
 
           {/* Command Palette Trigger */}
           <button

@@ -1,11 +1,23 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
-import { RequestLogger, CardSkeleton, SegmentedControl } from "@/shared/components";
-import { HudFrame, MagneticButton } from "@/shared/components/hud";
+import { CardSkeleton } from "@/shared/components/Loading";
+import SegmentedControl from "@/shared/components/SegmentedControl";
+import HudFrame from "@/shared/components/hud/HudFrame";
+import MagneticButton from "@/shared/components/hud/MagneticButton";
 import UsageStats from "@/shared/components/UsageStats";
-import RequestDetailsTab from "./components/RequestDetailsTab";
+
+const RequestLogger = dynamic(() => import("@/shared/components/RequestLogger"), {
+  ssr: false,
+  loading: () => <CardSkeleton />,
+});
+
+const RequestDetailsTab = dynamic(() => import("./components/RequestDetailsTab"), {
+  ssr: false,
+  loading: () => <CardSkeleton />,
+});
 
 const PERIODS = [
   { value: "today", label: "Hôm nay" },

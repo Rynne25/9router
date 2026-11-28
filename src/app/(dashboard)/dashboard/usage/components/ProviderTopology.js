@@ -369,7 +369,7 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
 
   // Track firstSeen per active provider; drop provider if running too long (BE stuck)
   const firstSeenRef = useRef({});
-  const [tick, setTick] = useState(0);
+  const [expiredProviders, setExpiredProviders] = useState(() => new Set());
 
   useEffect(() => {
     const seen = firstSeenRef.current;
@@ -380,23 +380,54 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
     for (const p of Object.keys(seen)) {
       if (!rawActiveSet.has(p)) delete seen[p];
     }
+    const timer = setTimeout(() => {
+      setExpiredProviders((prev) => {
+        if (prev.size === 0) return prev;
+        let changed = false;
+        const next = new Set();
+        for (const p of prev) {
+          if (rawActiveSet.has(p)) {
+            next.add(p);
+          } else {
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 0);
+    return () => clearTimeout(timer);
   }, [rawActiveSet]);
 
   useEffect(() => {
     if (rawActiveSet.size === 0) return;
-    const id = setInterval(() => setTick((t) => t + 1), FE_ACTIVE_TICK_MS);
+    const id = setInterval(() => {
+      const now = Date.now();
+      const seen = firstSeenRef.current;
+      setExpiredProviders((prev) => {
+        const next = new Set();
+        for (const p of rawActiveSet) {
+          const ts = seen[p];
+          if (ts && now - ts >= FE_ACTIVE_TIMEOUT_MS) {
+            next.add(p);
+          }
+        }
+        if (next.size === prev.size && [...next].every((p) => prev.has(p))) {
+          return prev;
+        }
+        return next;
+      });
+    }, FE_ACTIVE_TICK_MS);
     return () => clearInterval(id);
   }, [rawActiveSet]);
 
   const activeSet = useMemo(() => {
-    const now = Date.now();
+    if (expiredProviders.size === 0) return rawActiveSet;
     const filtered = new Set();
     for (const p of rawActiveSet) {
-      const ts = firstSeenRef.current[p];
-      if (!ts || now - ts < FE_ACTIVE_TIMEOUT_MS) filtered.add(p);
+      if (!expiredProviders.has(p)) filtered.add(p);
     }
     return filtered;
-  }, [rawActiveSet, tick]);
+  }, [rawActiveSet, expiredProviders]);
 
   const { nodes, edges } = useMemo(
     () => buildLayout(providers, activeSet, lastSet, errorSet),
@@ -456,10 +487,11 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
           onInit={onInit}
           proOptions={{ hideAttribution: true }}
           panOnDrag
-          zoomOnScroll
+          panOnScroll
+          zoomOnScroll={false}
           zoomOnPinch
           zoomOnDoubleClick
-          preventScrolling={false}
+          preventScrolling={true}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}

@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { execFileSync, spawn } from "child_process";
 import { DATA_DIR } from "@/lib/dataDir.js";
-import { findHeadroomBinary, findPython310, HEADROOM_COMPRESSION_EXTRAS, EXTRA_MARKERS, getInstalledHeadroomExtras, probeProxyRunning } from "./detect.js";
+import { findHeadroomBinary, findPython310, HEADROOM_COMPRESSION_EXTRAS, EXTRA_MARKERS, getInstalledHeadroomExtras, invalidateHeadroomEnvCache, probeProxyRunning } from "./detect.js";
 
 const HEADROOM_DIR = path.join(DATA_DIR, "headroom");
 const PID_FILE = path.join(HEADROOM_DIR, "proxy.pid");
@@ -245,7 +245,8 @@ export async function installHeadroomExtras(extras = []) {
     child.once("exit", (code) => {
       fs.closeSync(outFd);
       if (code === 0) {
-        const status = getInstalledHeadroomExtras(py);
+        invalidateHeadroomEnvCache();
+        const status = getInstalledHeadroomExtras(py, { refresh: true });
         resolve({ success: true, code, spec, extras: requested, ...status });
       } else {
         const err = new Error(`pip install exited with code=${code} — see headroom/install.log`);
@@ -287,7 +288,8 @@ export async function uninstallHeadroomExtras(extras = []) {
     child.once("exit", (code) => {
       fs.closeSync(outFd);
       if (code === 0) {
-        const status = getInstalledHeadroomExtras(py);
+        invalidateHeadroomEnvCache();
+        const status = getInstalledHeadroomExtras(py, { refresh: true });
         resolve({ success: true, code, removed: pkgs, extras: requested, ...status });
       } else {
         const err = new Error(`pip uninstall exited with code=${code} — see headroom/install.log`);
