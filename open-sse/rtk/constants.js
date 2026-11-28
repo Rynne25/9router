@@ -69,5 +69,10 @@ export const FILTERS = {
   BUILD_OUTPUT: "build-output",
   TSC: "tsc",
   VITEST: "vitest",
-  PHPUNIT: "phpunit"
+  PHPUNIT: "phpunit",
+  PYTEST: "pytest",
+  CARGO_TEST: "cargo-test",
+  GO_TEST: "go-test",
+  MYPY: "mypy",
+  RUFF_CHECK: "ruff-check"
 };

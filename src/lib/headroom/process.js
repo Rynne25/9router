@@ -42,18 +42,22 @@ export function getManagedPid() {
   return pid && isPidAlive(pid) ? pid : null;
 }
 
-// Build proxy CLI flags for the active compression extras. `[code]` (AST
-// compression) is off by default in headroom → pass --code-aware to turn it on;
-// `[ml]` (Kompress) is on by default → pass --disable-kompress to turn it off.
-function extrasProxyArgs({ codeAware, kompress } = {}) {
+// Build proxy CLI flags for the active compression extras and runtime options.
+// `[code]` is off by default -> `--code-aware`; `[ml]` is on by default -> `--disable-kompress`.
+function extrasProxyArgs({ codeAware, kompress, mode, targetRatio } = {}) {
   const args = [];
   if (codeAware) args.push("--code-aware");
   if (kompress === false) args.push("--disable-kompress");
+  if (mode === "token") args.push("--mode", "token");
+  if (typeof targetRatio === "number" && Number.isFinite(targetRatio) && targetRatio >= 0.1 && targetRatio <= 0.95) {
+    args.push("--target-ratio", String(targetRatio));
+  }
   return args;
 }
 
 function validateProxyOptions(binary, flags) {
-  if (!flags.length) return;
+  const flagNames = flags.filter((flag) => flag.startsWith("--"));
+  if (!flagNames.length) return;
   let help;
   try {
     help = execFileSync(binary, ["proxy", "--help"], { encoding: "utf8", timeout: 5000, windowsHide: true });
@@ -61,7 +65,7 @@ function validateProxyOptions(binary, flags) {
     throw new Error("Could not check which proxy options the installed Headroom CLI supports");
   }
   const supported = help.match(/--[\w-]+/g) || [];
-  const unsupported = flags.filter((flag) => !supported.includes(flag));
+  const unsupported = flagNames.filter((flag) => !supported.includes(flag));
   if (unsupported.length) {
     const error = new Error(`The installed Headroom CLI does not support: ${unsupported.join(", ")}`);
     error.code = "UNSUPPORTED_PROXY_OPTION";
@@ -105,11 +109,15 @@ async function startProxy({ url, port = DEFAULT_PORT, ...options }, command) {
   const outFd = fs.openSync(LOG_FILE, "a");
 
   const args = ["proxy", "--port", String(safePort), ...flags];
+  // Opt out of anonymous session beacon upload unless caller explicitly enables telemetry
+  const childEnv = options.telemetry === true
+    ? { ...process.env }
+    : { HEADROOM_BEACON: "off", HEADROOM_TELEMETRY: "off", ...process.env };
   const child = spawn(binary, args, {
     stdio: ["ignore", outFd, outFd],
     detached: true,
     windowsHide: true,
-    env: { ...process.env },
+    env: childEnv,
   });
 
   if (!child.pid) {

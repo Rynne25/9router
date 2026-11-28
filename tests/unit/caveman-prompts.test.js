@@ -76,4 +76,14 @@ describe("Caveman ULTRA targeted sync", () => {
     expect(ultra).not.toContain("use arrows for causality");
     expect(ultra).not.toContain("X → Y");
   });
+
+  it("includes v4.2.0 ASD-STE100, bounded tool status, diff-only and pre-send checks", () => {
+    const full = CAVEMAN_PROMPTS[CAVEMAN_LEVELS.FULL];
+    expect(full).toContain("ASD-STE100");
+    expect(full).toContain("Tool runs:");
+    expect(full).toContain("Pre-send check:");
+    expect(full).toContain("persisted text outside chat");
+    expect(CAVEMAN_PROMPTS[CAVEMAN_LEVELS.WENYAN]).not.toContain("80-90%");
+    expect(CAVEMAN_PROMPTS[CAVEMAN_LEVELS.WENYAN]).toContain("never claim fixed token savings");
+  });
 });

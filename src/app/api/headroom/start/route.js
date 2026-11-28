@@ -22,11 +22,15 @@ export async function POST() {
       return NextResponse.json({ error: "External Headroom proxies must be started outside 9Router", code: "EXTERNAL_PROXY" }, { status: 400 });
     }
     const port = parsePortFromUrl(url) || 8787;
+    const rawRatio = Number(settings.headroomTargetRatio);
+    const targetRatio = Number.isFinite(rawRatio) && rawRatio >= 0.1 && rawRatio <= 0.95 ? rawRatio : undefined;
     const result = await startHeadroomProxy({
       url,
       port,
       codeAware: settings.headroomCodeAware === true,
       kompress: settings.headroomKompress !== false,
+      mode: settings.headroomMode === "token" ? "token" : "cache",
+      targetRatio,
     });
     return NextResponse.json({ success: true, ...result });
   } catch (error) {

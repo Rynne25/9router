@@ -21,14 +21,14 @@ export const CAVEMAN_LEVELS = [
   { id: "full", label: "Đầy đủ", desc: "Lược bỏ mạo từ, viết gọn theo cụm" },
   { id: "ultra", label: "Tối đa", desc: "Siêu cô đọng, nén mức tối đa" },
   { id: "wenyan-lite", label: "文 Lite", desc: "Văn ngôn cổ điển, nén nhẹ", wenyan: true },
-  { id: "wenyan", label: "文 Full", desc: "Văn ngôn cổ điển, giảm 80-90%", wenyan: true },
+  { id: "wenyan", label: "文 Full", desc: "Văn ngôn cổ điển (cô đọng ký tự, giữ nguyên mã nguồn)", wenyan: true },
   { id: "wenyan-ultra", label: "文 Ultra", desc: "Văn ngôn cô đọng cực đại", wenyan: true },
 ];
 
 export const PONYTAIL_LEVELS = [
   { id: "lite", label: "Nhẹ", desc: "Làm đúng phần được hỏi, gợi ý hướng gọn hơn" },
   { id: "full", label: "Đầy đủ", desc: "Ưu tiên thư viện chuẩn & API gốc trước" },
-  { id: "ultra", label: "Tối đa", desc: "YAGNI triệt để, ưu tiên xóa thay vì thêm" },
+  { id: "ultra", label: "Tối đa", desc: "Phản biện phần thừa trước khi code, YAGNI triệt để" },
 ];
 
 // Anthropic prompt-cache TTL for conversation breakpoints (system/tools stay 1h).

@@ -2,6 +2,11 @@ import { describe, it, expect } from "vitest";
 import { tsc } from "../../open-sse/rtk/filters/tsc.js";
 import { vitest } from "../../open-sse/rtk/filters/vitest.js";
 import { phpunit } from "../../open-sse/rtk/filters/phpunit.js";
+import { pytest } from "../../open-sse/rtk/filters/pytest.js";
+import { cargoTest } from "../../open-sse/rtk/filters/cargoTest.js";
+import { goTest } from "../../open-sse/rtk/filters/goTest.js";
+import { mypy } from "../../open-sse/rtk/filters/mypy.js";
+import { ruffCheck } from "../../open-sse/rtk/filters/ruff.js";
 import { autoDetectFilter } from "../../open-sse/rtk/autodetect.js";
 
 describe("tsc filter", () => {
@@ -208,5 +213,89 @@ describe("autoDetectFilter detects test-runner output", () => {
       "ERROR: something inside the failure detail"
     ].join("\n");
     expect(autoDetectFilter(input).filterName).toBe("vitest");
+  });
+});
+
+describe("RTK v0.49 multi-language filters", () => {
+  it("compacts pytest output to failures and summary", () => {
+    const input = [
+      "=== test session starts ===",
+      "platform linux -- Python 3.13.0",
+      "tests/test_auth.py .F                                                   [100%]",
+      "_________________________________ test_token _________________________________",
+      "    def test_token():",
+      ">       assert 1 == 2",
+      "E       assert 1 == 2",
+      "=========================== short test summary info ===========================",
+      "FAILED tests/test_auth.py::test_token - assert 1 == 2",
+      "========================= 1 failed, 1 passed in 0.42s ========================="
+    ].join("\n");
+
+    expect(autoDetectFilter(input).filterName).toBe("pytest");
+    const out = pytest(input);
+    expect(out).toContain("pytest: 1 failed, 1 passed in 0.42s");
+    expect(out).toContain("1. tests/test_auth.py::test_token");
+    expect(out).toContain("assert 1 == 2");
+    expect(out).not.toContain("platform linux");
+  });
+
+  it("compacts cargo test output while preserving failure stdout", () => {
+    const input = [
+      "running 3 tests",
+      "test utils::fast ... ok",
+      "test utils::slow ... ok",
+      "test utils::broken ... FAILED",
+      "failures:",
+      "---- utils::broken stdout ----",
+      "thread 'utils::broken' panicked at src/lib.rs:14:9: boom",
+      "test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured"
+    ].join("\n");
+
+    expect(autoDetectFilter(input).filterName).toBe("cargo-test");
+    const out = cargoTest(input);
+    expect(out).toBe(
+      "cargo test: FAILED (2 passed, 1 failed, 0 ignored)\n1. utils::broken\n   thread 'utils::broken' panicked at src/lib.rs:14:9: boom"
+    );
+  });
+
+  it("compacts go test -json NDJSON streams", () => {
+    const input = [
+      JSON.stringify({ Action: "run", Package: "example.com/app", Test: "TestAdd" }),
+      JSON.stringify({ Action: "pass", Package: "example.com/app", Test: "TestAdd" }),
+      JSON.stringify({ Action: "output", Package: "example.com/app", Test: "TestDiv", Output: "expected err\n" }),
+      JSON.stringify({ Action: "fail", Package: "example.com/app", Test: "TestDiv" })
+    ].join("\n");
+
+    expect(autoDetectFilter(input).filterName).toBe("go-test");
+    const out = goTest(input);
+    expect(out).toContain("go test: FAIL (1 passed, 1 failed, 0 skipped)");
+    expect(out).toContain("1. TestDiv (example.com/app)");
+    expect(out).toContain("   expected err");
+  });
+
+  it("groups mypy diagnostics by file and top codes", () => {
+    const input = [
+      "app/main.py:12: error: Incompatible types in assignment [assignment]",
+      "app/main.py:18: error: Name \"foo\" is not defined [name-defined]",
+      "Found 2 errors in 1 file (checked 3 source files)"
+    ].join("\n");
+
+    expect(autoDetectFilter(input).filterName).toBe("mypy");
+    const out = mypy(input);
+    expect(out).toContain("mypy: 2 errors in 1 files");
+    expect(out).toContain("L12: Incompatible types in assignment [assignment]");
+    expect(out).not.toContain("checked 3 source files");
+  });
+
+  it("groups ruff check JSON diagnostics by file and rule", () => {
+    const input = JSON.stringify([
+      { filename: "app/a.py", code: "F401", message: "`os` imported but unused", location: { row: 1 } },
+      { filename: "app/a.py", code: "E501", message: "Line too long", location: { row: 42 } }
+    ]);
+
+    expect(autoDetectFilter(input).filterName).toBe("ruff-check");
+    const out = ruffCheck(input);
+    expect(out).toContain("ruff: 2 issues in 1 files");
+    expect(out).toContain("L1: F401 `os` imported but unused");
   });
 });

@@ -184,6 +184,14 @@ export default function TokenSaverClient({ initialSettings = null }) {
   const [kompress, setKompress] = useState(() =>
     seedSettings ? seedSettings.headroomKompress !== false : true
   );
+  const [headroomMode, setHeadroomMode] = useState(() =>
+    seedSettings?.headroomMode === "token" ? "token" : "cache"
+  );
+  const [headroomTargetRatio, setHeadroomTargetRatio] = useState(() =>
+    typeof seedSettings?.headroomTargetRatio === "number"
+      ? String(seedSettings.headroomTargetRatio)
+      : ""
+  );
   const [cavemanEnabled, setCavemanEnabled] = useState(() =>
     Boolean(seedSettings?.cavemanEnabled)
   );
@@ -591,6 +599,32 @@ export default function TokenSaverClient({ initialSettings = null }) {
     [removeExtraConfirmed]
   );
 
+  const restartManagedProxyIfRunning = useCallback(async () => {
+    if (
+      !headroomStatus.running ||
+      !headroomStatus.managedPid ||
+      headroomStatus.localUrl === false
+    ) {
+      return;
+    }
+    setRestartingProxy(true);
+    try {
+      const res = await fetch("/api/headroom/restart", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Khởi động lại thất bại");
+      await refreshHeadroomStatus();
+    } catch (e) {
+      setExtrasActionError(e.message);
+    } finally {
+      setRestartingProxy(false);
+    }
+  }, [
+    headroomStatus.running,
+    headroomStatus.managedPid,
+    headroomStatus.localUrl,
+    refreshHeadroomStatus,
+  ]);
+
   // Toggle an extra's active state (persist setting), then restart the proxy so
   // the new --code-aware / --disable-kompress flags take effect.
   const toggleExtraActive = useCallback(
@@ -600,33 +634,43 @@ export default function TokenSaverClient({ initialSettings = null }) {
       if (extra === "ml") setKompress(value);
       const key = extra === "code" ? "headroomCodeAware" : "headroomKompress";
       await patchSetting({ [key]: value });
-      if (
-        !headroomStatus.running ||
-        !headroomStatus.managedPid ||
-        headroomStatus.localUrl === false
-      ) {
-        return;
-      }
-      setRestartingProxy(true);
-      try {
-        const res = await fetch("/api/headroom/restart", { method: "POST" });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || "Khởi động lại thất bại");
-        await refreshHeadroomStatus();
-      } catch (e) {
-        setExtrasActionError(e.message);
-      } finally {
-        setRestartingProxy(false);
-      }
+      await restartManagedProxyIfRunning();
     },
-    [
-      headroomStatus.running,
-      headroomStatus.managedPid,
-      headroomStatus.localUrl,
-      patchSetting,
-      refreshHeadroomStatus,
-    ]
+    [patchSetting, restartManagedProxyIfRunning]
   );
+
+  const handleHeadroomMode = useCallback(
+    async (nextMode) => {
+      const normalized = nextMode === "token" ? "token" : "cache";
+      if (normalized === headroomMode) return;
+      playHudSound("click");
+      setExtrasActionError("");
+      setHeadroomMode(normalized);
+      await patchSetting({ headroomMode: normalized });
+      await restartManagedProxyIfRunning();
+    },
+    [headroomMode, patchSetting, restartManagedProxyIfRunning]
+  );
+
+  const handleHeadroomTargetRatioBlur = useCallback(async () => {
+    const trimmed = String(headroomTargetRatio).trim();
+    if (!trimmed) {
+      setHeadroomTargetRatio("");
+      await patchSetting({ headroomTargetRatio: null });
+      await restartManagedProxyIfRunning();
+      return;
+    }
+    const num = Number(trimmed);
+    if (!Number.isFinite(num) || num < 0.1 || num > 0.95) {
+      setHeadroomTargetRatio("");
+      await patchSetting({ headroomTargetRatio: null });
+      return;
+    }
+    const rounded = Math.round(num * 100) / 100;
+    setHeadroomTargetRatio(String(rounded));
+    await patchSetting({ headroomTargetRatio: rounded });
+    await restartManagedProxyIfRunning();
+  }, [headroomTargetRatio, patchSetting, restartManagedProxyIfRunning]);
 
   const handleCavemanLevel = (level) => {
     playHudSound("click");
@@ -695,6 +739,12 @@ export default function TokenSaverClient({ initialSettings = null }) {
         }
         setCodeAware(data.headroomCodeAware === true);
         setKompress(data.headroomKompress !== false);
+        setHeadroomMode(data.headroomMode === "token" ? "token" : "cache");
+        setHeadroomTargetRatio(
+          typeof data.headroomTargetRatio === "number"
+            ? String(data.headroomTargetRatio)
+            : ""
+        );
         setCavemanEnabled(Boolean(data.cavemanEnabled));
         setCavemanLevel(data.cavemanLevel || "full");
         setPonytailEnabled(Boolean(data.ponytailEnabled));
@@ -853,6 +903,42 @@ export default function TokenSaverClient({ initialSettings = null }) {
               </button>
             </MagneticButton>
           )}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-[11px] font-semibold text-text-muted">
+            Chế độ nén:
+          </span>
+          <div className="inline-flex items-center rounded-md border border-cyan-500/25 bg-black/[0.03] dark:bg-black/35 p-0.5 gap-0.5">
+            {[
+              { id: "cache", label: "Cache (mặc định)", title: "Giữ prefix-cache tối đa cho lượt trước" },
+              { id: "token", label: "Token (nén sâu)", title: "Nén lại các lượt trước để giảm tối đa token (--mode token)" },
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                disabled={restartingProxy}
+                onClick={() => handleHeadroomMode(opt.id)}
+                title={opt.title}
+                data-cursor-target="true"
+                className={`px-2 py-0.5 rounded font-mono text-[11px] font-semibold transition-all cursor-pointer disabled:opacity-50 ${
+                  headroomMode === opt.id
+                    ? "bg-primary text-white shadow-2xs"
+                    : "text-text-muted hover:text-text-main hover:bg-white/40 dark:hover:bg-white/[0.06]"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {headroomTargetRatio && (
+            <span className="font-mono text-[11px] text-cyan-700 dark:text-cyan-300">
+              tỉ lệ: {headroomTargetRatio}
+            </span>
+          )}
+          <span className="font-mono text-[10.5px] text-emerald-700 dark:text-emerald-400">
+            · Beacon tắt mặc định
+          </span>
         </div>
 
         {extrasActionError && (
@@ -1456,6 +1542,19 @@ export default function TokenSaverClient({ initialSettings = null }) {
             />
             <p className="text-xs text-text-muted">
               Giới hạn thời gian chờ mỗi yêu cầu (mili-giây). Mặc định 3000 ms.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-medium">Tỉ lệ giữ lại Kompress (--target-ratio)</p>
+            <Input
+              value={headroomTargetRatio}
+              onChange={(e) => setHeadroomTargetRatio(e.target.value)}
+              onBlur={handleHeadroomTargetRatioBlur}
+              placeholder="Tự động (hoặc 0.4 = giữ ~40%)"
+              className="font-mono text-sm"
+            />
+            <p className="text-xs text-text-muted">
+              Giá trị từ 0.1 đến 0.95 (càng nhỏ nén càng mạnh); để trống để Headroom tự quyết định. Beacon telemetry mặc định đã tắt.
             </p>
           </div>
           {headroomStatus.loading ? (

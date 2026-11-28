@@ -13,6 +13,11 @@ import { searchList } from "./filters/searchList.js";
 import { tsc } from "./filters/tsc.js";
 import { vitest } from "./filters/vitest.js";
 import { phpunit } from "./filters/phpunit.js";
+import { pytest } from "./filters/pytest.js";
+import { cargoTest } from "./filters/cargoTest.js";
+import { goTest } from "./filters/goTest.js";
+import { mypy } from "./filters/mypy.js";
+import { ruffCheck } from "./filters/ruff.js";
 
 const REGISTRY = {
   [FILTERS.GIT_DIFF]: gitDiff,
@@ -28,13 +33,20 @@ const REGISTRY = {
   [FILTERS.SEARCH_LIST]: searchList,
   [FILTERS.TSC]: tsc,
   [FILTERS.VITEST]: vitest,
-  [FILTERS.PHPUNIT]: phpunit
+  [FILTERS.PHPUNIT]: phpunit,
+  [FILTERS.PYTEST]: pytest,
+  [FILTERS.CARGO_TEST]: cargoTest,
+  [FILTERS.GO_TEST]: goTest,
+  [FILTERS.MYPY]: mypy,
+  [FILTERS.RUFF_CHECK]: ruffCheck
 };
 
-// Rust resolve_filter aliases (pipe_cmd.rs): grep|rg, find|fd
+// Rust resolve_filter aliases (pipe_cmd.rs): grep|rg, find|fd, cargo|cargo-test, ruff|ruff-check
 const ALIASES = {
   rg: grep,
-  fd: find
+  fd: find,
+  cargo: cargoTest,
+  ruff: ruffCheck
 };
 
 export function resolveFilter(name) {

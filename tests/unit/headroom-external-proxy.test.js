@@ -104,4 +104,29 @@ describe("Headroom proxy ownership", () => {
     expect(kill.mock.calls).toEqual([[123, 0]]);
     expect(spawn).not.toHaveBeenCalled();
   });
+
+  it("passes --mode token, --target-ratio and disables beacon telemetry by default", async () => {
+    fetch.mockResolvedValue(new Response(null, { status: 503 }));
+    findHeadroomBinary.mockReturnValue("headroom");
+    execFileSync.mockReturnValue("  --mode [token|cache]\n  --target-ratio FLOAT\n");
+    const child = Object.assign(new EventEmitter(), { pid: 456, unref: vi.fn() });
+    spawn.mockImplementation(() => {
+      setImmediate(() => child.emit("exit", 4));
+      return child;
+    });
+
+    await expect(startHeadroomProxy({ url, port: 9878, mode: "token", targetRatio: 0.45 }))
+      .rejects.toMatchObject({ code: "EARLY_EXIT" });
+
+    expect(spawn).toHaveBeenCalledWith(
+      "headroom",
+      ["proxy", "--port", "9878", "--mode", "token", "--target-ratio", "0.45"],
+      expect.objectContaining({
+        env: expect.objectContaining({
+          HEADROOM_BEACON: "off",
+          HEADROOM_TELEMETRY: "off",
+        }),
+      })
+    );
+  });
 });

@@ -18,6 +18,11 @@ import { searchList, SEARCH_LIST_HEADER_RE } from "./filters/searchList.js";
 import { tsc } from "./filters/tsc.js";
 import { vitest } from "./filters/vitest.js";
 import { phpunit } from "./filters/phpunit.js";
+import { pytest } from "./filters/pytest.js";
+import { cargoTest } from "./filters/cargoTest.js";
+import { goTest } from "./filters/goTest.js";
+import { mypy } from "./filters/mypy.js";
+import { ruffCheck } from "./filters/ruff.js";
 
 // Unified (`diff --git`) and combined (`diff --cc` / `diff --combined`) headers
 const RE_GIT_DIFF = /^diff --(git|cc|combined) /m;
@@ -36,6 +41,13 @@ const RE_VITEST_TEXT = /^\s*Tests\s+(?:\d+\s+failed\s+\|\s+)?\d+\s+passed/m;
 const RE_PHPUNIT_BANNER = /^PHPUnit \d/m;
 const RE_PHPUNIT_COUNTS = /^Tests:\s+\d+,\s+Assertions:\s+\d+/m;
 const RE_PHPUNIT_OK = /^OK \(\d+ tests?, \d+ assertions?\)/m;
+const RE_PYTEST = /^=== test session starts ===|^\d+\s+(?:failed|passed).+in\s+[\d.]+s\s*=+$/m;
+const RE_CARGO_TEST = /^test result:\s*(?:ok|FAILED)\.\s*\d+\s+passed;|^running\s+\d+\s+tests?$/m;
+const RE_GO_TEST_JSON = /"(?:Action|Package)"\s*:\s*"[^"]+".+"(?:Package|Action)"\s*:/;
+const RE_GO_TEST_TEXT = /^(?:---\s+(?:FAIL|PASS):\s+Test\w+|(?:ok|FAIL)\s+[a-z0-9_.-]+\/[a-z0-9_./-]+)/m;
+const RE_MYPY = /^.+?\.pyi?:\d+(?::\d+)?:\s+(?:error|warning):\s+.+|^Success:\s+no issues found in \d+ source files?/m;
+const RE_RUFF_JSON = /"filename"\s*:.+"code"\s*:\s*"[A-Z]{1,4}\d{3,4}"/;
+const RE_RUFF_TEXT = /^.+?\.pyi?:\d+:\d+:\s+[A-Z]{1,4}\d{3,4}\s+/m;
 const RE_TREE_GLYPH = /[├└]──|│  /;
 const RE_LS_ROW = /^[-dlbcps][rwx-]{9}/m;
 const RE_LS_TOTAL = /^total \d+$/m;
@@ -54,6 +66,21 @@ export function autoDetectFilter(text) {
   if (RE_VITEST_JSON.test(head) || RE_VITEST_TEXT.test(head)) return vitest;
   if (RE_PHPUNIT_BANNER.test(head) || RE_PHPUNIT_COUNTS.test(head) || RE_PHPUNIT_OK.test(head)) {
     return phpunit;
+  }
+  if (RE_CARGO_TEST.test(head) && (head.includes("test result:") || /^test\s+\S+\s+\.\.\.\s+(?:ok|FAILED)/m.test(head))) {
+    return cargoTest;
+  }
+  if (RE_PYTEST.test(head)) {
+    return pytest;
+  }
+  if (RE_GO_TEST_JSON.test(head) || RE_GO_TEST_TEXT.test(head)) {
+    return goTest;
+  }
+  if (RE_MYPY.test(head)) {
+    return mypy;
+  }
+  if (RE_RUFF_JSON.test(head) || RE_RUFF_TEXT.test(head)) {
+    return ruffCheck;
   }
 
   // Build output BEFORE porcelain check: prevents cargo "Compiling" misdetection as git-status
